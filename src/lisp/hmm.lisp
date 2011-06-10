@@ -18,10 +18,10 @@
   ;;
   ;; give a tiny amount of probability to unseen transitions
   ;;
-  (or (aref (hmm-transitions hmm) previous current) 1/1000000))
+  (or (aref (hmm-transitions hmm) previous current) -14))
 
 (defun emission-probability (hmm state form)
-  (gethash form (aref (hmm-emissions hmm) state) 1/1000000))
+  (gethash form (aref (hmm-emissions hmm) state) -14))
 
 (defun read-corpus (file &optional (n 100))
   (with-open-file (stream file :direction :input)
@@ -68,12 +68,12 @@
         (loop
             for j from 1 to (- n 1)
             for count = (aref transitions i j)
-            when count do (setf (aref transitions i j) (/ count total)))
+            when count do (setf (aref transitions i j) (log (/ count total))))
         (loop
             with map = (aref (hmm-emissions hmm) i)
             for form being each hash-key in map
             for count = (gethash form map)
-            when count do (setf (gethash form map) (/ count total))))
+            when count do (setf (gethash form map) (log (/ count total)))))
   hmm)
 
 ;(defparameter *eisner* (train-hmm (read-corpus "eisner.tt" 2)))
@@ -81,14 +81,14 @@
 (defun viterbi (hmm input)
   (let* ((n (hmm-n hmm))
          (l (length input))
-         (viterbi (make-array (list n l)))
+         (viterbi (make-array (list n l) :initial-element most-negative-single-float))
          (pointer (make-array (list n l))))
     (loop
         with form = (first input)
         for state from 1 to (- n 1)
         do
           (setf (aref viterbi state 0)
-            (* (transition-probability hmm 0 state)
+            (+ (transition-probability hmm 0 state)
                (emission-probability hmm state form)))
           (setf (aref pointer state 0) 0))
     (loop
@@ -101,10 +101,10 @@
                 (loop
                     for previous from 1 to (- n 2)
                     for old = (aref viterbi current time)
-                    for new = (* (aref viterbi previous (- time 1))
+                    for new = (+ (aref viterbi previous (- time 1))
                                  (transition-probability hmm previous current)
                                  (emission-probability hmm current form))
-                    when (or (null old) (> new old)) do
+                    when (> new old) do
                       (setf (aref viterbi current time) new)
                       (setf (aref pointer current time) previous))))
     (loop
@@ -112,7 +112,7 @@
 	with time = (- l 1)
         for previous from 1 to (- n 1)
         for old = (aref viterbi final time)
-        for new = (* (aref viterbi previous time)
+        for new = (+ (aref viterbi previous time)
                      (transition-probability hmm previous final))
         when (or (null old) (> new old)) do
           (setf (aref viterbi final time) new)
