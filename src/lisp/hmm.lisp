@@ -84,7 +84,7 @@
   hmm)
 
 (defun viterbi (hmm input)
-  (declare (optimize (speed 3) (debug ) (space 0)))
+  (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float))
