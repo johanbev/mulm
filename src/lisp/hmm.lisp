@@ -14,14 +14,20 @@
       (incf (hmm-n hmm)))
     code))
 
-(defun transition-probability (hmm previous current)
+
+(defmethod print-object ((object hmm) stream)
+  (format stream "<HMM with ~a states>" (hmm-n object)))
+
+;;; ACL does some trick here that makes declaring these single-float slower
+
+(defmacro transition-probability (hmm previous current)
   ;;
   ;; give a tiny amount of probability to unseen transitions
   ;;
-  (or (aref (hmm-transitions hmm) previous current) -14))
+  `(the single-float (or (aref (hmm-transitions ,hmm) ,previous ,current) -14.0)))
 
-(defun emission-probability (hmm state form)
-  (gethash form (aref (hmm-emissions hmm) state) -14))
+(defmacro emission-probability (hmm state form)
+  `(the single-float (or (gethash ,form (aref (hmm-emissions ,hmm) ,state)) -14.0)))
 
 (defun read-corpus (file &optional (n 100))
   (with-open-file (stream file :direction :input)
@@ -33,19 +39,20 @@
         initially
           (loop
               for i from 0 to (- n 1)
-              do (setf (aref emissions i) (make-hash-table :test #'equal)))
+              do (setf (aref emissions i) (make-hash-table)))
         for previous = (tag-to-code hmm "<s>") then current
         for line = (read-line stream nil)
         for tab = (position #\tab line)
         for form = (subseq line 0 tab)
+	for code = (symbol-to-code form)
         for tag = (if tab (subseq line (+ tab 1)) "</s>")
         for current = (tag-to-code hmm tag)
         for map = (aref emissions current)
         while line
         when (and form (not (string= form ""))) do 
-          (if (gethash form map)
-            (incf (gethash form map))
-            (setf (gethash form map) 1))
+          (if (gethash code map)
+            (incf (gethash code map))
+            (setf (gethash code map) 1))
         do
           (if (aref transitions previous current)
             (incf (aref transitions previous current))
@@ -60,7 +67,7 @@
   (loop
       with transitions = (hmm-transitions hmm)
       with n = (hmm-n hmm)
-      for i from 0 to (- n 2)
+      for i from 0 to (- n 1)
       for total = (loop
                       for j from 0 to (- n 1)
                       sum (or (aref transitions i j) 0))
@@ -68,49 +75,51 @@
         (loop
             for j from 1 to (- n 1)
             for count = (aref transitions i j)
-            when count do (setf (aref transitions i j) (log (/ count total))))
+            when count do (setf (aref transitions i j) (float (log (/ count total)))))
         (loop
             with map = (aref (hmm-emissions hmm) i)
-            for form being each hash-key in map
-            for count = (gethash form map)
-            when count do (setf (gethash form map) (log (/ count total)))))
+            for code being each hash-key in map
+            for count = (gethash code map)
+            when count do (setf (gethash code map) (float (log (/ count total))))))
   hmm)
 
-;(defparameter *eisner* (train-hmm (read-corpus "eisner.tt" 2)))
-
 (defun viterbi (hmm input)
+  (declare (optimize (speed 3) (debug ) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float))
-         (pointer (make-array (list n l))))
+         (pointer (make-array (list n l) :initial-element nil)))
+    ;;; Array initial element is not specified in standard, so we carefully
+    ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (loop
         with form = (first input)
-        for state from 1 to (- n 1)
+        for state fixnum from 1 to (- n 1)
         do
           (setf (aref viterbi state 0)
             (+ (transition-probability hmm 0 state)
                (emission-probability hmm state form)))
           (setf (aref pointer state 0) 0))
     (loop
-        for form in (rest input)
-        for time from 1 to (- l 1)
+      for form fixnum in (rest input)
+      for time fixnum from 1 to (- l 1)
         do
-          (loop
-              for current from 1 to (- n 1)
+	(loop
+	    for current fixnum from 1 to (- n 1)
               do
-                (loop
-                    for previous from 1 to (- n 2)
-                    for old = (aref viterbi current time)
-                    for new = (+ (aref viterbi previous (- time 1))
-                                 (transition-probability hmm previous current)
-                                 (emission-probability hmm current form))
-                    when (> new old) do
-                      (setf (aref viterbi current time) new)
-                      (setf (aref pointer current time) previous))))
+	      (loop
+		  for previous fixnum from 1 to (- n 2)
+		  for old single-float  = (aref viterbi current time)
+		  for new  single-float  =
+		    (+ (the single-float (aref viterbi previous (- time 1)))
+		       (the single-float (transition-probability hmm previous current))
+		       (emission-probability hmm current form))
+		  when (> new old) do
+		    (setf (aref viterbi current time) new)
+		    (setf (aref pointer current time) previous))))
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time = (- l 1)
-        for previous from 1 to (- n 1)
+        for previous fixnum from 1 to (- n 1)
         for old = (aref viterbi final time)
         for new = (+ (aref viterbi previous time)
                      (transition-probability hmm previous final))
@@ -123,7 +132,7 @@
         with last = (aref pointer final time)
         with tags = (hmm-tags hmm)
         with result = (list (elt tags last))
-        for i from time downto 1
+        for i fixnum from time downto 1
         for state = (aref pointer last i) then (aref pointer state i)
         do (push (elt tags state) result)
         finally (return result))))
@@ -133,13 +142,15 @@
     (loop
         with total = 0 with correct = 0
         with forms with tags
+	for i from 1
         for line = (read-line stream nil)
         for tab = (position #\tab line)
         for form = (subseq line 0 tab)
+	for code = (symbol-to-code form)
         for tag = (and tab (subseq line (+ tab 1)))
         while line
         when (and form tag) do
-          (push form forms)
+          (push code forms)
           (push tag tags)
         else do
           (loop
@@ -149,3 +160,5 @@
               when (string= gold tag) do (incf correct))
           (setf forms nil) (setf tags nil)
         finally (return (/ correct total)))))
+
+  
