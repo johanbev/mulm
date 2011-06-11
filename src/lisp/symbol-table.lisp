@@ -1,3 +1,5 @@
+(in-package :mulm)
+
 (defstruct (symbol-table 
             (:constructor make-symbol-table 
                           (&key (test #'equal)
