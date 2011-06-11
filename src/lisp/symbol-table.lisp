@@ -1,8 +1,3 @@
-;;
-
-(defvar *symbol-table*
-    (make-symbol-table))
-
 (defstruct (symbol-table 
             (:constructor make-symbol-table 
                           (&key (test #'equal)
@@ -11,6 +6,9 @@
                                 (size 512)
                                 (count 0))))
   forward backward size count)
+
+(defvar *symbol-table*
+    (make-symbol-table))
 
 (defmethod print-object ((object symbol-table) stream)
   (let ((n (hash-table-count (symbol-table-forward object))))
