@@ -42,7 +42,7 @@
         for previous = (tag-to-code hmm "<s>") then current
         for line = (read-line stream nil)
         for tab = (position #\tab line)
-        for form = (subseq line 0 tab)
+        for form = (normalize-token (subseq line 0 tab))
 	for code = (symbol-to-code form)
         for tag = (if tab (subseq line (+ tab 1)) "</s>")
         for current = (tag-to-code hmm tag)
@@ -146,7 +146,7 @@
 	for i from 1
         for line = (read-line stream nil)
         for tab = (position #\tab line)
-        for form = (subseq line 0 tab)
+        for form = (normalize-token (subseq line 0 tab))
 	for code = (symbol-to-code form)
         for tag = (and tab (subseq line (+ tab 1)))
         while line
