@@ -84,7 +84,9 @@
   hmm)
 
 (defun viterbi (hmm input)
-  (declare (optimize (speed 3) (debug  0) (space 0)))
+  (declare (optimize (speed 3) (debug  0) (space 0))
+           (single-float old)
+           (single-float new))
   (let* ((n (hmm-n hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float))
@@ -108,8 +110,10 @@
               do
 	      (loop
 		  for previous fixnum from 1 to (- n 2)
-		  for old single-float  = (aref viterbi current time)
-		  for new  single-float  =
+      ;;; Array initial element is not specified in standard, so we carefully
+      ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
+		  for old = (aref viterbi current time)
+		  for new =
 		    (+ (the single-float (aref viterbi previous (- time 1)))
 		       (the single-float (transition-probability hmm previous current))
 		       (emission-probability hmm current form))
