@@ -18,7 +18,6 @@
 (defmethod print-object ((object hmm) stream)
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
-;;; ACL does some trick here that makes declaring these single-float slower
 
 (defmacro transition-probability (hmm previous current)
   ;;
@@ -27,15 +26,15 @@
   `(the single-float (or (aref (hmm-transitions ,hmm) ,previous ,current) -14.0)))
 
 (defmacro emission-probability (hmm state form)
-  `(the single-float (or (gethash ,form (aref (hmm-emissions ,hmm) ,state)) -14.0)))
+  `(the single-float (or (gethash ,form (aref (the (simple-array t *) (hmm-emissions ,hmm)) ,state)) -14.0)))
 
 (defun read-corpus (file &optional (n 100))
   (with-open-file (stream file :direction :input)
     (loop
         with n = (+ n 2)
         with hmm = (make-hmm)
-        with transitions = (make-array (list n n))
-        with emissions = (make-array n)
+        with transitions = (make-array (list n n) :initial-element nil)
+        with emissions = (make-array n :initial-element nil)
         initially
           (loop
               for i from 0 to (- n 1)
@@ -84,6 +83,7 @@
   hmm)
 
 (defun viterbi (hmm input)
+  #+:allegro (declare (:explain :variables :types))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
@@ -91,8 +91,9 @@
          (pointer (make-array (list n l) :initial-element nil)))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
+    (declare (type fixnum n l))
     (loop
-        with form = (first input)
+        with form of-type fixnum = (first input)
         for state of-type fixnum from 1 to (- n 1)
         do
           (setf (aref viterbi state 0)
@@ -108,8 +109,6 @@
               do
 	      (loop
 		  for previous of-type fixnum from 1 to (- n 2)
-      ;;; Array initial element is not specified in standard, so we carefully
-      ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
 		  for old of-type single-float = (aref viterbi current time)
 		  for new of-type single-float =
 		    (+ (the single-float (aref viterbi previous (- time 1)))
@@ -120,10 +119,10 @@
 		    (setf (aref pointer current time) previous))))
     (loop
 	with final = (tag-to-code hmm "</s>")
-	with time = (- l 1)
+	with time of-type fixnum = (- l 1)
         for previous of-type fixnum from 1 to (- n 1)
-        for old = (aref viterbi final time)
-        for new = (+ (aref viterbi previous time)
+        for old of-type single-float = (aref viterbi final time)
+        for new of-type single-float = (+ (the single-float (aref viterbi previous time))
                      (transition-probability hmm previous final))
         when (or (null old) (> new old)) do
           (setf (aref viterbi final time) new)
