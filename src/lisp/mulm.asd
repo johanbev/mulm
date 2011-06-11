@@ -5,7 +5,7 @@
   :license ""
   :components ((:file "mulm")
 	       (:file "input" :depends-on ("mulm"))
-	       (:file "stats" :depends-on ("mulm input"))
+	       (:file "stats" :depends-on ("mulm" "input"))
                (:file "symbol-table" :depends-on ("mulm"))
-               (:file "hmm" :depends-on ("symbol-table input")))
+               (:file "hmm" :depends-on ("symbol-table" "input")))
   :depends-on ())
