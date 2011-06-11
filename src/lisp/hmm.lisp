@@ -84,9 +84,7 @@
   hmm)
 
 (defun viterbi (hmm input)
-  (declare (optimize (speed 3) (debug  0) (space 0))
-           (single-float old)
-           (single-float new))
+  (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float))
@@ -95,25 +93,25 @@
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (loop
         with form = (first input)
-        for state fixnum from 1 to (- n 1)
+        for state of-type fixnum from 1 to (- n 1)
         do
           (setf (aref viterbi state 0)
             (+ (transition-probability hmm 0 state)
                (emission-probability hmm state form)))
           (setf (aref pointer state 0) 0))
     (loop
-      for form fixnum in (rest input)
-      for time fixnum from 1 to (- l 1)
+      for form of-type fixnum in (rest input)
+      for time of-type fixnum from 1 to (- l 1)
         do
 	(loop
-	    for current fixnum from 1 to (- n 1)
+	    for current of-type fixnum from 1 to (- n 1)
               do
 	      (loop
-		  for previous fixnum from 1 to (- n 2)
+		  for previous of-type fixnum from 1 to (- n 2)
       ;;; Array initial element is not specified in standard, so we carefully
       ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
-		  for old = (aref viterbi current time)
-		  for new =
+		  for old of-type single-float = (aref viterbi current time)
+		  for new of-type single-float =
 		    (+ (the single-float (aref viterbi previous (- time 1)))
 		       (the single-float (transition-probability hmm previous current))
 		       (emission-probability hmm current form))
@@ -123,7 +121,7 @@
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time = (- l 1)
-        for previous fixnum from 1 to (- n 1)
+        for previous of-type fixnum from 1 to (- n 1)
         for old = (aref viterbi final time)
         for new = (+ (aref viterbi previous time)
                      (transition-probability hmm previous final))
@@ -136,7 +134,7 @@
         with last = (aref pointer final time)
         with tags = (hmm-tags hmm)
         with result = (list (elt tags last))
-        for i fixnum from time downto 1
+        for i of-type fixnum from time downto 1
         for state = (aref pointer last i) then (aref pointer state i)
         do (push (elt tags state) result)
         finally (return result))))
