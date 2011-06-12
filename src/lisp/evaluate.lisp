@@ -35,3 +35,25 @@
 ;; Allocation   = 430045312 bytes
 ;; 1616 Page faults
 ;; 11383/11890
+
+
+;; Results on Allegro 8.1, Core 2 2.4 GHz:
+; cpu time (non-gc) 4,610 msec user, 90 msec system
+; cpu time (gc)     0 msec user, 0 msec system
+; cpu time (total)  4,610 msec user, 90 msec system
+; real time  4,795 msec
+; space allocation:
+;  39,947 cons cells, 230,461,728 other bytes, 0 static bytes
+;; 11383/11890
+
+;; Results on SBCL 1.0.48 Core 2 2.4 GHz:
+
+;; Evaluation took:
+;;   5.371 seconds of real time
+;;   5.372983 seconds of total run time (5.286322 user, 0.086661 system)
+;;   [ Run times consist of 0.189 seconds GC time, and 5.184 seconds non-GC time. ]
+;;   100.04% CPU
+;;   12,917,586,087 processor cycles
+;;   221,779,600 bytes consed
+  
+;; 11383/11890

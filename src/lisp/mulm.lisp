@@ -1,6 +1,6 @@
 (in-package :cl-user)
 
-(defpackage :mulm)
+(defpackage :mulm  (:use "COMMON-LISP"))
 
 (in-package :mulm)
 

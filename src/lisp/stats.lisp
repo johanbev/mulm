@@ -45,10 +45,36 @@
       summing (* -1 (/ v sum) (log (/ v sum) 2))))
 
 ;; Weighted average of entropies p(t|w)
-(defun syncretisim-measure ()
+(defun syncretism-measure ()
   (loop
       for word being the hash-keys in *word-counts*
       for count = (gethash word *word-counts*)
       for p-w = (float (/ count *total-tokens*))
       for entropy = (hash-table-entropy (gethash word *tags-of-word*))
       summing (* p-w entropy)))
+
+
+(defun confusion-matrix (blues golds &key (hmm *hmm*))
+  (loop
+      with tagset-size = (hmm-n hmm)
+      with matrix = (make-array (list tagset-size tagset-size) :initial-element 0)
+      for blue in blues
+      for gold in golds
+      do (incf (aref matrix (tag-to-code hmm blue) (tag-to-code hmm gold)))
+      finally (return matrix)))
+
+
+;; somewhat hacky, can require some human post-editing on the table
+(defun print-confusion-matrix (matrix)
+  (let ((length (first (array-dimensions matrix))))
+    ;; print header
+     (format t "   ~{~2,5T~a~}~%" (hmm-tags *hmm*))
+    (loop    
+	for i from 0 below length
+	do (format t "~2,5T~a" (elt (hmm-tags *hmm*) i))
+	   (loop 
+	       for j from 0 below length
+	       for point = (aref matrix i j)
+	       do (format t "~3,5T~a" point))
+	   (format t "~%"))))
+  

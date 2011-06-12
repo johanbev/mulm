@@ -1,5 +1,8 @@
 (in-package :mulm)
 
+
+(defvar *hmm*)
+
 (defstruct hmm
   tags
   (n 0)
