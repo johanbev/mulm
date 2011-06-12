@@ -4,8 +4,9 @@
   :author "Johan Benum Evensberget, André Lynum"
   :license ""
   :components ((:file "mulm")
-	       (:file "input" :depends-on ("mulm"))
-	       (:file "stats" :depends-on ("mulm" "input"))
+               (:file "input" :depends-on ("mulm"))
+               (:file "stats" :depends-on ("mulm" "input"))
                (:file "symbol-table" :depends-on ("mulm"))
-               (:file "hmm" :depends-on ("symbol-table" "input")))
+               (:file "hmm" :depends-on ("symbol-table" "input"))
+               (:file "evaluate" :depends-on ("hmm")))
   :depends-on ())
