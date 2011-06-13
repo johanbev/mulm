@@ -77,4 +77,36 @@
 	       for point = (aref matrix i j)
 	       do (format t "~3,5T~a" point))
 	   (format t "~%"))))
-  
+
+(defun hash-table-diff (map1 map2)
+  "Takes two hash-tables as arguments and returns nil if they have identical
+   keys and values, t if they don't."
+  (when (/= (hash-table-sum map1) (hash-table-sum map2))
+    (return-from hash-table-diff t))
+  (maphash #'(lambda (k val1)
+               (let* ((nokey (gensym))
+                      (val2 (gethash k map2 nokey)))
+                 (if (or (equal val2 nokey) (not (equal val1 val2)))
+                   (return-from hash-table-diff t))))
+           map2)
+  nil)
+
+;; Prints out points where there is a difference between two models (trained
+;; on the same material).
+(defun model-diff (hmm1 hmm2)
+  (let ((tags (hmm-tags hmm1)))
+    (loop for tag1 in tags
+          do (loop for tag2 in tags
+                   do (let ((val1 (aref (hmm-transitions hmm1)
+                                        (tag-to-code hmm1 tag1)
+                                        (tag-to-code hmm1 tag2)))
+                            (val2 (aref (hmm-transitions hmm2)
+                                        (tag-to-code hmm2 tag1)
+                                        (tag-to-code hmm2 tag2))))
+                        (if (not (equal val1 val2))
+                          (format t "~a ~a ~a ~a~%" tag1 tag2 val1 val2)))))
+    (loop for tag in tags
+          for map1 = (aref (hmm-emissions hmm1) (tag-to-code hmm1 tag))
+          for map2 = (aref (hmm-emissions hmm2) (tag-to-code hmm2 tag))
+          do (if (hash-table-diff map1 map2)
+               (format t "~a~%" tag)))))
