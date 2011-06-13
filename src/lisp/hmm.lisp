@@ -111,15 +111,19 @@
 	    for current of-type fixnum from 1 to (- n 1)
               do
 	      (loop
-		  for previous of-type fixnum from 1 to (- n 2)
-		  for old of-type single-float = (aref viterbi current time)
-		  for new of-type single-float =
-		    (+ (the single-float (aref viterbi previous (- time 1)))
-		       (the single-float (transition-probability hmm previous current))
-		       (emission-probability hmm current form))
-		  when (> new old) do
-		    (setf (aref viterbi current time) new)
-		    (setf (aref pointer current time) previous))))
+		  with old of-type single-float = (aref viterbi current time)
+		  for previous of-type fixnum from 1 to (- n 1)
+		  for prev-prob of-type single-float = (aref viterbi previous (- time 1))
+		  when (> prev-prob old) do
+		    (let ((new
+			   (+ prev-prob
+			      (transition-probability hmm previous current)
+			      (emission-probability hmm current form))))
+		      (declare (type single-float new))
+		      (when (> new old)
+			(setf old new)
+			(setf (aref viterbi current time) new)
+			(setf (aref pointer current time) previous))))))
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time of-type fixnum = (- l 1)
