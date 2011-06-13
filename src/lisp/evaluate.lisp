@@ -74,7 +74,7 @@
      (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
      (format t "Unknown Token Acc:~2,4T~,3f %~%" (if (> tu 0) (* 100 (/ cu tu)) nil))
      (format t "Unknown Seq Acc:  ~2,4T~,3f %~%" (if (> us 0) (* 100 (/ cus us)) nil))
-     (format t "Tokens: ~a" total))))
+     (format t "Tokens: ~a, Unknown: ~a, ~,3f %~%" total tu (* 100 (/ tu total))))))
      
 ;; Quick function to run standard evaluation
 (defun evaluate-all ()
