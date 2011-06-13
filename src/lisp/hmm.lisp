@@ -17,10 +17,8 @@
       (incf (hmm-n hmm)))
     code))
 
-
 (defmethod print-object ((object hmm) stream)
   (format stream "<HMM with ~a states>" (hmm-n object)))
-
 
 (defmacro transition-probability (hmm previous current)
   ;;
@@ -31,6 +29,7 @@
 (defmacro emission-probability (hmm state form)
   `(the single-float (or (gethash ,form (aref (the (simple-array t *) (hmm-emissions ,hmm)) ,state)) -14.0)))
 
+#| OLD CODE
 (defun read-corpus (file &optional (n 100))
   (with-open-file (stream file :direction :input)
     (loop
@@ -64,6 +63,44 @@
           (setf (hmm-transitions hmm) transitions)
           (setf (hmm-emissions hmm) emissions)
           (return hmm))))
+|#
+
+(defun partition (list &optional (len 2))
+  "Partitions the list into ordered sequences of len consecutive elements."
+  (loop for i on list
+        for j below (- (length list) (1- len))
+        collect (subseq i 0 len)))
+
+(defun train (corpus &optional (n 100))
+  "Trains a HMM model from a corpus (a list of lists of word/tag pairs)."
+  (loop with n = (+ n 2)
+        with hmm = (make-hmm)
+        with transitions = (make-array (list n n) :initial-element nil)
+        with emissions = (make-array n :initial-element nil)
+        initially (loop for i from 0 to (- n 1)
+                        do (setf (aref emissions i) (make-hash-table)))
+
+        for sentence in corpus
+        do (let ((bigrams (partition (append '("<s>")
+                                             (mapcar #'second sentence)
+                                             '("</s>")))))
+             (loop for (code tag) in sentence
+                   do (incf (gethash code
+                                     (aref emissions
+                                           (tag-to-code hmm tag))
+                                     0)))
+             (loop for bigram in bigrams
+                   for previous = (tag-to-code hmm (first bigram))
+                   for current = (tag-to-code hmm (second bigram))
+                   
+                   do (if (aref transitions previous current)
+                        (incf (aref transitions previous current))
+                        (setf (aref transitions previous current) 1))))
+                
+        finally
+          (setf (hmm-transitions hmm) transitions)
+          (setf (hmm-emissions hmm) emissions)
+          (return (train-hmm hmm))))
 
 (defun train-hmm (hmm)
   (loop
@@ -75,7 +112,7 @@
                       sum (or (aref transitions i j) 0))
       do
         (loop
-            for j from 1 to (- n 1)
+            for j from 0 to (- n 1)
             for count = (aref transitions i j)
             when count do (setf (aref transitions i j) (float (log (/ count total)))))
         (loop
@@ -97,7 +134,7 @@
     (declare (type fixnum n l))
     (loop
         with form of-type fixnum = (first input)
-        for state of-type fixnum from 1 to (- n 1)
+        for state of-type fixnum from 0 to (- n 1)
         do
           (setf (aref viterbi state 0)
             (+ (transition-probability hmm 0 state)
@@ -108,11 +145,11 @@
       for time of-type fixnum from 1 to (- l 1)
         do
 	(loop
-	    for current of-type fixnum from 1 to (- n 1)
+	    for current of-type fixnum from 0 to (- n 1)
               do
 	      (loop
 		  with old of-type single-float = (aref viterbi current time)
-		  for previous of-type fixnum from 1 to (- n 1)
+		  for previous of-type fixnum from 0 to (- n 1)
 		  for prev-prob of-type single-float = (aref viterbi previous (- time 1))
 		  when (> prev-prob old) do
 		    (let ((new
@@ -127,7 +164,7 @@
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time of-type fixnum = (- l 1)
-        for previous of-type fixnum from 1 to (- n 1)
+        for previous of-type fixnum from 0 to (- n 1)
         for old of-type single-float = (aref viterbi final time)
         for new of-type single-float = (+ (the single-float (aref viterbi previous time))
                      (transition-probability hmm previous final))

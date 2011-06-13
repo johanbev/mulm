@@ -26,18 +26,18 @@
 ;; Quick function to run standard evaluation
 (defun evaluate-all ()
   (time (multiple-value-bind (accuracy correct total)
-            (evaluate-hmm (train-hmm (read-corpus *tagger-train-file*))
+            (evaluate-hmm (train (read-tt-corpus *tagger-train-file*))
                       *tagger-eval-file*)
           (format t "~a / ~a, ~,3f~%" correct total accuracy))))
 
 ;; Results on LW6 pro, Core 2 MacBook Pro (André)
-;; User time    =       10.351
-;; System time  =        0.071
-;; Elapsed time =       10.388
-;; Allocation   = 430045312 bytes
-;; 1616 Page faults
-;; 11383/11890
-
+; 11388 / 11890, 0.958
+; 
+; User time    =       15.823
+; System time  =        0.139
+; Elapsed time =       16.045
+; Allocation   = 500389196 bytes
+; 16378 Page faults
 
 ;; Results on Allegro 8.1, Core 2 2.4 GHz:
 ; cpu time (non-gc) 4,610 msec user, 90 msec system

@@ -21,7 +21,8 @@
 (defun normalize-token (token)
   (normalize token *normalizer*))
 
-(defun read-tt (file)
+(defun read-tt-corpus (file)
+  "Create a list of lists corpus from TT format file."
   (with-open-file (stream file :direction :input)
     (loop
 	with forms
