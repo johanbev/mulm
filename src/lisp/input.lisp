@@ -35,3 +35,15 @@
         when (and form tag (not (string= form ""))) do
           (push (list code tag) forms)
 	else collect (nreverse forms) and do (setf forms nil))))
+
+(defun ll-to-word-list (ll)
+  "Extract the sentences out of a list of lists corpus"
+  (mapcar (lambda (x)
+	    (mapcar #'car x))
+	  ll))
+
+(defun ll-to-tag-list (ll)
+  "Extract the tag-sequences out of a list of lists corpus"
+  (mapcar (lambda (x)
+	     (mapcar #'second x))
+	   ll))

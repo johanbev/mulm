@@ -21,8 +21,42 @@
                         do (incf correct))
                         and do (setf forms nil)
                         and do (setf tags nil)
-                        finally (return (values (/ correct total) correct total)))))
+	finally (return (values (/ correct total) correct total)))))
 
+
+(defun evaluate (hmm corpus)
+  (let ((seqs (ll-to-word-list corpus))
+	(tag-seqs (ll-to-tag-list corpus)))
+    (loop
+	with correct = 0
+	with total = 0
+	with correct-sequence = 0
+	for total-sequence from 0
+	for seq in seqs
+	for tag-seq in tag-seqs
+	for result = (viterbi hmm seq)
+	when (equal tag-seq result)
+	do (incf correct-sequence)
+	do
+	   (loop 
+	       for blue in result
+	       for gold in tag-seq
+	       when (equal blue gold)
+	       do (incf correct)
+	       do (incf total))
+	finally (return
+		  (values (/ correct total) (/ correct-sequence total-sequence)
+			  correct total correct-sequence total-sequence)))))
+
+(defun do-evaluation (&key (hmm *hmm*) (corpus *test-corpus*))
+  (format t "do-evaluation(): BEGIN evaluation with ~a sequences~%" (length *test-corpus*))
+  (time
+   (multiple-value-bind (acc seqacc correct total cs ts)
+       (evaluate hmm corpus)
+     (format t "Accuracy:         ~2,4T~,3f%~%" (* acc 100))
+     (format t "Sequence Accuracy:~2,4T~,3f%~%" (* seqacc 100))
+     (format t "Tokens: ~a" total))))
+     
 ;; Quick function to run standard evaluation
 (defun evaluate-all ()
   (time (multiple-value-bind (accuracy correct total)
