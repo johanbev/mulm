@@ -182,7 +182,7 @@
         do (push (elt tags state) result)
         finally (return result))))
 
-(defun beam-viterbi (hmm input &key (beam-width 1.707))
+(defun beam-viterbi (hmm input &key (beam-width 1.807))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (setf beam-width (float beam-width))
   (let* ((n (hmm-n hmm))

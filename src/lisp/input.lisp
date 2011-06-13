@@ -21,7 +21,7 @@
 (defun normalize-token (token)
   (normalize token *normalizer*))
 
-(defun read-tt-corpus (file)
+(defun read-tt-corpus (file &key symbol-table)
   "Create a list of lists corpus from TT format file."
   (with-open-file (stream file :direction :input)
     (loop
@@ -29,7 +29,10 @@
 	for line = (read-line stream nil)
         for tab = (position #\tab line)
         for form = (normalize-token (subseq line 0 tab))
-	for code = (symbol-to-code form)
+	for code = (if symbol-table
+		       (or (symbol-to-code form symbol-table :rop t)
+			   :unk)
+		     (symbol-to-code form))
         for tag = (if tab (subseq line (+ tab 1)))
 	while line
         when (and form tag (not (string= form ""))) do
