@@ -21,12 +21,14 @@
                         do (incf correct))
                         and do (setf forms nil)
                         and do (setf tags nil)
-                        finally (return (/ correct total)))))
+                        finally (return (values (/ correct total) correct total)))))
 
 ;; Quick function to run standard evaluation
 (defun evaluate-all ()
-  (time (evaluate-hmm (train-hmm (read-corpus *tagger-train-file*))
-                      *tagger-eval-file*)))
+  (time (multiple-value-bind (accuracy correct total)
+            (evaluate-hmm (train-hmm (read-corpus *tagger-train-file*))
+                      *tagger-eval-file*)
+          (format t "~a / ~a, ~,3f~%" correct total accuracy))))
 
 ;; Results on LW6 pro, Core 2 MacBook Pro (André)
 ;; User time    =       10.351
