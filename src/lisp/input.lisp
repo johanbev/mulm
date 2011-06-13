@@ -46,4 +46,10 @@
   "Extract the tag-sequences out of a list of lists corpus"
   (mapcar (lambda (x)
 	     (mapcar #'second x))
-	   ll))
+	  ll))
+
+(defparameter *train-corpus*
+    (read-tt-corpus *tagger-train-file*))
+
+(defparameter *test-corpus*
+    (read-tt-corpus *tagger-eval-file*))
