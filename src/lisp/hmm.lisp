@@ -35,8 +35,18 @@
         for j below (- (length list) (1- len))
         collect (subseq i 0 len)))
 
-(defun train (corpus &optional (n 100))
+(defun train (corpus &optional (n nil))
   "Trains a HMM model from a corpus (a list of lists of word/tag pairs)."
+
+  ;; determine tagset size if not specified by the n parameter
+  (when (null n)
+    (let ((tag-map (make-hash-table :test #'equal)))
+      (loop for sentence in corpus
+            do (loop for token in sentence
+                     do (if (not (gethash (second token) tag-map))
+                          (setf (gethash (second token) tag-map) t))))
+      (setf n (hash-table-count tag-map))))
+  
   (loop with n = (+ n 2)
         with hmm = (make-hmm)
         with transitions = (make-array (list n n) :initial-element nil)
