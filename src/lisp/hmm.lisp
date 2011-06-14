@@ -29,42 +29,6 @@
 (defmacro emission-probability (hmm state form)
   `(the single-float (or (gethash ,form (aref (the (simple-array t *) (hmm-emissions ,hmm)) ,state)) -14.0)))
 
-#| OLD CODE
-(defun read-corpus (file &optional (n 100))
-  (with-open-file (stream file :direction :input)
-    (loop
-        with n = (+ n 2)
-        with hmm = (make-hmm)
-        with transitions = (make-array (list n n) :initial-element nil)
-        with emissions = (make-array n :initial-element nil)
-        initially
-          (loop
-              for i from 0 to (- n 1)
-              do (setf (aref emissions i) (make-hash-table)))
-        for previous = (tag-to-code hmm "<s>") then current
-        for line = (read-line stream nil)
-        for tab = (position #\tab line)
-        for form = (normalize-token (subseq line 0 tab))
-	for code = (symbol-to-code form)
-        for tag = (if tab (subseq line (+ tab 1)) "</s>")
-        for current = (tag-to-code hmm tag)
-        for map = (aref emissions current)
-        while line
-        when (and form (not (string= form ""))) do 
-          (if (gethash code map)
-            (incf (gethash code map))
-            (setf (gethash code map) 1))
-        do
-          (if (aref transitions previous current)
-            (incf (aref transitions previous current))
-            (setf (aref transitions previous current) 1))
-        when (string= tag "</s>") do (setf current (tag-to-code hmm "<s>"))
-        finally
-          (setf (hmm-transitions hmm) transitions)
-          (setf (hmm-emissions hmm) emissions)
-          (return hmm))))
-|#
-
 (defun partition (list &optional (len 2))
   "Partitions the list into ordered sequences of len consecutive elements."
   (loop for i on list
