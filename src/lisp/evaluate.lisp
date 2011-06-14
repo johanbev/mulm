@@ -25,7 +25,7 @@
 
 
 
-(defvar *decoder*
+(defparameter *decoder*
     #'viterbi)
 
 (defun evaluate (hmm corpus)

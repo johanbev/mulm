@@ -55,4 +55,4 @@
     (read-tt-corpus *tagger-train-file*))
 
 (defvar *test-corpus*
-    (read-tt-corpus *tagger-eval-file*))
+    (read-tt-corpus *tagger-eval-file* :symbol-table *symbol-table*))
