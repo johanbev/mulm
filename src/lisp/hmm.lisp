@@ -147,7 +147,7 @@
         for state of-type fixnum from 0 to (- n 1)
         do
           (setf (aref viterbi state 0)
-            (+ (transition-probability hmm 0 state)
+            (+ (transition-probability hmm (tag-to-code hmm "<s>") state)
                (emission-probability hmm state form)))
           (setf (aref pointer state 0) 0))
     (loop
