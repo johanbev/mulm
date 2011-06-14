@@ -7,7 +7,8 @@
   tags
   (n 0)
   transitions
-  emissions)
+  emissions
+  trigram-table)
 
 (defun tag-to-code (hmm tag)
   (let ((code (position tag (hmm-tags hmm) :test #'string=)))
@@ -16,6 +17,13 @@
       (setf code (hmm-n hmm))
       (incf (hmm-n hmm)))
     code))
+
+(defun bigram-to-code (hmm bigram)
+  "Returns index of bigram data in "
+  (let ((c1 (tag-to-code hmm (first bigram)))
+        (c2 (tag-to-code hmm (second bigram))))
+    (+ (* c1 (hmm-n hmm))
+       c2)))
 
 (defmethod print-object ((object hmm) stream)
   (format stream "<HMM with ~a states>" (hmm-n object)))
@@ -51,13 +59,16 @@
         with hmm = (make-hmm)
         with transitions = (make-array (list n n) :initial-element nil)
         with emissions = (make-array n :initial-element nil)
+        with trigram-table = (make-array (list n n n) :initial-element nil)
         initially (loop for i from 0 to (- n 1)
                         do (setf (aref emissions i) (make-hash-table)))
 
         for sentence in corpus
-        do (let ((bigrams (partition (append '("<s>")
-                                             (mapcar #'second sentence)
-                                             '("</s>")))))
+        do (let* ((tags (append '("<s>")
+                                (mapcar #'second sentence)
+                                '("</s>")))
+                  (bigrams (partition tags 2))
+                  (trigrams (partition tags 3)))
              (loop for (code tag) in sentence
                    do (incf (gethash code
                                      (aref emissions
@@ -69,17 +80,26 @@
                    
                    do (if (aref transitions previous current)
                         (incf (aref transitions previous current))
-                        (setf (aref transitions previous current) 1))))
-                
+                        (setf (aref transitions previous current) 1)))
+
+             (loop for trigram in trigrams
+                   do (let ((t1 (tag-to-code hmm (first trigram)))
+                            (t2 (tag-to-code hmm (second trigram)))
+                            (t3 (tag-to-code hmm (third trigram))))
+                        (if (aref trigram-table t1 t2 t3)
+                          (incf (aref trigram-table t1 t2 t3))
+                          (setf (aref trigram-table t1 t2 t3) 1)))))
+        
         finally
           (setf (hmm-transitions hmm) transitions)
           (setf (hmm-emissions hmm) emissions)
+          (setf (hmm-trigram-table hmm) trigram-table)
           (return (train-hmm hmm))))
 
 (defun train-hmm (hmm)
-  (loop
+  (let ((n (hmm-n hmm)))
+    (loop
       with transitions = (hmm-transitions hmm)
-      with n = (hmm-n hmm)
       for i from 0 to (- n 1)
       for total = (loop
                       for j from 0 to (- n 1)
@@ -94,6 +114,22 @@
             for code being each hash-key in map
             for count = (gethash code map)
             when count do (setf (gethash code map) (float (log (/ count total))))))
+
+    (loop for k from 0 below n
+          for total = (let ((sum 0))
+                        (loop for i from 0 below n
+                              do (loop for j from 0 below n
+                                       for count = (aref (hmm-trigram-table hmm) i j k)
+                                       when count
+                                       do (incf sum count)))
+                        sum)
+          do (loop for i from 0 below n
+                   do (loop for j from 0 below n
+                            for count = (aref (hmm-trigram-table hmm) i j k)
+                            when count
+                            do (setf (aref (hmm-trigram-table hmm) i j k)
+                                     (float (log (/ count total))))))))
+  
   hmm)
 
 (defun viterbi (hmm input)
