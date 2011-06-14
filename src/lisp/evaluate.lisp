@@ -70,6 +70,7 @@
   (time
    (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
        (evaluate hmm corpus)
+     (format t "Correct:          ~2,4T~a~%" correct)
      (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
      (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
      (format t "Unknown Token Acc:~2,4T~,3f %~%" (if (> tu 0) (* 100 (/ cu tu)) nil))

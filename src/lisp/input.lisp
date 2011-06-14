@@ -51,8 +51,8 @@
 	     (mapcar #'second x))
 	  ll))
 
-(defparameter *train-corpus*
+(defvar *train-corpus*
     (read-tt-corpus *tagger-train-file*))
 
-(defparameter *test-corpus*
+(defvar *test-corpus*
     (read-tt-corpus *tagger-eval-file*))
