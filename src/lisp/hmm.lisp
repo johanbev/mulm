@@ -237,7 +237,7 @@
 		    for index fixnum from 0 to (1- (fill-pointer indices))
 		    for previous = (aref indices index)
 		    for prev-prob of-type single-float = (aref viterbi previous prev-time)
-		    when (and (> prev-prob old))
+		    when (and (> prev-prob old) (> prev-prob best-hypothesis))
 		    do
 		      (let ((new (+ prev-prob
 				    (the single-float (transition-probability hmm previous current))
