@@ -1,6 +1,6 @@
 (in-package :mulm)
 
-(defun evaluate-hmm (hmm file)
+(defun evaluate-hmm (hmm file &optional (viterbi-func #'viterbi-bigram))
   (with-open-file (stream file :direction :input)
     (loop with total = 0 with correct = 0
           with forms with tags
@@ -15,7 +15,7 @@
           do (push code forms)
           and do (push tag tags)
           else do (loop for gold in (nreverse tags)
-                        for tag in (viterbi hmm (nreverse forms))
+                        for tag in (funcall viterbi-func hmm (nreverse forms))
                         do (incf total)
                         when (string= gold tag)
                         do (incf correct))
@@ -26,7 +26,7 @@
 
 
 (defparameter *decoder*
-    #'viterbi)
+    #'viterbi-bigram)
 
 (defun evaluate (hmm corpus)
   (let ((seqs (ll-to-word-list corpus))
@@ -82,7 +82,10 @@
 (defun evaluate-all ()
   (let ((hmm (train (read-tt-corpus *tagger-train-file*))))
     (time (multiple-value-bind (accuracy correct total)
-              (evaluate-hmm hmm *tagger-eval-file*)
+              (evaluate-hmm hmm *tagger-eval-file* #'viterbi-bigram)
+            (format t "~a / ~a, ~,3f~%" correct total accuracy)))
+    (time (multiple-value-bind (accuracy correct total)
+              (evaluate-hmm hmm *tagger-eval-file* #'viterbi-trigram)
             (format t "~a / ~a, ~,3f~%" correct total accuracy)))))
 
 ;; Bigram results on LW6 pro, Core 2 MacBook Pro (André)
@@ -93,6 +96,15 @@
 ; Elapsed time =        5.908
 ; Allocation   = 359450536 bytes
 ; 5979 Page faults
+
+;; Trigram results on LW6 pro, Core 2 MacBook Pro (André)
+; 11411 / 11890, 0.960
+; 
+; User time    =  0:05:44.508
+; System time  =        1.275
+; Elapsed time =  0:05:46.635
+; Allocation   = 17579330356 bytes
+; 29 Page faults
 
 ;; Results on Allegro 8.1, Core 2 2.4 GHz:
 ; cpu time (non-gc) 4,610 msec user, 90 msec system
