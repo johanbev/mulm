@@ -10,7 +10,12 @@
   (n 0)
   transitions
   emissions
-  trigram-table)
+  trigram-table
+  unigram-table
+  token-count
+  lambda-1
+  lambda-2
+  lambda-3)
 
 (defun tag-to-code (hmm tag)
   (let ((code (position tag (hmm-tags hmm) :test #'string=)))
@@ -62,6 +67,8 @@
         with transitions = (make-array (list n n) :initial-element nil)
         with emissions = (make-array n :initial-element nil)
         with trigram-table = (make-array (list n n n) :initial-element nil)
+        with unigram-table = (make-array n :initial-element nil)
+        with token-count = 0
         initially (loop for i from 0 to (- n 1)
                         do (setf (aref emissions i) (make-hash-table)))
 
@@ -69,13 +76,22 @@
         do (let* ((tags (append '("<s>")
                                 (mapcar #'second sentence)
                                 '("</s>")))
+                  (unigrams tags)
                   (bigrams (partition tags 2))
                   (trigrams (partition tags 3)))
              (loop for (code tag) in sentence
+                   do (incf token-count)
                    do (incf (gethash code
                                      (aref emissions
                                            (tag-to-code hmm tag))
                                      0)))
+
+             (loop for unigram in unigrams
+                   for code = (tag-to-code hmm unigram)
+                   do (if (aref unigram-table code)
+                        (incf (aref unigram-table code))
+                        (setf (aref unigram-table code) 1)))
+             
              (loop for bigram in bigrams
                    for previous = (tag-to-code hmm (first bigram))
                    for current = (tag-to-code hmm (second bigram))
@@ -96,11 +112,52 @@
           (setf (hmm-transitions hmm) transitions)
           (setf (hmm-emissions hmm) emissions)
           (setf (hmm-trigram-table hmm) trigram-table)
-	  (setf (hmm-beam-array hmm) (make-array n :fill-pointer t))
-	  (setf (hmm-tag-array hmm)
-	    (make-array n :element-type 'fixnum 
-			:initial-contents (loop for i from 0 to (1- n) collect i)))
-          (return (train-hmm hmm))))
+          (setf (hmm-unigram-table hmm) unigram-table)
+          (setf (hmm-token-count hmm) token-count)
+          (setf (hmm-beam-array hmm) (make-array n :fill-pointer t))
+          (setf (hmm-tag-array hmm)
+                (make-array n :element-type 'fixnum 
+                            :initial-contents (loop for i from 0 to (1- n) collect i)))
+          (calculate-deleted-interpolation-weights hmm)
+          (train-hmm hmm)
+          (return hmm)))
+
+(defun calculate-deleted-interpolation-weights (hmm)
+  (let ((lambda-1 0)
+        (lambda-2 0)
+        (lambda-3 0)
+        (n (hmm-n hmm)))
+    (loop for i from 0 below n
+          do (loop for j from 0 below n
+                   do (loop for k from 0 below n
+                            for tri-count = (aref (hmm-trigram-table hmm) i j k)
+                            when tri-count
+                            do (let* ((bi-count (aref (hmm-transitions hmm) j k))
+                                      (uni-count (aref (hmm-unigram-table hmm) k))
+                                      (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
+                                            (if (and bi-count (> bi-count 1))
+                                              (/ (1- tri-count)
+                                                 (1- bi-count))
+                                              0)))
+                                      (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
+                                            (if (and uni-count (> uni-count 1))
+                                              (/ (1- bi-count)
+                                                 (1- uni-count))
+                                              0)))
+                                      (c3 (/ (1- uni-count)
+                                             (1- (hmm-token-count hmm)))))
+                                 (cond ((and (>= c3 c2) (>= c3 c1))
+                                        (incf lambda-3 tri-count))
+                                       ((and (>= c2 c3) (>= c2 c1))
+                                        (incf lambda-2 tri-count))
+                                       ((and (>= c1 c3) (>= c1 c2))
+                                        (incf lambda-1 tri-count))
+                                       (t (error "What!")))))))
+    (let ((total (+ lambda-1 lambda-2 lambda-3)))
+      (setf (hmm-lambda-1 hmm) (float (/ lambda-1 total)))
+      (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
+      (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
+      hmm)))
 
 (defun train-hmm (hmm)
   (let ((n (hmm-n hmm)))
@@ -134,7 +191,12 @@
                             for count = (aref (hmm-trigram-table hmm) i j k)
                             when count
                             do (setf (aref (hmm-trigram-table hmm) i j k)
-                                     (float (log (/ count total))))))))
+                                     (float (log (/ count total)))))))
+    (loop for i from 0 below n
+          for count = (aref (hmm-unigram-table hmm) i)
+          with total = (hmm-token-count hmm)
+          do (setf (aref (hmm-unigram-table hmm) i)
+                   (float (log (/ count total))))))
   
   hmm)
 
@@ -145,7 +207,9 @@
 (defmacro trigram-probability (hmm t1 t2 current)
   `(the single-float (or (aref (hmm-trigram-table ,hmm) ,t1 ,t2 ,current) -14.0)))
 
-;; NOTE very slow
+(defmacro unigram-probability (hmm current)
+  `(the single-float (or (aref (hmm-unigram-table ,hmm) ,current) -14.0)))
+
 (defun viterbi-trigram (hmm input)
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
@@ -156,10 +220,14 @@
          (final nil)
          (final-back nil)
          (end-tag (tag-to-code hmm "</s>"))
-         (start-tag (tag-to-code hmm "<s>")))
+         (start-tag (tag-to-code hmm "<s>"))
+         (l1 (hmm-lambda-1 hmm))
+         (l2 (hmm-lambda-2 hmm))
+         (l3 (hmm-lambda-3 hmm)))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
-    (declare (type fixnum n nn l start-tag end-tag))
+    (declare (type fixnum n nn l start-tag end-tag)
+             (type single-float l1 l2 l3))
     (loop with form = (first input)
           for tag fixnum from 0 to (- n 1)
           for state fixnum = (+ (* start-tag n) tag)
@@ -167,7 +235,6 @@
                    (+ (transition-probability hmm (tag-to-code hmm "<s>") tag)
                       (emission-probability hmm tag form)))
           do (setf (aref pointer state 0) 0))
-
     (loop 
 	for form in (rest input)
 	for time fixnum from 1 to (- l 1)				    
@@ -181,25 +248,26 @@
 			     (truncate previous n)
 			   (declare (type fixnum t1 t2))
 			   (let ((new (+ prev-prob
-					 (* 0.4 (transition-probability hmm t2 current))
-					 (* 0.5 (emission-probability hmm current form))
-					 (* 0.1 (trigram-probability hmm t1 t2 current)))))
+                                             (emission-probability hmm current form)
+                                             (* l1 (unigram-probability hmm current))
+                                             (* l2 (transition-probability hmm t2 current))
+                                             (* l3 (trigram-probability hmm t1 t2 current)))))
 			     (declare (type single-float new))
 			     (when (> new old)
 			       (setf old new)
 			       (setf (aref viterbi (+ (* t2 n) current) time) new)
 			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))    
     (loop
-          with time fixnum = (1- l)
-          for previous fixnum from 0 below nn
-          for t1 fixnum = (truncate previous n)
-          for t2 fixnum = (rem previous n)
-          for new of-type single-float = (+ (the single-float (aref viterbi previous time))
-                                            (* 0.8 (transition-probability hmm t2 end-tag))
-                                            (* 0.2 (trigram-probability hmm t1 t2 end-tag)))
-          when (or (null final) (> new final))
-          do (setf final new)
-          and do (setf final-back previous))
+	with time fixnum = (1- l)
+	for previous fixnum from 0 below nn
+	for t1 fixnum = (truncate previous n)
+	for t2 fixnum = (rem previous n)
+	for new of-type single-float = (+ (the single-float (aref viterbi previous time))
+					  (* l2 (transition-probability hmm t2 end-tag))
+					  (* l3 (trigram-probability hmm t1 t2 end-tag)))
+	when (or (null final) (> new final))
+	do (setf final new)
+	and do (setf final-back previous))
     (loop with time = (1- l)
           with last = final-back
           with result = (list (code-to-bigram hmm last))
