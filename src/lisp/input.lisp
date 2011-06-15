@@ -18,6 +18,10 @@
 (defvar *normalizer*
     (make-instance 'id-normalizer))
 
+(defvar *train-corpus* nil)
+
+(defvar *test-corpus* nil)
+
 (defun normalize-token (token)
   (normalize token *normalizer*))
 
@@ -51,8 +55,7 @@
 	     (mapcar #'second x))
 	  ll))
 
-(defvar *train-corpus*
-    (read-tt-corpus *tagger-train-file*))
-
-(defvar *test-corpus*
-    (read-tt-corpus *tagger-eval-file* :symbol-table *symbol-table*))
+(defun read-all-corpora ()
+  (setf *train-corpus* (read-tt-corpus *tagger-train-file*))
+  (setf *test-corpus* (read-tt-corpus *tagger-eval-file*
+                                      :symbol-table *symbol-table*)))
