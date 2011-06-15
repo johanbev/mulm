@@ -19,3 +19,5 @@
 
 (defparameter *tagger-eval-file*
   (merge-pathnames "test.tt" *eval-path*))
+
+(defvar *hmm* nil)

@@ -183,7 +183,7 @@
         for old of-type single-float = (aref viterbi final time)
         for new of-type single-float = (+ (the single-float (aref viterbi previous time))
                      (transition-probability hmm previous final))
-        when (or (null old) (> new old)) do
+        when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))
     (loop
@@ -265,7 +265,7 @@
         for old of-type single-float = (aref viterbi final time)
         for new of-type single-float = (+ (the single-float (aref viterbi previous time))
                      (transition-probability hmm previous final))
-        when (or (null old) (> new old)) do
+        when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))
     (loop
