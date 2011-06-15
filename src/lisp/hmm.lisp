@@ -142,12 +142,11 @@
   (list (elt (hmm-tags hmm) (floor (/ bigram (hmm-n hmm))))
         (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
 
-(defun trigram-probability (hmm t1 t2 current)
-  (the single-float (or (aref (hmm-trigram-table hmm) t1 t2 current) -14.0)))
+(defmacro trigram-probability (hmm t1 t2 current)
+  `(the single-float (or (aref (hmm-trigram-table ,hmm) ,t1 ,t2 ,current) -14.0)))
 
 ;; NOTE very slow
 (defun viterbi-trigram (hmm input)
-  #+:allegro (declare (:explain :variables :types))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
@@ -169,40 +168,38 @@
                       (emission-probability hmm tag form)))
           do (setf (aref pointer state 0) 0))
 
-    (loop for form in (rest input)
-          for time fixnum from 1 to (- l 1)
-          
-          do (loop for current fixnum from 0 to (- n 1)
-                   do (loop for previous fixnum from 0 below nn
-                            for t1 fixnum = (floor (/ previous n))
-                            for t2 fixnum = (mod previous n)
-
-                            for prev-prob of-type single-float = (aref viterbi previous (- time 1))
-                            with old of-type single-float = (aref viterbi current time)
-                            when (> prev-prob old)
-                            do (let ((new (+ prev-prob
-                                             (* 0.4 (transition-probability hmm t2 current))
-                                             (* 0.5 (emission-probability hmm current form))
-                                             (* 0.1 (trigram-probability hmm t1 t2 current)))))
-                                 (declare (type single-float new))
-                                 (when (> new old)
-                                   (setf old new)
-                                   (setf (aref viterbi (+ (* t2 n) current) time) new)
-                                   (setf (aref pointer (+ (* t2 n) current) time) previous))))))
-    
+    (loop 
+	for form in (rest input)
+	for time fixnum from 1 to (- l 1)				    
+	do (loop for current fixnum from 0 to (- n 1)
+	       do (loop 
+		      for previous fixnum from 0 below nn
+		      for prev-prob of-type single-float = (aref viterbi previous (- time 1))
+		      with old of-type single-float = (aref viterbi current time)
+		      when (> prev-prob old)
+		      do (multiple-value-bind (t1 t2)
+			     (truncate previous n)
+			   (declare (type fixnum t1 t2))
+			   (let ((new (+ prev-prob
+					 (* 0.4 (transition-probability hmm t2 current))
+					 (* 0.5 (emission-probability hmm current form))
+					 (* 0.1 (trigram-probability hmm t1 t2 current)))))
+			     (declare (type single-float new))
+			     (when (> new old)
+			       (setf old new)
+			       (setf (aref viterbi (+ (* t2 n) current) time) new)
+			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))    
     (loop
           with time fixnum = (1- l)
           for previous fixnum from 0 below nn
-          for t1 = (floor (/ previous n))
-          for t2 = (mod previous n)
-
-          for new of-type single-float = (+ (aref viterbi previous time)
+          for t1 fixnum = (truncate previous n)
+          for t2 fixnum = (rem previous n)
+          for new of-type single-float = (+ (the single-float (aref viterbi previous time))
                                             (* 0.8 (transition-probability hmm t2 end-tag))
                                             (* 0.2 (trigram-probability hmm t1 t2 end-tag)))
           when (or (null final) (> new final))
           do (setf final new)
           and do (setf final-back previous))
-
     (loop with time = (1- l)
           with last = final-back
           with result = (list (code-to-bigram hmm last))
