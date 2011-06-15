@@ -98,13 +98,21 @@
 ; 5979 Page faults
 
 ;; Trigram results on LW6 pro, Core 2 MacBook Pro (André)
-; 11411 / 11890, 0.960
+; 11411 / 11890, 0.960, no unigram, 0.5 emission, 0.4 bigram, 0.1 trigram
 ; 
 ; User time    =  0:05:44.508
 ; System time  =        1.275
 ; Elapsed time =  0:05:46.635
 ; Allocation   = 17579330356 bytes
 ; 29 Page faults
+
+;; Deleted interpolation trigram results on LW6 pro, Core 2 MacBook Pro (André)
+; 11381 / 11890, 0.957
+;
+; User time    =  0:05:51.877
+; System time  =        1.235
+; Elapsed time =  0:05:51.790
+; Allocation   = 18152190152 bytes
 
 ;; Results on Allegro 8.1, Core 2 2.4 GHz:
 ; cpu time (non-gc) 4,610 msec user, 90 msec system
