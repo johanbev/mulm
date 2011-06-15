@@ -3,6 +3,8 @@
 
 (defvar *hmm*)
 
+(defparameter *estimation-cutoff* 0)
+
 (defstruct hmm
   tag-array
   beam-array
@@ -35,11 +37,37 @@
 (defmethod print-object ((object hmm) stream)
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
-(defmacro transition-probability (hmm previous current)
+(defun transition-probability (hmm previous current &key (order 1) (smoothing :constant))
   ;;
   ;; give a tiny amount of probability to unseen transitions
   ;;
-  `(the single-float (or (aref (hmm-transitions ,hmm) ,previous ,current) -14.0)))
+  (the single-float
+       (log
+        (cond ((and (= order 1) (eql smoothing :constant))
+               (or (aref (hmm-transitions hmm) previous current) (/ 1 1000000)))
+              ((and (= order 1) (eql smoothing :deleted-interpolation))
+               (+ (* (hmm-lambda-1 hmm)
+                     (or (aref (hmm-unigram-table hmm) current)
+                         0))
+                  (* (hmm-lambda-2 hmm)
+                     (or (aref (hmm-transitions hmm) previous current)
+                         0))))
+              ((and (= order 2) (eql smoothing :simple-back-off))
+               (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
+                   (aref (hmm-transitions hmm) (second previous) current)
+                   (aref (hmm-unigram-table hmm) current)
+                   (/ 1 1000000)))
+              ((and (= order 2) (eql smoothing :deleted-interpolation))
+               (+ (* (hmm-lambda-1 hmm)
+                     (or (aref (hmm-unigram-table hmm) current)
+                         0))
+                  (* (hmm-lambda-2 hmm)
+                     (or (aref (hmm-transitions hmm) (second previous) current)
+                         0))
+                  (* (hmm-lambda-3 hmm)
+                     (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
+                         0))))
+              (t (error "What!"))))))
 
 (defmacro emission-probability (hmm state form)
   `(the single-float (or (gethash ,form (aref (the (simple-array t *) (hmm-emissions ,hmm)) ,state)) -14.0)))
@@ -135,12 +163,16 @@
                             do (let* ((bi-count (aref (hmm-transitions hmm) j k))
                                       (uni-count (aref (hmm-unigram-table hmm) k))
                                       (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
-                                            (if (and bi-count (> bi-count 1))
+                                            (if (and bi-count
+                                                     (> bi-count 1)
+                                                     (> bi-count *estimation-cutoff*))
                                               (/ (1- tri-count)
                                                  (1- bi-count))
                                               0)))
                                       (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
-                                            (if (and uni-count (> uni-count 1))
+                                            (if (and uni-count
+                                                     (> uni-count 1)
+                                                     (> uni-count *estimation-cutoff*))
                                               (/ (1- bi-count)
                                                  (1- uni-count))
                                               0)))
@@ -171,32 +203,34 @@
         (loop
             for j from 0 to (- n 1)
             for count = (aref transitions i j)
-            when count do (setf (aref transitions i j) (float (log (/ count total)))))
+            when (and count (> count *estimation-cutoff*))
+            do (setf (aref transitions i j) (float (/ count total))))
         (loop
             with map = (aref (hmm-emissions hmm) i)
             for code being each hash-key in map
             for count = (gethash code map)
-            when count do (setf (gethash code map) (float (log (/ count total))))))
+            when (and count (> count *estimation-cutoff*))
+            do (setf (gethash code map) (float (log (/ count total))))))
 
     (loop for k from 0 below n
           for total = (let ((sum 0))
                         (loop for i from 0 below n
                               do (loop for j from 0 below n
                                        for count = (aref (hmm-trigram-table hmm) i j k)
-                                       when count
+                                       when (and count (> count *estimation-cutoff*))
                                        do (incf sum count)))
                         sum)
           do (loop for i from 0 below n
                    do (loop for j from 0 below n
                             for count = (aref (hmm-trigram-table hmm) i j k)
-                            when count
+                            when (and count (> count *estimation-cutoff*))
                             do (setf (aref (hmm-trigram-table hmm) i j k)
-                                     (float (log (/ count total)))))))
+                                     (float (/ count total))))))
     (loop for i from 0 below n
           for count = (aref (hmm-unigram-table hmm) i)
           with total = (hmm-token-count hmm)
           do (setf (aref (hmm-unigram-table hmm) i)
-                   (float (log (/ count total))))))
+                   (float (/ count total)))))
   
   hmm)
 
@@ -204,14 +238,8 @@
   (list (elt (hmm-tags hmm) (floor (/ bigram (hmm-n hmm))))
         (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
 
-(defmacro trigram-probability (hmm t1 t2 current)
-  `(the single-float (or (aref (hmm-trigram-table ,hmm) ,t1 ,t2 ,current) -14.0)))
-
-(defmacro unigram-probability (hmm current)
-  `(the single-float (or (aref (hmm-unigram-table ,hmm) ,current) -14.0)))
-
 (defun viterbi-trigram (hmm input)
-  (declare (optimize (speed 3) (debug  0) (space 0)))
+  (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
@@ -220,19 +248,16 @@
          (final nil)
          (final-back nil)
          (end-tag (tag-to-code hmm "</s>"))
-         (start-tag (tag-to-code hmm "<s>"))
-         (l1 (hmm-lambda-1 hmm))
-         (l2 (hmm-lambda-2 hmm))
-         (l3 (hmm-lambda-3 hmm)))
+         (start-tag (tag-to-code hmm "<s>")))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
-    (declare (type fixnum n nn l start-tag end-tag)
-             (type single-float l1 l2 l3))
+    (declare (type fixnum n nn l start-tag end-tag))
     (loop with form = (first input)
           for tag fixnum from 0 to (- n 1)
           for state fixnum = (+ (* start-tag n) tag)
           do (setf (aref viterbi state 0)
-                   (+ (transition-probability hmm (tag-to-code hmm "<s>") tag)
+                   (+ (transition-probability hmm (tag-to-code hmm "<s>") tag
+                                              :order 1 :smoothing :deleted-interpolation)
                       (emission-probability hmm tag form)))
           do (setf (aref pointer state 0) 0))
     (loop 
@@ -248,23 +273,22 @@
 			     (truncate previous n)
 			   (declare (type fixnum t1 t2))
 			   (let ((new (+ prev-prob
-                                             (emission-probability hmm current form)
-                                             (* l1 (unigram-probability hmm current))
-                                             (* l2 (transition-probability hmm t2 current))
-                                             (* l3 (trigram-probability hmm t1 t2 current)))))
+                       (emission-probability hmm current form)
+                       (transition-probability hmm (list t1 t2) current :order 2 :smoothing :deleted-interpolation))))
 			     (declare (type single-float new))
 			     (when (> new old)
 			       (setf old new)
 			       (setf (aref viterbi (+ (* t2 n) current) time) new)
-			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))    
+			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))
+         
     (loop
 	with time fixnum = (1- l)
 	for previous fixnum from 0 below nn
 	for t1 fixnum = (truncate previous n)
 	for t2 fixnum = (rem previous n)
 	for new of-type single-float = (+ (the single-float (aref viterbi previous time))
-					  (* l2 (transition-probability hmm t2 end-tag))
-					  (* l3 (trigram-probability hmm t1 t2 end-tag)))
+                                    (transition-probability hmm (list t1 t2) end-tag
+                                                            :order 2 :smoothing :deleted-interpolation))
 	when (or (null final) (> new final))
 	do (setf final new)
 	and do (setf final-back previous))
@@ -276,6 +300,7 @@
           do (push (code-to-bigram hmm state) result)
           finally (return
                    (mapcar #'second result)))))
+         
 
 (defun viterbi-bigram (hmm input)
   (declare (optimize (speed 3) (debug  0) (space 0)))
