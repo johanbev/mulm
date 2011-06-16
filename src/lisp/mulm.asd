@@ -9,4 +9,4 @@
                (:file "symbol-table" :depends-on ("mulm"))
                (:file "hmm" :depends-on ("symbol-table" "input"))
                (:file "evaluate" :depends-on ("hmm")))
-  :depends-on ("cl-heap"))
+  :depends-on ())
