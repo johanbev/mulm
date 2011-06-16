@@ -65,8 +65,8 @@
 			  correct total correct-sequence total-sequence
 			  correct-unknown total-unknown unknown-sequence correct-unknown-sequence)))))
 
-(defun do-evaluation (&key (hmm *hmm*) (corpus *test-corpus*))
-  (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length *test-corpus*))
+(defun do-evaluation (&key (hmm *hmm*) (corpus *wsj-test-corpus*))
+  (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length corpus))
   (time
    (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
        (evaluate hmm corpus)
@@ -80,12 +80,12 @@
      
 ;; Quick function to run standard evaluation
 (defun evaluate-all ()
-  (let ((hmm (train (read-tt-corpus *tagger-train-file*))))
+  (let ((hmm (train (read-tt-corpus *wsj-train-file*))))
     (time (multiple-value-bind (accuracy correct total)
-              (evaluate-hmm hmm *tagger-eval-file* #'viterbi-bigram)
+              (evaluate-hmm hmm *wsj-eval-file* #'viterbi-bigram)
             (format t "~a / ~a, ~,3f~%" correct total accuracy)))
     (time (multiple-value-bind (accuracy correct total)
-              (evaluate-hmm hmm *tagger-eval-file* #'viterbi-trigram)
+              (evaluate-hmm hmm *wsj-eval-file* #'viterbi-trigram)
             (format t "~a / ~a, ~,3f~%" correct total accuracy)))))
 
 ;; Bigram results on LW6 pro, Core 2 MacBook Pro (André)
