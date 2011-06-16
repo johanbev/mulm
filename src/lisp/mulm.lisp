@@ -1,6 +1,8 @@
 (in-package :cl-user)
 
-(defpackage :mulm  (:use "COMMON-LISP"))
+(defpackage :mulm
+  (:use "COMMON-LISP")
+  (:import-from :split-sequence split-sequence split-sequence-if))
 
 (in-package :mulm)
 

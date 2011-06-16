@@ -76,18 +76,16 @@
          appending (list item i))))
 
 (defun read-brown-line (line)
-  (let ((tokens (split-sequence:split-sequence-if #'(lambda (x)
-                                                      (member x '(#\Space #\Tab)))
-                                                  line)))
-    (loop for token in tokens
+  (let ((items (split-sequence-if #'(lambda (x)
+                                      (member x '(#\Space #\Tab)))
+                                  line
+                                  :remove-empty-subseqs t)))
+    (loop for item in items
           ;; Handle cases where the word contains #\/
-          collect (let ((split (split-sequence:split-sequence #\/ token)))
-                    (if (> (length split) 2)
-                      (let ((tag (elt split (1- (length split))))
-                            (parts (subseq split 0 (1- (length split)))))
-                        (list (apply #'concatenate (cons 'string (interleave parts "/")))
-                              tag))
-                      split)))))
+          collect (let* ((split (position #\/ item :from-end t))
+                         (token (subseq item 0 split))
+                         (tag (subseq item (1+ split))))
+                    (list token tag)))))
 
 (defun read-brown-file (file)
   (with-open-file (s file :direction :input)
@@ -101,7 +99,13 @@
   ;; Directory globbing might not work on all systems
   ;; Assumes sorted directory list is returned
   (let* ((brown-glob (merge-pathnames "brown/c*" *eval-path*))
-         (brown-files (directory brown-glob))
+         (brown-files (mapcar #'first
+                              (remove-if-not #'(lambda (x)
+                                                 (cl-ppcre:scan "^c[a-z]\\d\\d" x))
+                                         (sort (loop for file in (directory brown-glob)
+                                                     collect (list file (pathname-name file)))
+                                               #'string-lessp :key #'second)
+                                         :key #'second)))
          (file-split (- (length brown-files)
                         (ceiling (* eval-split (length brown-files)))))
          (train-files (subseq brown-files 0 file-split))
