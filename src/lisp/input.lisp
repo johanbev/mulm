@@ -15,12 +15,19 @@
 (defmethod normalize  (token (normalizer id-normalizer))
   token)
 
+
+;; WSJ tagging evaluation corpus
+(defparameter *wsj-train-file*
+  (merge-pathnames "wsj.tt" *eval-path*))
+
+(defparameter *wsj-eval-file*
+  (merge-pathnames "test.tt" *eval-path*))
+
 (defvar *normalizer*
     (make-instance 'id-normalizer))
 
-(defvar *train-corpus* nil)
-
-(defvar *test-corpus* nil)
+(defvar *wsj-train-corpus* nil)
+(defvar *wsj-test-corpus* nil)
 
 (defun normalize-token (token)
   (normalize token *normalizer*))
@@ -55,7 +62,7 @@
 	     (mapcar #'second x))
 	  ll))
 
-(defun read-all-corpora ()
-  (setf *train-corpus* (read-tt-corpus *tagger-train-file*))
-  (setf *test-corpus* (read-tt-corpus *tagger-eval-file*
-                                      :symbol-table *symbol-table*)))
+(defun read-wsj-corpus ()
+  (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
+  (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*
+                                          :symbol-table *symbol-table*)))
