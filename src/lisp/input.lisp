@@ -66,3 +66,47 @@
   (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
   (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*
                                           :symbol-table *symbol-table*)))
+;; Brown corpus
+(defvar *brown-train-corpus* nil)
+(defvar *brown-eval-corpus* nil)
+
+(defun interleave (list item)
+  (rest
+   (loop for i in (reverse list)
+         appending (list item i))))
+
+(defun read-brown-line (line)
+  (let ((tokens (split-sequence:split-sequence-if #'(lambda (x)
+                                                      (member x '(#\Space #\Tab)))
+                                                  line)))
+    (loop for token in tokens
+          ;; Handle cases where the word contains #\/
+          collect (let ((split (split-sequence:split-sequence #\/ token)))
+                    (if (> (length split) 2)
+                      (let ((tag (elt split (1- (length split))))
+                            (parts (subseq split 0 (1- (length split)))))
+                        (list (apply #'concatenate (cons 'string (interleave parts "/")))
+                              tag))
+                      split)))))
+
+(defun read-brown-file (file)
+  (with-open-file (s file :direction :input)
+    (loop for input  = (read-line s nil nil)
+          for line = (or input (string-trim '(#\Space #\Tab #\Newline) input))
+          until (null input)
+          unless (string-equal "" line)
+          collect (read-brown-line line))))
+
+(defun read-brown-corpus (&optional (eval-split 0.1))
+  ;; Directory globbing might not work on all systems
+  ;; Assumes sorted directory list is returned
+  (let* ((brown-glob (merge-pathnames "brown/c*" *eval-path*))
+         (brown-files (directory brown-glob))
+         (file-split (- (length brown-files)
+                        (ceiling (* eval-split (length brown-files)))))
+         (train-files (subseq brown-files 0 file-split))
+         (eval-files (subseq brown-files file-split)))
+    (setf *brown-train-corpus* (loop for file in train-files
+                                     appending (read-brown-file file)))
+    (setf *brown-eval-corpus* (loop for file in eval-files
+                                     appending (read-brown-file file)))))
