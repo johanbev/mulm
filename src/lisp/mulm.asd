@@ -4,11 +4,13 @@
   :author "Johan Benum Evensberget, André Lynum"
   :license "GPL"
   :components ((:file "mulm")
+	       (:file "queue" :depends-on ("mulm"))
                (:file "input" :depends-on ("symbol-table"))
                (:file "stats" :depends-on ("mulm" "input"))
                (:file "symbol-table" :depends-on ("mulm"))
                (:file "hmm" :depends-on ("symbol-table" "input"))
 	       (:file "heap" :depends-on ("mulm"))
 	       (:file "best-first-decode" :depends-on ("heap" "symbol-table" "input" "hmm"))
-               (:file "evaluate" :depends-on ("hmm")))
+               (:file "evaluate" :depends-on ("hmm"))
+  	       (:file "kn" :depends-on ("hmm")))
   :depends-on ())
