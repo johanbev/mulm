@@ -15,9 +15,10 @@
   trigram-table
   unigram-table
   token-count
-  lambda-1
-  lambda-2
-  lambda-3)
+  (lambda-1 0.0 :type single-float)
+  (lambda-2 0.0 :type single-float)
+  (lambda-3 0.0 :type single-float)
+  current-transition-table)
 
 (defun tag-to-code (hmm tag)
   (let ((code (position tag (hmm-tags hmm) :test #'string=)))
@@ -38,39 +39,75 @@
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
 (defun transition-probability (hmm previous current &key (order 1) (smoothing :constant))
+  (declare (type fixnum current order))
+  #+:allegro(declare (:explain :calls :boxing))
   ;;
   ;; give a tiny amount of probability to unseen transitions
   ;;
   (the single-float
-       (log
-        (cond ((and (= order 1) (eql smoothing :constant))
-               (or (aref (hmm-transitions hmm) previous current) (/ 1 1000000)))
+    (log
+     (float
+        (cond ((and (eql order 1) (eql smoothing :constant))
+               (or (aref (hmm-transitions hmm) previous current) 0.000001))
               ((and (= order 1) (eql smoothing :deleted-interpolation))
-               (+ (* (hmm-lambda-1 hmm)
-                     (or (aref (hmm-unigram-table hmm) current)
-                         0))
-                  (* (hmm-lambda-2 hmm)
-                     (or (aref (hmm-transitions hmm) previous current)
-                         0))))
+               (+ (the single-float 
+		    (* (the single-float (hmm-lambda-1 hmm))
+		       (the single-float (or (aref (hmm-unigram-table hmm) current)
+					     0.0))))
+                  (the single-float
+		    (* (the single-float (hmm-lambda-2 hmm))
+		       (the single-float (or (aref (hmm-transitions hmm) previous current)
+					     0.0))))))
               ((and (= order 2) (eql smoothing :simple-back-off))
-               (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
-                   (aref (hmm-transitions hmm) (second previous) current)
-                   (aref (hmm-unigram-table hmm) current)
-                   (/ 1 1000000)))
+	       (the single-float
+		 (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
+		     (aref (hmm-transitions hmm) (second previous) current)
+		     (aref (hmm-unigram-table hmm) current)
+		     0.00000001)))
               ((and (= order 2) (eql smoothing :deleted-interpolation))
-               (+ (* (hmm-lambda-1 hmm)
-                     (or (aref (hmm-unigram-table hmm) current)
-                         0))
-                  (* (hmm-lambda-2 hmm)
-                     (or (aref (hmm-transitions hmm) (second previous) current)
-                         0))
-                  (* (hmm-lambda-3 hmm)
-                     (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
-                         0))))
-              (t (error "What!"))))))
+               (+ (the single-float (* (hmm-lambda-1 hmm)
+				       (the single-float (or (aref (hmm-unigram-table hmm) current)
+					   0.0))))
+                  (the single-float (* (hmm-lambda-2 hmm)
+                     (the single-float (or (aref (hmm-transitions hmm) (second previous) current)
+                         0.0))))
+                  (the single-float (* (hmm-lambda-3 hmm)
+                     (the single-float (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
+                         0.0))))))
+              (t (error "What!")))))))
+
+(defun make-transition-table (hmm order smoothing)
+  (setf (hmm-current-transition-table hmm)
+    (let ((tag-card (hmm-n hmm)))
+      (cond
+       ((= order 1)
+	(let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
+	  (loop
+	      for i from 0 below tag-card
+	      do (loop
+		     for j below tag-card do
+		       (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
+	  table))
+       ((= order 2)
+	(let* ((table (make-array (list tag-card tag-card tag-card) :element-type 'single-float :initial-element most-negative-single-float)))
+	  (loop
+	      for i from 0 below tag-card
+	      do (loop for j  from 0 below tag-card
+		     do (loop
+			    for k from 0 below tag-card do
+			      (setf (aref table i j k) (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
+	  table))))))
+
+(defmacro bi-cached-transition (hmm from to)
+  `(the single-float  
+     (aref (the (simple-array single-float (* *)) (hmm-current-transition-table ,hmm)) ,from ,to)))
+
+(defmacro tri-cached-transition (hmm t1 t2 to)
+  `(the single-float
+     (aref (hmm-current-transition-table ,hmm) ,t1 ,t2 ,to)))
 
 (defmacro emission-probability (hmm state form)
-  `(the single-float (or (gethash ,form (aref (the (simple-array t *) (hmm-emissions ,hmm)) ,state)) -14.0)))
+  `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -14.0)))
 
 (defun partition (list &optional (len 2))
   "Partitions the list into ordered sequences of len consecutive elements."
@@ -273,22 +310,20 @@
 			     (truncate previous n)
 			   (declare (type fixnum t1 t2))
 			   (let ((new (+ prev-prob
-                       (emission-probability hmm current form)
-                       (transition-probability hmm (list t1 t2) current :order 2 :smoothing :deleted-interpolation))))
+					 (emission-probability hmm current form)
+					 (tri-cached-transition hmm  t1 t2 current))))
 			     (declare (type single-float new))
 			     (when (> new old)
 			       (setf old new)
 			       (setf (aref viterbi (+ (* t2 n) current) time) new)
-			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))
-         
+			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))         
     (loop
 	with time fixnum = (1- l)
 	for previous fixnum from 0 below nn
 	for t1 fixnum = (truncate previous n)
 	for t2 fixnum = (rem previous n)
 	for new of-type single-float = (+ (the single-float (aref viterbi previous time))
-                                    (transition-probability hmm (list t1 t2) end-tag
-                                                            :order 2 :smoothing :deleted-interpolation))
+					  (tri-cached-transition hmm  t1 t2 end-tag))
 	when (or (null final) (> new final))
 	do (setf final new)
 	and do (setf final-back previous))
@@ -299,24 +334,27 @@
           for state = (aref pointer last i) then (aref pointer state i)
           do (push (code-to-bigram hmm state) result)
           finally (return
-                   (mapcar #'second result)))))
-         
+		    (mapcar #'second result)))))
 
+;;; hvor conser denne?
 (defun viterbi-bigram (hmm input)
+  (declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
-         (viterbi (make-array (list n l) :initial-element most-negative-single-float))
+         (viterbi (make-array (list n l) :initial-element most-negative-single-float :element-type 'single-float))
          (pointer (make-array (list n l) :initial-element nil)))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (declare (type fixnum n l))
+    (declare (type (simple-array single-float (* *)) viterbi)
+	     (type (simple-array t (* *)) pointer))
     (loop
         with form of-type fixnum = (first input)
         for state of-type fixnum from 0 to (- n 1)
         do
           (setf (aref viterbi state 0)
-            (+ (transition-probability hmm (tag-to-code hmm "<s>") state)
+            (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
                (emission-probability hmm state form)))
           (setf (aref pointer state 0) 0))
     (loop
@@ -329,11 +367,11 @@
 	      (loop
 		  with old of-type single-float = (aref viterbi current time)
 		  for previous of-type fixnum from 0 to (- n 1)
-		  for prev-prob of-type single-float = (aref viterbi previous (- time 1))
+		  for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
 		  when (> prev-prob old) do
 		    (let ((new
 			   (+ prev-prob
-			      (transition-probability hmm previous current)
+			      (bi-cached-transition hmm previous current)
 			      (emission-probability hmm current form))))
 		      (declare (type single-float new))
 		      (when (> new old)
@@ -346,14 +384,14 @@
         for previous of-type fixnum from 0 to (- n 1)
         for old of-type single-float = (aref viterbi final time)
         for new of-type single-float = (+ (the single-float (aref viterbi previous time))
-                     (transition-probability hmm previous final))
+					  (bi-cached-transition hmm previous final))
         when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time = (- l 1)
-        with last = (aref pointer final time)
+        with last  = (aref pointer final time)
         with tags = (hmm-tags hmm)
         with result = (list (elt tags last))
         for i of-type fixnum from time downto 1
@@ -363,23 +401,26 @@
 
 (defparameter *beam-pruned* 0)
 
-(defun beam-viterbi (hmm input &key (beam-width 1.807))
+(defun beam-viterbi (hmm input &key (beam-width 3.807))
+  (declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (setf beam-width (float beam-width))
   (let* ((n (hmm-n hmm))
          (l (length input))
-         (viterbi (make-array (list n l) :initial-element most-negative-single-float))
+         (viterbi (make-array (list n l) :initial-element most-negative-single-float :element-type 'single-float))
          (pointer (make-array (list n l) :initial-element nil)))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (declare (type fixnum n l)
 	     (type single-float beam-width))
+    (declare (type (simple-array single-float (* *)) viterbi)
+	     (type (simple-array t (* *)) pointer))
     (loop
         with form of-type fixnum = (first input)
         for state of-type fixnum from 0 to (- n 1)
         do
           (setf (aref viterbi state 0)
-            (+ (transition-probability hmm (tag-to-code hmm "<s>") state)
+            (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
                (emission-probability hmm state form)))
           (setf (aref pointer state 0) 0))
     (loop
@@ -401,10 +442,10 @@
 		    for index fixnum from 0 to (1- (fill-pointer indices))
 		    for previous = (aref indices index)
 		    for prev-prob of-type single-float = (aref viterbi previous prev-time)
-		    when (and (> prev-prob old) (> prev-prob best-hypothesis))
+		    when (and (> prev-prob old)); (> prev-prob best-hypothesis))
 		    do
 		      (let ((new (+ prev-prob
-				    (the single-float (transition-probability hmm previous current))
+				    (the single-float (bi-cached-transition hmm previous current))
 				    (emission-probability hmm current form))))
 			(declare (type single-float new))
 			(when (> new trigger)
@@ -428,7 +469,7 @@
         for previous of-type fixnum from 0 to (- n 1)
         for old of-type single-float = (aref viterbi final time)
         for new of-type single-float = (+ (the single-float (aref viterbi previous time))
-                     (transition-probability hmm previous final))
+                     (bi-cached-transition hmm previous final))
         when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))

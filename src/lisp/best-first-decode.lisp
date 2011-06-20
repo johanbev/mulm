@@ -1,9 +1,9 @@
 (in-package :mulm)
 
 (defstruct node
-  time
-  value
-  (probability most-negative-single-float)
+  (time 0 :type fixnum)
+  (value 0 :type fixnum)
+  (probability most-negative-single-float :type single-float)
   backpointer)
 
 (defmethod print-object (( object node) stream)
@@ -22,14 +22,19 @@
 					 (emission-probability ,hmm n ,observation))
       when (or (not ,limit-array)
 	       (> prob (the single-float (aref ,limit-array time n))))
+       do (incf num-nodes) and
       collect (make-node
 		     :time time
 		     :value n
 		     :probability prob
 		     :backpointer ,from)))
 
+(defparameter num-nodes 0)
+
 (defun trellis-best-first (hmm input)
+  (declare (:explain :boxing :calls))
   (declare (optimize (speed 3) (space 0) (debug 0)))
+  (setf num-nodes 0)
   ;; First allocate the trellis and agenda
   (let* ((length (length input))
 	 (input (apply #'vector input))
@@ -40,6 +45,8 @@
 	 (*heap* (make-heap))
 	 (start-node (make-node :time -1 :probability 0.0 :value (tag-to-code hmm "<s>"))))
     ;; make transitions from the start node and enqueue
+    (declare (type (simple-array single-float (* *)) limit-array)
+	     (type (simple-array t (* *)) trellis))
     (loop
 	for node in (make-all-transitions hmm start-node (elt input 0))
 	do (multiple-value-bind (it index)
@@ -52,6 +59,7 @@
 	when (and (= (tag-to-code hmm "</s>") (node-value next))
 		  (= length (node-time next))) do
 	  ;; first node to be dequeued at the end with end-tag is best
+	  (format t "~a ~a ~%" (* tag-card length) num-nodes) 
 	  (return (backtrack hmm next))
 	when (= (node-time next) (1- length)) do
 	  (add-to-heap (+ (the single-float (node-probability next))
@@ -72,11 +80,10 @@
 		   (setf (aref limit-array (node-time node) (node-value node)) (node-probability node))
 		   (if (aref trellis (node-time node) (node-value node))
 		       (adjust-priority (aref trellis (node-time node) (node-value node)) 
-					(node-probability node))
+					(the single-float (node-probability node)))
 		     (multiple-value-bind (it index)
 			 (add-to-heap (node-probability node) node)
 		       (setf (aref trellis (node-time node) (node-value node)) index)))))))
-
 
 (defun backtrack (hmm node)
   (loop
@@ -87,3 +94,22 @@
       do (push value path)
 	 (setf node (node-backpointer node))
       finally (return (rest path))))
+
+
+(defmacro make-all-trigram-transitions (hmm from observation &key limit-array)
+  `(loop
+       with time fixnum = (1+  (node-time ,from))
+       for n fixnum from 0 below (hmm-n ,hmm)
+       for prob of-type single-float = (+ (the single-float (node-probability ,from))
+					  (tri-cached-transition ,hmm 
+								 (node-value (node-backpointer ,from))
+								 (node-value ,from)  n)
+					  (emission-probability ,hmm n ,observation))
+       when (or (not ,limit-array)
+		(> prob (the single-float (aref ,limit-array time n))))
+       do (incf num-nodes) and
+       collect (make-node
+		     :time time
+		     :value n
+		     :probability prob
+		     :backpointer ,from)))

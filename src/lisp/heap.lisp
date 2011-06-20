@@ -1,7 +1,7 @@
 (in-package :mulm)
 
 (defstruct heap
-  (backing-array (make-array 100 :fill-pointer 1 :adjustable t))
+  (backing-array (make-array 10000 :fill-pointer 1 :adjustable t))
   next)
 
 (defmacro parent (idx)
