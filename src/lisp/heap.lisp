@@ -1,27 +1,31 @@
 (in-package :mulm)
 
 (defstruct heap
-  (backing-array (make-array 100 :fill-pointer 1 :adjustable t))
+  (backing-array (make-array 20000 :fill-pointer 1 :adjustable t) :type (array t (*)))
   next)
 
+(declaim (optimize (speed 3) (debug 0)))
+
+
 (defmacro parent (idx)
-  `(truncate ,idx 2))
+  `(the fixnum (truncate ,idx 2)))
 
 (defmacro left-child (idx)
-  `(* ,idx 2))
+  `(the fixnum (* ,idx 2)))
 
 (defmacro right-child (idx)
-  `(1+ (* ,idx 2)))
+  `(the fixnum (1+ (the fixnum (* ,idx 2)))))
 
 (defparameter *heap* nil)
 
 (defun percolate-up (idx &key (heap *heap*))
+  (declare (type fixnum idx))
   (if (= 1 idx)
       1
     (let ((val (aref (heap-backing-array heap) idx))
 	  (parent (aref (heap-backing-array heap) (parent idx))))
-      (if (< (car parent)
-	     (car val))
+      (if (< (the single-float (car parent))
+	     (the single-float (car val)))
 	  (progn
 	    (psetf (aref (heap-backing-array heap) idx) parent
 		   (aref (heap-backing-array heap) (parent idx)) val)
@@ -29,48 +33,53 @@
 	idx))))
 
 (defun percolate-down (idx &key (heap *heap*))
+  (declare (type fixnum idx))
   (let ((val (aref (heap-backing-array heap) idx))
 	(size (fill-pointer (heap-backing-array heap)))
 	(left (left-child idx))
+	(arr (heap-backing-array heap))
 	(right (right-child idx)))
+    (declare (type fixnum left right size))
+    (declare (type (array t (*)) arr))
     (cond
      ((> left size) idx) ;; at end
      ;; can now have left or left and right child
      ((= left size) ;; had only left child
-      (when (> (car (aref (heap-backing-array heap) left))
-	       (car val))
+      (when (> (the single-float (car (aref arr left)))
+	       (the single-float (car val)))
 	(psetf 
-	  (aref (heap-backing-array heap) idx)
-	  (aref (heap-backing-array heap) left)
-	  (aref (heap-backing-array heap) left)
+	  (aref arr idx)
+	  (aref arr left)
+	  (aref arr left)
 	  val))
       left)
      (t ;;both left and right
-      (let ((left-val (car (aref (heap-backing-array heap) left)))
-	    (right-val (car (aref (heap-backing-array heap) right))))
+      (let ((left-val (car (aref arr left)))
+	    (right-val (car (aref arr right))))
+	(declare (type single-float left-val right-val))
 	(if (> left-val right-val)
-	    (if (> left-val (car val))
+	    (if (> left-val (the single-float (car val)))
 		(progn
 		  (psetf 
-		      (aref (heap-backing-array heap) idx)
-		    (aref (heap-backing-array heap) left)
-		    (aref (heap-backing-array heap) left)
+		      (aref arr idx)
+		    (aref arr left)
+		    (aref arr left)
 		    val)
 		  (percolate-down left))
 	      idx)
-	  (if (>= right-val (car val))
+	  (if (>= right-val (the single-float (car val)))
 	      (progn
 		(psetf 
-		    (aref (heap-backing-array heap) idx)
-		  (aref (heap-backing-array heap) right)
-		  (aref (heap-backing-array heap) right)
+		    (aref arr idx)
+		  (aref arr right)
+		  (aref arr right)
 		  val)
 		(percolate-down right))
 	    idx)))))))
       
 
-(defun add-to-heap (priority element &key (heap *heap*))
-  (vector-push-extend (cons priority element) (heap-backing-array heap))
+(defun add-to-heap (pack &key (heap *heap*))
+  (vector-push-extend pack (heap-backing-array heap))
   (percolate-up (1- (fill-pointer (heap-backing-array heap)))))
 
 (defun pop-heap (&key (heap *heap*))
