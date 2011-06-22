@@ -7,8 +7,6 @@
   backpointer)
 
 
-
-
 (defvar *minimum-transition* 0.0)
 
 (defvar *max-emission-table* )
@@ -51,8 +49,8 @@
 (defmacro hypothesise-cost (current time length)
   `(the single-float
      (+
-      (the single-float (aref *emission-array* ,time))
-      (the single-float (* *minimum-transition* (float (- ,length ,time))))
+      (the single-float (aref (the (simple-array single-float (*)) *emission-array*) ,time))
+      (the single-float (* (the single-float *minimum-transition*) (float (- ,length ,time))))
       (the single-float ,current))))
   
 (defmethod print-object (( object node) stream)
@@ -78,10 +76,13 @@
 			 :backpointer ,from)
 			generation-vector)))
 
-(defun trellis-best-first (hmm input &key (verbose nil))
-  #+:allegro(declare (:explain :variables :calls))
-  (declare (optimize (speed 3) (space 0) (debug 0) (safety 1)))
-  (setf *emission-array* (make-emission-array input))  
+(defparameter num-nodes 0)
+
+(defun trellis-best-first (hmm input)
+  #+:allegro(declare (:explain :calls :boxing))
+  (declare (optimize (speed 3) (space 0) (debug 0)))
+  (setf *emission-array* (make-emission-array input))
+  (setf num-nodes 0)
   ;; First allocate the trellis and agenda
   (let* ((length (length  input))
 	 (input (apply #'vector input))
@@ -94,10 +95,10 @@
 	 (start-node (make-node :time -1 :probability 0.0 :value (tag-to-code hmm "<s>")))
 	 (end-tag (tag-to-code hmm "</s>")))
     (declare (dynamic-extent trellis *heap* generation-vector limit-array input))
-    (declare (type (simple-array single-float (* *)) limit-array))
-    (declare (type (simple-array t (* *)) trellis))
-    (declare (type fixnum end-tag adjusts adds deqs tag-card length))
     ;; make transitions from the start node and enqueue
+    (declare (type (simple-array single-float (* *)) limit-array)
+	     (type (simple-array t (* *)) trellis)
+	     (type (simple-array t (*)) input))
     (loop
        initially (make-all-transitions hmm start-node (elt input 0))
        for node of-type node = (vector-pop generation-vector)
@@ -108,50 +109,53 @@
 	    (declare (fixnum time value))
 	    (declare (single-float probability))
 	    (multiple-value-bind (it)
-		(the fixnum (add-to-heap  (cons (hypothesise-cost probability time length) node)))
+		(the fixnum (add-to-heap (cons (hypothesise-cost probability time length) node)))
 	      (setf (aref trellis time value) it)
 	      (setf (aref limit-array time value) probability))))
     (loop
-       for next of-type node = (pop-heap)
-       while next
-       ;; update our prob with best:
-       when (and (= end-tag (node-value next))
+	for next of-type node = (pop-heap)
+	while next
+
+        ;; first node to be dequeued at the end with end-tag is best
+	      
+	when (and (= end-tag (node-value next))
 		 (= length (node-time next))) do
-       ;; first node to be dequeued at the end with end-tag is best
 	  (return (backtrack hmm next))
+	  
 	when (= (node-time next) (the fixnum (1- length))) do
-	 (let ((prob (+ (node-probability next)
+	  (let ((prob (+ (node-probability next)
 			 (bi-cached-transition hmm (node-value next)
-					      end-tag))))
-	   (declare (type single-float prob))
-	   (add-to-heap (cons prob
-			(make-node :time (the fixnum (1+ (node-time next)))
-				   :value end-tag
-				   :probability prob
-				   :backpointer next))))
-       ;; pre-end nodes enqueue an end node
-       else do
-	 (loop 
-	    initially (make-all-transitions hmm next (elt input (the fixnum (1+ (node-time next))))
-					    :limit-array limit-array)
-	    for node of-type node = (vector-pop generation-vector)
-	    while node
-	    when (> (the single-float (node-probability node))
-		    (the single-float (aref limit-array (node-time node) (node-value node))))
-	    do
-	      (setf (aref limit-array (node-time node) (node-value node)) (node-probability node))		   
-	      (if (aref trellis (node-time node) (node-value node))
-		  (progn 
-		    (setf (aref trellis (node-time node) (node-value node))
-			  (adjust-priority (aref trellis (node-time node) (node-value node)) 
-					   (hypothesise-cost (node-probability node) (node-time node) length)))
-		    (setf (cdr (aref (heap-backing-array *heap*)
-				     (aref trellis (node-time node)
-					   (node-value node))))
-			  node))			 
-		  (multiple-value-bind (it)
-		      (add-to-heap (cons (hypothesise-cost (node-probability node) (node-time node) length) node))
-		    (setf (aref trellis (node-time node) (node-value node)) it)))))))
+					       end-tag))))
+	    (declare (type single-float prob))
+	    (add-to-heap (cons prob
+			       (make-node :time (the fixnum (1+ (node-time next)))
+					  :value end-tag
+					  :probability prob
+					  :backpointer next))))
+	  
+	  ;; pre-end nodes enqueue an end node
+	else do
+	     (loop 
+		 initially (make-all-transitions hmm next (elt input (the fixnum (1+ (node-time next))))
+						 :limit-array limit-array)
+		 for node of-type node = (vector-pop generation-vector)
+		 while node
+		 when (> (the single-float (node-probability node))
+			 (the single-float (aref limit-array (node-time node) (node-value node))))
+		 do
+		   (setf (aref limit-array (node-time node) (node-value node)) (node-probability node))		   
+		   (if (aref trellis (node-time node) (node-value node))
+		       (progn 
+			 (setf (aref trellis (node-time node) (node-value node))
+			   (adjust-priority (aref trellis (node-time node) (node-value node)) 
+					    (hypothesise-cost (node-probability node) (node-time node) length)))
+			 (setf (cdr (aref (heap-backing-array *heap*)
+					  (aref trellis (node-time node)
+						(node-value node))))
+			   node))			 
+		     (multiple-value-bind (it)
+			 (add-to-heap (cons (hypothesise-cost (node-probability node) (node-time node) length) node))
+		       (setf (aref trellis (node-time node) (node-value node)) it)))))))
 
 (defun backtrack (hmm node)
   (loop
@@ -162,3 +166,22 @@
       do (push value path)
 	 (setf node (node-backpointer node))
       finally (return (rest path))))
+
+
+(defmacro make-all-trigram-transitions (hmm from observation &key limit-array)
+  `(loop
+       with time fixnum = (1+  (node-time ,from))
+       for n fixnum from 0 below (hmm-n ,hmm)
+       for prob of-type single-float = (+ (the single-float (node-probability ,from))
+					  (tri-cached-transition ,hmm 
+								 (node-value (node-backpointer ,from))
+								 (node-value ,from)  n)
+					  (emission-probability ,hmm n ,observation))
+       when (or (not ,limit-array)
+		(> prob (the single-float (aref ,limit-array time n))))
+       do (incf num-nodes) and
+       collect (make-node
+		     :time time
+		     :value n
+		     :probability prob
+		     :backpointer ,from)))
