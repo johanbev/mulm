@@ -42,6 +42,9 @@
 
 (defun do-evaluation (&key (hmm *hmm*) (corpus *wsj-test-corpus*) (clobber t))
   (unless hmm
+    (format t "~&do-evaluation(): No model! Using WSJ")
+    (unless *wsj-train-corpus*
+      (read-wsj-corpus))
     (setf hmm (train *wsj-train-corpus*)))
   (cond
    ((and (eq *decoder* #'viterbi-bigram) clobber)
