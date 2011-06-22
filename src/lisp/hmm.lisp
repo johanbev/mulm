@@ -67,13 +67,14 @@
               ((and (= order 2) (eql smoothing :deleted-interpolation))
                (+ (the single-float (* (hmm-lambda-1 hmm)
 				       (the single-float (or (aref (hmm-unigram-table hmm) current)
-					   0.0))))
+							     0.0))))
                   (the single-float (* (hmm-lambda-2 hmm)
                      (the single-float (or (aref (hmm-transitions hmm) (second previous) current)
-                         0.0))))
+					   0.0))))
                   (the single-float (* (hmm-lambda-3 hmm)
-                     (the single-float (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
-                         0.0))))))
+				       (the single-float (or (aref (hmm-trigram-table hmm) (first previous) (second previous)
+								   current)
+							     0.0))))))
               (t (error "What!")))))))
 
 (defun make-transition-table (hmm order smoothing)
@@ -235,7 +236,9 @@
       for i from 0 to (- n 1)
       for total = (loop
                       for j from 0 to (- n 1)
-                      sum (or (aref transitions i j) 0))
+                      for count = (aref transitions i j)
+                      when (and count (> count *estimation-cutoff*))
+                      sum count)
       do
         (loop
             for j from 0 to (- n 1)
@@ -260,7 +263,7 @@
           do (loop for i from 0 below n
                    do (loop for j from 0 below n
                             for count = (aref (hmm-trigram-table hmm) i j k)
-                            when (and count (> count *estimation-cutoff*))
+                            when (and count (> count 1))
                             do (setf (aref (hmm-trigram-table hmm) i j k)
                                      (float (/ count total))))))
     (loop for i from 0 below n

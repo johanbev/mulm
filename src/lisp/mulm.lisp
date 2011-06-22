@@ -1,6 +1,8 @@
 (in-package :cl-user)
 
-(defpackage :mulm  (:use "COMMON-LISP"))
+(defpackage :mulm
+  (:use "COMMON-LISP")
+  (:import-from :split-sequence split-sequence split-sequence-if))
 
 (in-package :mulm)
 
@@ -12,12 +14,5 @@
 ;; default placement of evaluation corpora is beside the src directory
 (defparameter *eval-path*
   (merge-pathnames "../../eval/" *package-path*))
-
-;; POS tagging evaluation corpus
-(defparameter *tagger-train-file*
-  (merge-pathnames "wsj.tt" *eval-path*))
-
-(defparameter *tagger-eval-file*
-  (merge-pathnames "test.tt" *eval-path*))
 
 (defvar *hmm* nil)
