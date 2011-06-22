@@ -49,8 +49,8 @@
 (defmacro hypothesise-cost (current time length)
   `(the single-float
      (+
-      (the single-float (aref *emission-array* ,time))
-      (the single-float (* *minimum-transition* (float (- ,length ,time))))
+      (the single-float (aref (the (simple-array single-float (*)) *emission-array*) ,time))
+      (the single-float (* (the single-float *minimum-transition*) (float (- ,length ,time))))
       (the single-float ,current))))
   
 (defmethod print-object (( object node) stream)
@@ -79,7 +79,9 @@
 (defparameter num-nodes 0)
 
 (defun trellis-best-first (hmm input)
+  #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (space 0) (debug 0)))
+  (setf *emission-array* (make-emission-array input))
   (setf num-nodes 0)
   ;; First allocate the trellis and agenda
   (let* ((length (length  input))
@@ -93,11 +95,10 @@
 	 (start-node (make-node :time -1 :probability 0.0 :value (tag-to-code hmm "<s>")))
 	 (end-tag (tag-to-code hmm "</s>")))
     (declare (dynamic-extent trellis *heap* generation-vector limit-array input))
-    (declare (type (simple-array single-float (* *)) limit-array))
-    (declare (type (simple-array t (* *)) trellis))
     ;; make transitions from the start node and enqueue
     (declare (type (simple-array single-float (* *)) limit-array)
-	     (type (simple-array t (* *)) trellis))
+	     (type (simple-array t (* *)) trellis)
+	     (type (simple-array t (*)) input))
     (loop
        initially (make-all-transitions hmm start-node (elt input 0))
        for node of-type node = (vector-pop generation-vector)
@@ -108,7 +109,7 @@
 	    (declare (fixnum time value))
 	    (declare (single-float probability))
 	    (multiple-value-bind (it)
-		(the fixnum (add-to-heap  (cons (hypothesise-cost probability time length) node)))
+		(the fixnum (add-to-heap (cons (hypothesise-cost probability time length) node)))
 	      (setf (aref trellis time value) it)
 	      (setf (aref limit-array time value) probability))))
     (loop

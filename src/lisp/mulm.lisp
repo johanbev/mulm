@@ -15,9 +15,9 @@
 
 ;; POS tagging evaluation corpus
 (defparameter *tagger-train-file*
-  (merge-pathnames "wsj.tt" *eval-path*))
+  (merge-pathnames "wsj/wsj.tt" *eval-path*))
 
 (defparameter *tagger-eval-file*
-  (merge-pathnames "test.tt" *eval-path*))
+  (merge-pathnames "wsj/test.tt" *eval-path*))
 
 (defvar *hmm* nil)

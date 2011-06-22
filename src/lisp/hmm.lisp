@@ -106,7 +106,7 @@
      (aref (hmm-current-transition-table ,hmm) ,t1 ,t2 ,to)))
 
 (defmacro emission-probability (hmm state form)
-  `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -14.0)))
+  `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
 
 (defun partition (list &optional (len 2))
   "Partitions the list into ordered sequences of len consecutive elements."
@@ -202,8 +202,8 @@
                                             (if (and bi-count
                                                      (> bi-count 1)
                                                      (> bi-count *estimation-cutoff*))
-                                              (/ (1- tri-count)
-                                                 (1- bi-count))
+						(/ (1- tri-count)
+						   (1- bi-count))
                                               0)))
                                       (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
                                             (if (and uni-count
@@ -230,43 +230,46 @@
 (defun train-hmm (hmm)
   (let ((n (hmm-n hmm)))
     (loop
-      with transitions = (hmm-transitions hmm)
-      for i from 0 to (- n 1)
-      for total = (loop
-                      for j from 0 to (- n 1)
-                      sum (or (aref transitions i j) 0))
-      do
-        (loop
-            for j from 0 to (- n 1)
-            for count = (aref transitions i j)
-            when (and count (> count *estimation-cutoff*))
-            do (setf (aref transitions i j) (float (/ count total))))
-        (loop
-            with map = (aref (hmm-emissions hmm) i)
-            for code being each hash-key in map
-            for count = (gethash code map)
-            when (and count (> count *estimation-cutoff*))
-            do (setf (gethash code map) (float (log (/ count total))))))
-
+	with transitions = (hmm-transitions hmm)
+	for i from 0 to (- n 1)
+	for total = (loop
+			for j from 0 to (- n 1)
+			sum (or (aref transitions i j) 0))
+	do
+	  (loop
+	      for j from 0 to (- n 1)
+	      for count = (aref transitions i j)
+	      when (and count (> count *estimation-cutoff*))
+	      do (setf (aref transitions i j) (float (/ count total))))
+		      
+	  (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+				     (hash-table-sum (aref (hmm-emissions hmm) i)))
+	  (loop
+	      with map = (aref (hmm-emissions hmm) i)
+	      for code being each hash-key in map
+	      for count = (gethash code map)
+	      when (and count (> count *estimation-cutoff*))
+	      do (setf (gethash code map) (float (log (/ count total))))))
+	  
     (loop for k from 0 below n
-          for total = (let ((sum 0))
-                        (loop for i from 0 below n
-                              do (loop for j from 0 below n
-                                       for count = (aref (hmm-trigram-table hmm) i j k)
-                                       when (and count (> count *estimation-cutoff*))
-                                       do (incf sum count)))
-                        sum)
-          do (loop for i from 0 below n
-                   do (loop for j from 0 below n
-                            for count = (aref (hmm-trigram-table hmm) i j k)
-                            when (and count (> count *estimation-cutoff*))
-                            do (setf (aref (hmm-trigram-table hmm) i j k)
-                                     (float (/ count total))))))
+	for total = (let ((sum 0))
+		      (loop for i from 0 below n
+			  do (loop for j from 0 below n
+				 for count = (aref (hmm-trigram-table hmm) i j k)
+				 when (and count (> count *estimation-cutoff*))
+				 do (incf sum count)))
+		      sum)
+	do (loop for i from 0 below n
+	       do (loop for j from 0 below n
+		      for count = (aref (hmm-trigram-table hmm) i j k)
+		      when (and count (> count *estimation-cutoff*))
+		      do (setf (aref (hmm-trigram-table hmm) i j k)
+			   (float (/ count total))))))
     (loop for i from 0 below n
-          for count = (aref (hmm-unigram-table hmm) i)
-          with total = (hmm-token-count hmm)
-          do (setf (aref (hmm-unigram-table hmm) i)
-                   (float (/ count total)))))
+	for count = (aref (hmm-unigram-table hmm) i)
+	with total = (hmm-token-count hmm)
+	do (setf (aref (hmm-unigram-table hmm) i)
+	     (float (/ count total)))))
   
   hmm)
 
