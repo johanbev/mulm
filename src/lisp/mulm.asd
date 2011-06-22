@@ -14,4 +14,4 @@
 	       (:file "gt" :depends-on ("stats" "input" "hmm"))
 	       (:file "best-first-decode" :depends-on ("heap" "symbol-table" "input" "hmm"))
                (:file "evaluate" :depends-on ("hmm")))
-  :depends-on ("cl-heap" "split-sequence" "cl-ppcre"))
+  :depends-on ("split-sequence" "cl-ppcre"))
