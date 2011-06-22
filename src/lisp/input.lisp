@@ -15,12 +15,19 @@
 (defmethod normalize  (token (normalizer id-normalizer))
   token)
 
+
+;; WSJ tagging evaluation corpus
+(defparameter *wsj-train-file*
+  (merge-pathnames "wsj.tt" *eval-path*))
+
+(defparameter *wsj-eval-file*
+  (merge-pathnames "test.tt" *eval-path*))
+
 (defvar *normalizer*
     (make-instance 'id-normalizer))
 
-(defvar *train-corpus* nil)
-
-(defvar *test-corpus* nil)
+(defvar *wsj-train-corpus* nil)
+(defvar *wsj-test-corpus* nil)
 
 (defun normalize-token (token)
   (normalize token *normalizer*))
@@ -55,7 +62,55 @@
 	     (mapcar #'second x))
 	  ll))
 
-(defun read-all-corpora ()
-  (setf *train-corpus* (read-tt-corpus *tagger-train-file*))
-  (setf *test-corpus* (read-tt-corpus *tagger-eval-file*
-                                      :symbol-table *symbol-table*)))
+(defun read-wsj-corpus ()
+  (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
+  (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*
+                                          :symbol-table *symbol-table*)))
+;; Brown corpus
+(defvar *brown-train-corpus* nil)
+(defvar *brown-eval-corpus* nil)
+
+(defun interleave (list item)
+  (rest
+   (loop for i in (reverse list)
+         appending (list item i))))
+
+(defun read-brown-line (line)
+  (let ((items (split-sequence-if #'(lambda (x)
+                                      (member x '(#\Space #\Tab)))
+                                  line
+                                  :remove-empty-subseqs t)))
+    (loop for item in items
+          ;; Handle cases where the word contains #\/
+          collect (let* ((split (position #\/ item :from-end t))
+                         (token (subseq item 0 split))
+                         (tag (subseq item (1+ split))))
+                    (list token tag)))))
+
+(defun read-brown-file (file)
+  (with-open-file (s file :direction :input)
+    (loop for input  = (read-line s nil nil)
+          for line = (or input (string-trim '(#\Space #\Tab #\Newline) input))
+          until (null input)
+          unless (string-equal "" line)
+          collect (read-brown-line line))))
+
+(defun read-brown-corpus (&optional (eval-split 0.1))
+  ;; Directory globbing might not work on all systems
+  ;; Assumes sorted directory list is returned
+  (let* ((brown-glob (merge-pathnames "brown/c*" *eval-path*))
+         (brown-files (mapcar #'first
+                              (remove-if-not #'(lambda (x)
+                                                 (cl-ppcre:scan "^c[a-z]\\d\\d" x))
+                                         (sort (loop for file in (directory brown-glob)
+                                                     collect (list file (pathname-name file)))
+                                               #'string-lessp :key #'second)
+                                         :key #'second)))
+         (file-split (- (length brown-files)
+                        (ceiling (* eval-split (length brown-files)))))
+         (train-files (subseq brown-files 0 file-split))
+         (eval-files (subseq brown-files file-split)))
+    (setf *brown-train-corpus* (loop for file in train-files
+                                     appending (read-brown-file file)))
+    (setf *brown-eval-corpus* (loop for file in eval-files
+                                     appending (read-brown-file file)))))
