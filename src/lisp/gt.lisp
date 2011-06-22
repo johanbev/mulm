@@ -33,25 +33,47 @@
      (exp (- (+ (* (1+ r) a) b)
 	     (+ (* r a) b)))))
 
-(defun make-good-turing-estimate (counts total)
-  (let* ((coc-table (coc-table counts))
-	 (coc-list (coc-list coc-table))
-	 (offset (min (find-contig coc-list) 25)))
-    (unless (> 3 offset)
-      (let*
-	  ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
-	   (a (avg-list (mapcar #'first params)))
-	   (b (avg-list (mapcar #'second params))))
-	(loop
-	    for key being the hash-keys in counts
-	    for val = (gethash key counts)
-	    when (< val offset)
-	    do (setf (gethash key counts)
-		 (adjust-count val a b))
-	    finally (setf (gethash :unk counts)
-		      (* (gethash :unk counts 0)
-			 (adjust-count 0 a b))))))))
-    
+(defun make-good-turing-estimate (counts total &optional tag)
+  (declare (ignorable total))
+  (cond 
+   ((< (hash-table-count counts) 100) counts)
+   (t
+    (let* ((coc-table (coc-table counts))
+	   (coc-list (coc-list coc-table))
+	   (offset (min (find-contig coc-list) 6)))
+      (unless (> 3 offset)
+	(let*
+	    ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
+	     (a (avg-list (mapcar #'first params)))
+	     (b (avg-list (mapcar #'second params))))
+	  (loop
+	      for key being the hash-keys in counts
+	      for val = (gethash key counts)
+	      when (< val offset)
+	      do (setf (gethash key counts)
+		   (adjust-count val a b))
+	      finally (when tag
+			(format t 
+				"~&make-good-turing-estimate():~% Estimating ~a with ~a emissions and ~a types.
+ A:~,2f [~,2f]  B:~,2f [~,2f] Est. Unknown-count: ~,2f Est. Unknowns: ~,2f
+ New counts: ~{~{~a: ~,2f~}~^, ~}"
+				tag
+				total
+				(hash-table-count counts)
+				a
+				(std-dev (mapcar #'first params))
+				b
+				(std-dev (mapcar #'second params))
+				(adjust-count 0 a b)
+				(* (* (second (first coc-list)) (/ 1 (abs a)))
+				   (adjust-count 0 a b))
+				(mapcar (lambda (x)
+					  (list x (adjust-count x a b)))
+					'(0 1 2 3 4 5 6))))
+		      (setf (gethash :unk counts)
+			(* (* (second (first coc-list)) (/ 1 (abs a)))
+			   (adjust-count 0 a b))))))))))
+
   
 (defun fudge-smoothing (coc-vector)
   (loop
@@ -71,3 +93,12 @@
       for i from 0
       sum x into accu
       finally (return (/ accu i))))
+
+(defun std-dev (values)
+  (loop
+      with average = (avg-list values)
+      for x in values
+      for n from 1
+      summing (expt (- x average) 2) into res
+      finally (return (sqrt (/ res n)))))
+
