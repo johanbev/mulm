@@ -8,12 +8,23 @@
 (defclass normalizer nil nil)
 (defclass downcasing (normalizer) nil)
 (defclass id-normalizer (normalizer) nil)
+(defclass cd-normalizer (normalizer) nil)
 
 (defmethod normalize (token (normalizer downcasing))
   (string-downcase token))
 
 (defmethod normalize  (token (normalizer id-normalizer))
   token)
+
+(defmethod normalize (token (normalizer cd-normalizer))
+  (let ((tok (remove-if (lambda (x) (find x ":,.-/%\\#¤$£€'`()#:;"))
+				(string-downcase token))))
+    (if (string= "" tok)
+	token
+      (if (or (member tok '("one" "two" "three" "four" "five" "six" "seven" "ten" "twenty") :test #'string=)
+	      (numberp (read-from-string tok)))
+	  (prog1 "¦CD¦" )
+	token))))
 
 (defvar *normalizer*
     (make-instance 'id-normalizer))
