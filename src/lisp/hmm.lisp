@@ -344,7 +344,7 @@
 
 ;;; hvor conser denne?
 (defun viterbi-bigram (hmm input)
-  (declare (:explain :calls :boxing))
+  #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
