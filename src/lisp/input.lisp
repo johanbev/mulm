@@ -95,7 +95,7 @@
           collect (let* ((split (position #\/ item :from-end t))
                          (token (subseq item 0 split))
 			 (code (symbol-to-code (normalize-token token)))
-                         (tag (subseq item (1+ split))))
+                         (tag (destructure-brown-tag (subseq item (1+ split)))))
                     (list code tag)))))
 
 (defun destructure-brown-tag (tag)
@@ -131,3 +131,13 @@
                                      appending (read-brown-file file)))
     (setf *brown-eval-corpus* (loop for file in eval-files
                                      appending (read-brown-file file)))))
+
+
+(defun write-tt-file (path corpus)
+  (with-open-file (stream path :direction :output :if-exists :supersede)
+    (loop
+	for sequence in corpus
+	do (loop
+	       for (form tag) in sequence
+	       do (format stream "~a ~c ~a~%" (code-to-symbol form) #\Tab tag))
+	   (format stream "~%"))))
