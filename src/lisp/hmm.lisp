@@ -50,13 +50,13 @@
                (or (aref (hmm-transitions hmm) previous current) 0.000001))
               ((and (= order 1) (eql smoothing :deleted-interpolation))
                (+ (the single-float 
-		    (* (the single-float (hmm-lambda-1 hmm))
-		       (the single-float (or (aref (hmm-unigram-table hmm) current)
-					     0.0))))
+		    (* (hmm-lambda-1 hmm)
+		       (or (aref (hmm-unigram-table hmm) current)
+			   0.0)))
                   (the single-float
-		    (* (the single-float (hmm-lambda-2 hmm))
-		       (the single-float (or (aref (hmm-transitions hmm) previous current)
-					     0.0))))))
+		    (* (hmm-lambda-2 hmm)
+		       (or (aref (hmm-transitions hmm) previous current)
+					     0.0)))))
               ((and (= order 2) (eql smoothing :simple-back-off))
 	       (the single-float
 		 (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
@@ -64,16 +64,16 @@
 		     (aref (hmm-unigram-table hmm) current)
 		     0.00000001)))
               ((and (= order 2) (eql smoothing :deleted-interpolation))
-               (+ (the single-float (* (hmm-lambda-1 hmm)
-				       (the single-float (or (aref (hmm-unigram-table hmm) current)
-							     0.0))))
-                  (the single-float (* (hmm-lambda-2 hmm)
-                     (the single-float (or (aref (hmm-transitions hmm) (second previous) current)
-					   0.0))))
-                  (the single-float (* (hmm-lambda-3 hmm)
-				       (the single-float (or (aref (hmm-trigram-table hmm) (first previous) (second previous)
-								   current)
-							     0.0))))))
+               (+ (* (hmm-lambda-1 hmm)
+		     (or (aref (hmm-unigram-table hmm) current)
+			 0.0))
+                 (* (hmm-lambda-2 hmm)
+		    (or (aref (hmm-transitions hmm) (second previous) current)
+			0.0))
+                 (* (hmm-lambda-3 hmm)
+		    (or (aref (hmm-trigram-table hmm) (first previous) (second previous)
+			      current)
+			0.0))))
               (t (error "What!")))))))
 
 (defun make-transition-table (hmm order smoothing)
@@ -104,7 +104,7 @@
 
 (defmacro tri-cached-transition (hmm t1 t2 to)
   `(the single-float
-     (aref (hmm-current-transition-table ,hmm) ,t1 ,t2 ,to)))
+     (aref (the (simple-array single-float (* * *)) (hmm-current-transition-table ,hmm)) ,t1 ,t2 ,to)))
 
 (defmacro emission-probability (hmm state form)
   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
@@ -192,36 +192,41 @@
         (lambda-2 0)
         (lambda-3 0)
         (n (hmm-n hmm)))
-    (loop for i from 0 below n
-          do (loop for j from 0 below n
-                   do (loop for k from 0 below n
-                            for tri-count = (aref (hmm-trigram-table hmm) i j k)
-                            when tri-count
-                            do (let* ((bi-count (aref (hmm-transitions hmm) j k))
-                                      (uni-count (aref (hmm-unigram-table hmm) k))
-                                      (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
-                                            (if (and bi-count
-                                                     (> bi-count 1)
-                                                     (> bi-count *estimation-cutoff*))
-						(/ (1- tri-count)
-						   (1- bi-count))
+    (loop 
+	for i from 0 below n
+	do 
+	  (loop 
+	      for j from 0 below n
+	      do (loop 
+		     for k from 0 below n
+		     for tri-count = (aref (hmm-trigram-table hmm) i j k)
+		     when tri-count
+		     do 
+		       (let* ((bi-count (aref (hmm-transitions hmm) j k))
+			      (uni-count (aref (hmm-unigram-table hmm) k))
+			      (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
+				    (if (and bi-count
+					     (> bi-count 1)
+					     (> bi-count *estimation-cutoff*))
+					(/ (1- tri-count)
+					   (1- bi-count))
                                               0)))
-                                      (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
-                                            (if (and uni-count
-                                                     (> uni-count 1)
-                                                     (> uni-count *estimation-cutoff*))
-                                              (/ (1- bi-count)
-                                                 (1- uni-count))
-                                              0)))
-                                      (c3 (/ (1- uni-count)
-                                             (1- (hmm-token-count hmm)))))
-                                 (cond ((and (>= c3 c2) (>= c3 c1))
-                                        (incf lambda-3 tri-count))
-                                       ((and (>= c2 c3) (>= c2 c1))
-                                        (incf lambda-2 tri-count))
-                                       ((and (>= c1 c3) (>= c1 c2))
+			      (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
+				    (if (and uni-count
+					     (> uni-count 1)
+					     (> uni-count *estimation-cutoff*))
+					(/ (1- bi-count)
+					   (1- uni-count))
+				      0)))
+			      (c3 (/ (1- uni-count)
+				     (1- (hmm-token-count hmm)))))
+			 (cond ((and (>= c3 c2) (>= c3 c1))
+				(incf lambda-3 tri-count))
+			       ((and (>= c2 c3) (>= c2 c1))
+				(incf lambda-2 tri-count))
+			       ((and (>= c1 c3) (>= c1 c2))
                                         (incf lambda-1 tri-count))
-                                       (t (error "What!")))))))
+			       (t (error "What!")))))))
     (let ((total (+ lambda-1 lambda-2 lambda-3)))
       (setf (hmm-lambda-1 hmm) (float (/ lambda-1 total)))
       (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
@@ -283,11 +288,12 @@
         (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
 
 (defun viterbi-trigram (hmm input)
+    #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
-         (viterbi (make-array (list nn l) :initial-element most-negative-single-float))
+         (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
          (pointer (make-array (list nn l) :initial-element nil))
          (final nil)
          (final-back nil)
@@ -295,6 +301,8 @@
          (start-tag (tag-to-code hmm "<s>")))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
+    (declare (type (simple-array single-float (* *)) viterbi)
+	     (type (simple-array t (* *)) pointer))
     (declare (type fixnum n nn l start-tag end-tag))
     (loop with form = (first input)
           for tag fixnum from 0 to (- n 1)
@@ -345,7 +353,6 @@
 
 ;;; hvor conser denne?
 (defun viterbi-bigram (hmm input)
-  #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
@@ -370,7 +377,7 @@
         do
 	(loop
 	    for current of-type fixnum from 0 to (- n 1)
-              do
+	    do
 	      (loop
 		  with old of-type single-float = (aref viterbi current time)
 		  for previous of-type fixnum from 0 to (- n 1)
