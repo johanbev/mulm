@@ -41,7 +41,7 @@
     (let* ((coc-table (coc-table counts))
 	   (coc-list (coc-list coc-table))
 	   (offset (min (find-contig coc-list) 6)))
-      (unless (> 3 offset)
+      (unless (> 2 offset)
 	(let*
 	    ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
 	     (a (avg-list (mapcar #'first params)))
@@ -90,7 +90,7 @@
 (defun avg-list (list)
   (loop
       for x in list
-      for i from 0
+      for i from 1
       sum x into accu
       finally (return (/ accu i))))
 
