@@ -30,8 +30,11 @@
 
 (defun adjust-count (r a b)
   (* (1+ r)
-     (exp (- (+ (* (1+ r) a) b)
-	     (+ (* r a) b)))))
+     (exp (- (+ (* a (log (1+ r))) b)
+	     (+ (* a (log r)) b)))))
+
+(defun adjust-zero (a)
+  (exp a))
 
 (defun make-good-turing-estimate (counts total &optional tag)
   (declare (ignorable total))
@@ -49,6 +52,7 @@
 	  (loop
 	      for key being the hash-keys in counts
 	      for val = (gethash key counts)
+	      with ones = (second (first coc-list))
 	      when (< val offset)
 	      do (setf (gethash key counts)
 		   (adjust-count val a b))
@@ -64,15 +68,13 @@
 				(std-dev (mapcar #'first params))
 				b
 				(std-dev (mapcar #'second params))
-				(adjust-count 0 a b)
-				(* (* (second (first coc-list)) (/ 1 (abs a)))
-				   (adjust-count 0 a b))
+				(exp a)
+				(* ones (exp a))				
 				(mapcar (lambda (x)
 					  (list x (adjust-count x a b)))
-					'(0 1 2 3 4 5 6))))
+					'(1 1 2 3 4 5 6))))
 		      (setf (gethash :unk counts)
-			(* (* (second (first coc-list)) (/ 1 (abs a)))
-			   (adjust-count 0 a b))))))))))
+			(* ones (exp a))))))))))
 
   
 (defun fudge-smoothing (coc-vector)
@@ -82,8 +84,8 @@
       for y1 = (log (second (first coc-vector))) then (log  y2)
       for (x2 y2) in (rest coc-vector)
       for slope = (/ (float (- (log y2) y1))
-		     (float (- x2 x1)))
-      for offset = (- y2 (* x2 slope))
+		     (float (- (log x2) (log x1))))
+      for offset = (- (log y2) (* (log x2) slope))
       do (push (list slope offset) avgs)	   
       finally (return avgs)))
 
@@ -101,4 +103,3 @@
       for n from 1
       summing (expt (- x average) 2) into res
       finally (return (sqrt (/ res n)))))
-
