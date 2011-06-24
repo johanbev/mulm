@@ -54,7 +54,7 @@
 		   (adjust-count val a b))
 	      finally (when tag
 			(format t 
-				"~&make-good-turing-estimate():~% Estimating ~a with ~a emissions and ~a types.
+				"~&make-good-turing-estimate():~% Estimating `~a' with ~a emissions and ~a types.
  A:~,2f [~,2f]  B:~,2f [~,2f] Est. Unknown-count: ~,2f Est. Unknowns: ~,2f
  New counts: ~{~{~a: ~,2f~}~^, ~}"
 				tag
