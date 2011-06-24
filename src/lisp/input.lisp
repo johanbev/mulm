@@ -99,8 +99,8 @@
                     (list code tag)))))
 
 (defun destructure-brown-tag (tag)
-  (let* ((parts (cl-ppcre:split "-" tag)))
-    (if (string= ("FW") (first parts))
+  (let* ((parts (cl-ppcre:split "-|\\+" tag)))
+    (if (string= "FW" (first parts))
 	(second parts)
       (first parts))))
 
