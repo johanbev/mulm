@@ -19,11 +19,14 @@
 (defmethod normalize (token (normalizer cd-normalizer))
   (let ((tok (remove-if (lambda (x) (find x ":,.-/%\\#¤$£€'`()#:;"))
 				(string-downcase token))))
-    (if (string= "" tok)
+    (if (string= tok "")
 	token
       (if (or (member tok '("one" "two" "three" "four" "five" "six" "seven" "ten" "twenty") :test #'string=)
 	      (numberp (read-from-string tok)))
-	  (prog1 "¦CD¦" )
+	  (prog1 
+	      (if (eql #\. (aref token (1- (length token))))
+		  "¦OD¦"
+		"¦CD¦"))
 	token))))
 
 (defvar *normalizer*
@@ -85,7 +88,7 @@
    (loop for i in (reverse list)
          appending (list item i))))
 
-(defun read-brown-line (line)
+(defun read-brown-line (line &key symbol-table)
   (let ((items (split-sequence-if #'(lambda (x)
                                       (member x '(#\Space #\Tab)))
                                   line
@@ -94,23 +97,32 @@
           ;; Handle cases where the word contains #\/
           collect (let* ((split (position #\/ item :from-end t))
                          (token (subseq item 0 split))
-			 (code (symbol-to-code (normalize-token token)))
+			 (code (if symbol-table
+				   (or (symbol-to-code (normalize-token token) symbol-table :rop t) :unk)
+				 (symbol-to-code (normalize-token token))))
                          (tag (destructure-brown-tag (subseq item (1+ split)))))
                     (list code tag)))))
 
 (defun destructure-brown-tag (tag)
+  (unless (string= "" (string-trim "*" tag))
+    (setf tag (string-trim "*" tag)))
   (let* ((parts (cl-ppcre:split "-|\\+" tag)))
-    (if (string= "FW" (first parts))
-	(second parts)
-      (first parts))))
+    (cond
+     ((or (null parts) (string= "" (first parts)))
+      (if (string= "---hl" tag)
+	  "--"
+	tag))
+     ((string= "FW" (first parts))
+	(or (second parts) (first parts)))
+     (t (first parts)))))
 
-(defun read-brown-file (file)
+(defun read-brown-file (file &key symbol-table)
   (with-open-file (s file :direction :input)
     (loop for input  = (read-line s nil nil)
           for line = (or input (string-trim '(#\Space #\Tab #\Newline) input))
           until (null input)
           unless (string-equal "" line)
-          collect (read-brown-line line))))
+          collect (read-brown-line line :symbol-table symbol-table))))
 
 (defun read-brown-corpus (&optional (eval-split 0.1))
   ;; Directory globbing might not work on all systems
@@ -130,7 +142,7 @@
     (setf *brown-train-corpus* (loop for file in train-files
                                      appending (read-brown-file file)))
     (setf *brown-eval-corpus* (loop for file in eval-files
-                                     appending (read-brown-file file)))))
+                                     appending (read-brown-file file :symbol-table *symbol-table*)))))
 
 
 (defun write-tt-file (path corpus)
