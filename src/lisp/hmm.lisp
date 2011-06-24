@@ -289,7 +289,7 @@
 
 (defun viterbi-trigram (hmm input)
     #+:allegro(declare (:explain :calls :boxing))
-  (declare (optimize (speed 3) (debug  1) (space 0)))
+  (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
@@ -320,12 +320,13 @@
 		      for previous fixnum from 0 below nn
 		      for prev-prob of-type single-float = (aref viterbi previous (- time 1))
 		      with old of-type single-float = (aref viterbi current time)
+		      with emission of-type single-float = (emission-probability hmm current form)
 		      when (> prev-prob old)
 		      do (multiple-value-bind (t1 t2)
 			     (truncate previous n)
 			   (declare (type fixnum t1 t2))
 			   (let ((new (+ prev-prob
-					 (emission-probability hmm current form)
+					 emission
 					 (tri-cached-transition hmm  t1 t2 current))))
 			     (declare (type single-float new))
 			     (when (> new old)
@@ -337,7 +338,7 @@
 	for previous fixnum from 0 below nn
 	for t1 fixnum = (truncate previous n)
 	for t2 fixnum = (rem previous n)
-	for new of-type single-float = (+ (the single-float (aref viterbi previous time))
+	for new of-type single-float = (+ (aref viterbi previous time)
 					  (tri-cached-transition hmm  t1 t2 end-tag))
 	when (or (null final) (> new final))
 	do (setf final new)
@@ -380,13 +381,14 @@
 	    do
 	      (loop
 		  with old of-type single-float = (aref viterbi current time)
+		  with emission of-type single-float = (emission-probability hmm current form)
 		  for previous of-type fixnum from 0 to (- n 1)
 		  for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
 		  when (> prev-prob old) do
 		    (let ((new
 			   (+ prev-prob
 			      (bi-cached-transition hmm previous current)
-			      (emission-probability hmm current form))))
+			      emission)))
 		      (declare (type single-float new))
 		      (when (> new old)
 			(setf old new)
@@ -452,6 +454,7 @@
 		(loop
 		    with old of-type single-float = (aref viterbi current time)
 		    with prev-time fixnum = (1- time)
+		    with emission of-type single-float = (emission-probability hmm current form)
 		    for index fixnum from 0 to (1- (fill-pointer indices))
 		    for previous = (aref indices index)
 		    for prev-prob of-type single-float = (aref viterbi previous prev-time)
@@ -459,7 +462,7 @@
 		    do
 		      (let ((new (+ prev-prob
 				    (the single-float (bi-cached-transition hmm previous current))
-				    (emission-probability hmm current form))))
+				    emission)))
 			(declare (type single-float new))
 			(when (> new trigger)
 			  (setf trigger new)
