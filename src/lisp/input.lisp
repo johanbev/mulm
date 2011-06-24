@@ -94,8 +94,15 @@
           ;; Handle cases where the word contains #\/
           collect (let* ((split (position #\/ item :from-end t))
                          (token (subseq item 0 split))
+			 (code (symbol-to-code (normalize-token token)))
                          (tag (subseq item (1+ split))))
-                    (list token tag)))))
+                    (list code tag)))))
+
+(defun destructure-brown-tag (tag)
+  (let* ((parts (cl-ppcre:split "-" tag)))
+    (if (string= ("FW") (first parts))
+	(second parts)
+      (first parts))))
 
 (defun read-brown-file (file)
   (with-open-file (s file :direction :input)
