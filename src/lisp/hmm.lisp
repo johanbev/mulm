@@ -245,8 +245,9 @@
             when (and count (> count *estimation-cutoff*))
             do (setf (aref transitions i j) (float (/ count total))))
 	
-	(make-good-turing-estimate (aref (hmm-emissions hmm) i)
-				     (hash-table-sum (aref (hmm-emissions hmm) i)))
+	 (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+	 			   (hash-table-sum (aref (hmm-emissions hmm) i))
+	 			   (elt (hmm-tags hmm) i))
 	
         (loop
             with map = (aref (hmm-emissions hmm) i)
