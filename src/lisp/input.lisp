@@ -22,7 +22,11 @@
     (if (string= tok "")
 	token
       (if (or (member tok '("one" "two" "three" "four" "five" "six" "seven" "ten" "twenty") :test #'string=)
-	      (numberp (read-from-string tok)))
+              ;; the CL reader doesn't like these two characters which appear in the OBT corpora
+              (and (not (find-if #'(lambda (c)
+                                     (member c '(#\| #\")))
+                                 tok))
+                   (numberp (read-from-string tok))))
 	  (prog1 
 	      (if (eql #\. (aref token (1- (length token))))
 		  "¦OD¦"
@@ -42,26 +46,29 @@
 (defvar *wsj-train-corpus* nil)
 (defvar *wsj-test-corpus* nil)
 
+(defparameter *whitespace* '(#\Tab #\Space #\Newline))
+
 (defun normalize-token (token)
   (normalize token *normalizer*))
 
 (defun read-tt-corpus (file &key symbol-table)
   "Create a list of lists corpus from TT format file."
   (with-open-file (stream file :direction :input)
-    (loop
-	with forms
-	for line = (read-line stream nil)
-        for tab = (position #\tab line)
-        for form = (normalize-token (subseq line 0 tab))
-	for code = (if symbol-table
-		       (or (symbol-to-code form symbol-table :rop t)
-			   :unk)
-		     (symbol-to-code form))
-        for tag = (if tab (subseq line (+ tab 1)))
-	while line
-        when (and form tag (not (string= form ""))) do
-          (push (list code tag) forms)
-	else collect (nreverse forms) and do (setf forms nil))))
+    (loop with forms
+          for line = (read-line stream nil)
+          ;; split on any whitespace
+          for split = (position-if #'(lambda (c)
+                                       (member c *whitespace*)) line)
+          for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
+          for code = (if symbol-table
+                       (or (symbol-to-code form symbol-table :rop t)
+                           :unk)
+                       (symbol-to-code form))
+          for tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
+          while line
+          when (and form tag (not (string= form "")))
+          do (push (list code tag) forms)
+          else collect (nreverse forms) and do (setf forms nil))))
 
 (defun ll-to-word-list (ll)
   "Extract the sentences out of a list of lists corpus"
