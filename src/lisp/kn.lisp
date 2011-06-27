@@ -3,8 +3,8 @@
 (defstruct lm-tree-node
   weight
   (total 0)
-  (emissions (make-hash-table))
-  (children (make-hash-table)))
+  (emissions (make-hash-table :size 11))
+  (children (make-hash-table :size 11)))
 
 (defvar *lm-root* (make-lm-tree-node))
 

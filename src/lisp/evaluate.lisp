@@ -18,7 +18,11 @@
 	for seq in seqs
 	for tag-seq in tag-seqs
 	for result = (funcall *decoder* hmm seq)
-	for unknown = (member :unk seq)
+	for unknown = (loop 
+			  for x in seq 
+			  when (not (gethash x *known-codes*))
+			  do (return t) 
+			  finally (return nil))
 	when unknown
 	do (incf unknown-sequence)
 	when (equal tag-seq result)
@@ -28,7 +32,7 @@
 	do
 	  (loop
 	      for x in seq
-	      for unknown = (eql x :unk)
+	      for unknown = (not (gethash x *known-codes*))
 	      for blue in result
 	      for gold in tag-seq
 	      when unknown do (incf total-unknown)
