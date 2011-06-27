@@ -60,10 +60,7 @@
           for split = (position-if #'(lambda (c)
                                        (member c *whitespace*)) line)
           for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
-          for code = (if symbol-table
-                       (or (symbol-to-code form symbol-table :rop t)
-                           :unk)
-                       (symbol-to-code form))
+          for code = (symbol-to-code form)
           for tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
           while line
           when (and form tag (not (string= form "")))
@@ -104,9 +101,7 @@
           ;; Handle cases where the word contains #\/
           collect (let* ((split (position #\/ item :from-end t))
                          (token (subseq item 0 split))
-			 (code (if symbol-table
-				   (or (symbol-to-code (normalize-token token) symbol-table :rop t) :unk)
-				 (symbol-to-code (normalize-token token))))
+			 (code  (symbol-to-code (normalize-token token)))
                          (tag (destructure-brown-tag (subseq item (1+ split)))))
                     (list code tag)))))
 
@@ -158,5 +153,5 @@
 	for sequence in corpus
 	do (loop
 	       for (form tag) in sequence
-	       do (format stream "~a ~c ~a~%" (code-to-symbol form) #\Tab tag))
+	       do (format stream "~a~c~a~%" (code-to-symbol form) #\Tab tag))
 	   (format stream "~%"))))

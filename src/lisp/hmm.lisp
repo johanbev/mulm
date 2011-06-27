@@ -5,6 +5,8 @@
 
 (defparameter *estimation-cutoff* 0)
 
+(defparameter *known-codes* (make-hash-table))
+
 (defstruct hmm
   tag-array
   beam-array
@@ -147,11 +149,12 @@
                   (bigrams (partition tags 2))
                   (trigrams (partition tags 3)))
              (loop for (code tag) in sentence
-                   do (incf token-count)
-                   do (incf (gethash code
-                                     (aref emissions
-                                           (tag-to-code hmm tag))
-                                     0)))
+		 do (incf token-count)
+		 do (setf (gethash code *known-codes*) t)
+		 do (incf (gethash code
+				   (aref emissions
+					 (tag-to-code hmm tag))
+				   0)))
 
              (loop for unigram in unigrams
                    for code = (tag-to-code hmm unigram)
@@ -187,7 +190,7 @@
                             :initial-contents (loop for i from 0 to (1- n) collect i)))
           (calculate-deleted-interpolation-weights hmm)
           (calculate-theta hmm)
-          ;(build-suffix-tries hmm)
+          (build-suffix-tries hmm)
           (train-hmm hmm)
           (return hmm)))
 
@@ -225,13 +228,16 @@
     (add-to-trie lookup nodes count)))
 
 (defun build-suffix-tries (hmm)
-  (setf (hmm-suffix-tries hmm) (make-hash-table :test #'equal))
-  (loop for state below (hmm-n hmm)
-        for emmission-map = (aref (hmm-emissions hmm) state)
-        do (loop for word being the hash-keys in emmission-map
-                 for count = (gethash word emmission-map)
-                 when (<= count 10)
-                 do (add-to-suffix-tries hmm state word count))))
+  (setf (hmm-suffix-tries hmm) (make-lm-tree-node))
+  (loop 
+      for state below (hmm-n hmm)
+      for emmission-map = (aref (hmm-emissions hmm) state)
+      do (loop 
+	     for word being the hash-keys in emmission-map
+	     for count = (gethash word emmission-map)
+	     when (<= count 10)
+	     do (add-word word state count (hmm-suffix-tries hmm))))
+  (compute-suffix-weights (hmm-suffix-tries hmm)))
 
 (defun calculate-deleted-interpolation-weights (hmm)
   (let ((lambda-1 0)
@@ -284,11 +290,11 @@
     (loop
       with transitions = (hmm-transitions hmm)
       for i from 0 to (- n 1)
-      for total = (loop
+      for total = (float (loop
                       for j from 0 to (- n 1)
                       for count = (aref transitions i j)
                       when (and count (> count *estimation-cutoff*))
-                      sum count)
+                      sum count))
       do
         (loop
             for j from 0 to (- n 1)
@@ -412,33 +418,46 @@
     (loop
         with form of-type fixnum = (first input)
         for state of-type fixnum from 0 to (- n 1)
+	with unk = (eql :unk (gethash form *known-codes* :unk))
+	with unk-emi = (and unk (query-suffix-trie form))
         do
           (setf (aref viterbi state 0)
             (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
-               (emission-probability hmm state form)))
+               (if unk
+		   (aref unk-emi state)
+		 (emission-probability hmm state form))))
           (setf (aref pointer state 0) 0))
     (loop
-      for form of-type fixnum in (rest input)
-      for time of-type fixnum from 1 to (- l 1)
+	for form of-type fixnum in (rest input)
+	for time of-type fixnum from 1 to (- l 1)
+	for unk = (eql :unk (gethash form *known-codes* :unk))
+	when unk do
+	  (loop
+	      with suffix = (query-suffix-trie form)
+	      for tag from 0 below n
+	      for prob across suffix do
+		(setf (aref viterbi tag time) prob))
         do
-	(loop
-	    for current of-type fixnum from 0 to (- n 1)
-	    do
-	      (loop
-		  with old of-type single-float = (aref viterbi current time)
-		  with emission of-type single-float = (emission-probability hmm current form)
-		  for previous of-type fixnum from 0 to (- n 1)
-		  for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
-		  when (> prev-prob old) do
-		    (let ((new
-			   (+ prev-prob
-			      (bi-cached-transition hmm previous current)
-			      emission)))
-		      (declare (type single-float new))
-		      (when (> new old)
-			(setf old new)
-			(setf (aref viterbi current time) new)
-			(setf (aref pointer current time) previous))))))
+	  (loop
+	      for current of-type fixnum from 0 to (- n 1)
+	      do
+		(loop
+		    with old of-type single-float = most-negative-single-float
+		    with emission of-type single-float = (if unk
+							     (aref viterbi current time)
+							   (emission-probability hmm current form))
+		    for previous of-type fixnum from 0 to (- n 1)
+		    for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
+		    when (> prev-prob old) do
+		      (let ((new
+			     (+ prev-prob
+				(bi-cached-transition hmm previous current)
+				emission)))
+			(declare (type single-float new))
+			(when (> new old)
+			  (setf old new)
+			  (setf (aref viterbi current time) new)
+			  (setf (aref pointer current time) previous))))))
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time of-type fixnum = (- l 1)
