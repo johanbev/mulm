@@ -6,6 +6,8 @@
 
 (in-package :mulm)
 
+#+:allegro(declaim (optimize (debug 2)))
+
 ;; store the root path of the lisp code directory
 (defparameter *package-path*
   (directory-namestring
