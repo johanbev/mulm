@@ -187,7 +187,7 @@
                             :initial-contents (loop for i from 0 to (1- n) collect i)))
           (calculate-deleted-interpolation-weights hmm)
           (calculate-theta hmm)
-          (build-suffix-tries hmm)
+          ;(build-suffix-tries hmm)
           (train-hmm hmm)
           (return hmm)))
 
@@ -212,9 +212,9 @@
 
 (defun add-to-suffix-tries (hmm state word count)
   (let* ((form (code-to-symbol word))
-         (nodes (coerce (reverse (if (> (length form) 10)
-                                   (subseq form 0 10)
-                                   form))
+         (nodes (coerce (if (> (length form) 10)
+                                   (subseq form (- (length form)  10))
+			  form)
                         'list))
          (trie-key (list state (capitalized-p form)))
          (lookup (gethash trie-key (hmm-suffix-tries hmm))))
@@ -230,7 +230,7 @@
         for emmission-map = (aref (hmm-emissions hmm) state)
         do (loop for word being the hash-keys in emmission-map
                  for count = (gethash word emmission-map)
-                 when (>= count 10)
+                 when (<= count 10)
                  do (add-to-suffix-tries hmm state word count))))
 
 (defun calculate-deleted-interpolation-weights (hmm)
@@ -334,7 +334,6 @@
         (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
 
 (defun viterbi-trigram (hmm input)
-    #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))

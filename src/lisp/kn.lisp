@@ -1,7 +1,9 @@
 (in-package :mulm)
 
 (defstruct lm-tree-node
+  weight
   (total 0)
+  (emissions (make-hash-table))
   (children (make-hash-table)))
 
 (defvar *lm-root* (make-lm-tree-node))

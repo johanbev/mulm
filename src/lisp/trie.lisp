@@ -5,6 +5,9 @@
 (defstruct trie-node
   (value nil) (leaves nil))
 
+(defmethod print-object ((object trie-node) stream)
+  (format stream "<TN: ~a Decs: ~a>" (trie-node-value object) (length (trie-node-leaves object))))
+
 (defun make-trie ()
   (make-trie-node))
 
