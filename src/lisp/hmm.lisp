@@ -18,6 +18,8 @@
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
+  suffix-tries
+  theta
   current-transition-table)
 
 (defun tag-to-code (hmm tag)
@@ -184,8 +186,52 @@
                 (make-array n :element-type 'fixnum 
                             :initial-contents (loop for i from 0 to (1- n) collect i)))
           (calculate-deleted-interpolation-weights hmm)
+          (calculate-theta hmm)
+          (build-suffix-tries hmm)
           (train-hmm hmm)
           (return hmm)))
+
+(defun calculate-theta (hmm)
+  (let* ((total (loop for count across (hmm-unigram-table hmm)
+                      summing count))
+         (probs (loop for count across (hmm-unigram-table hmm)
+                      collect (float (/ count total))))
+         (mean (/ (loop for p in probs
+                        summing p)
+                  (hmm-n hmm))))
+    (setf (hmm-theta hmm)
+          (float (* (/ 1.0 (1- (hmm-n hmm)))
+                    (loop for p in probs
+                          summing (expt (- p mean) 2)))))))
+
+(defun true-p (form)
+  (if form t))
+
+(defun capitalized-p (string)
+  (true-p (cl-ppcre:scan "^[A-Z]" string)))
+
+(defun add-to-suffix-tries (hmm state word count)
+  (let* ((form (code-to-symbol word))
+         (nodes (coerce (reverse (if (> (length form) 10)
+                                   (subseq form 0 10)
+                                   form))
+                        'list))
+         (trie-key (list state (capitalized-p form)))
+         (lookup (gethash trie-key (hmm-suffix-tries hmm))))
+    (when (null lookup)
+      (setf lookup (make-trie))
+      (setf (gethash trie-key (hmm-suffix-tries hmm))
+            lookup))
+    (add-to-trie lookup nodes count)))
+
+(defun build-suffix-tries (hmm)
+  (setf (hmm-suffix-tries hmm) (make-hash-table :test #'equal))
+  (loop for state below (hmm-n hmm)
+        for emmission-map = (aref (hmm-emissions hmm) state)
+        do (loop for word being the hash-keys in emmission-map
+                 for count = (gethash word emmission-map)
+                 when (>= count 10)
+                 do (add-to-suffix-tries hmm state word count))))
 
 (defun calculate-deleted-interpolation-weights (hmm)
   (let ((lambda-1 0)
