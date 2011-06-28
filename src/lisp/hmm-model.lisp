@@ -42,42 +42,48 @@
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
 (defun transition-probability (hmm previous current &key (order 1) (smoothing :constant))
+  (declare (:explain :calls :boxing))
   (declare (type fixnum current order))
+  (declare (type hmm hmm))
   ;;
   ;; give a tiny amount of probability to unseen transitions
   ;;
   (the single-float
     (log
      (float
-        (cond ((and (eql order 1) (eql smoothing :constant))
-               (or (aref (hmm-transitions hmm) previous current) 0.000001))
-              ((and (= order 1) (eql smoothing :deleted-interpolation))
-               (+ (the single-float 
-		    (* (hmm-lambda-1 hmm)
-		       (or (aref (hmm-unigram-table hmm) current)
-			   0.0)))
-                  (the single-float
-		    (* (hmm-lambda-2 hmm)
-		       (or (aref (hmm-transitions hmm) previous current)
+      (cond ((and (eql order 1) (eql smoothing :constant))
+             (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) previous current) 0.000001))
+            ((and (= order 1) (eql smoothing :deleted-interpolation))
+             (+
+                  (* (the single-float (hmm-lambda-1 hmm))
+                       (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
+                           0.0))
+                (the single-float
+                  (* (hmm-lambda-2 hmm)
+                     (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) previous current)
 					     0.0)))))
-              ((and (= order 2) (eql smoothing :simple-back-off))
-	       (the single-float
-		 (or (aref (hmm-trigram-table hmm) (first previous) (second previous) current)
-		     (aref (hmm-transitions hmm) (second previous) current)
-		     (aref (hmm-unigram-table hmm) current)
-		     0.00000001)))
-              ((and (= order 2) (eql smoothing :deleted-interpolation))
-               (+ (* (hmm-lambda-1 hmm)
-		     (or (aref (hmm-unigram-table hmm) current)
-			 0.0))
-                 (* (hmm-lambda-2 hmm)
-		    (or (aref (hmm-transitions hmm) (second previous) current)
-			0.0))
-                 (* (hmm-lambda-3 hmm)
-		    (or (aref (hmm-trigram-table hmm) (first previous) (second previous)
-			      current)
-			0.0))))
-              (t (error "What!")))))))
+            ((and (= order 2) (eql smoothing :simple-back-off))
+               (or (aref (the (simple-array  t (* * *))
+                           (hmm-trigram-table hmm))
+                         (first previous) (second previous) current)
+                   (aref (the (simple-array t (* *)) (hmm-transitions hmm))
+                         (second previous) current)
+                   (aref (the (simple-array t (*))
+                           (hmm-unigram-table hmm))
+                         current)
+                   0.00000001))
+            ((and (= order 2) (eql smoothing :deleted-interpolation))
+             (+ (* (hmm-lambda-1 hmm)
+                   (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
+                       0.0))
+                (* (hmm-lambda-2 hmm)
+                   (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) (second previous) current)
+                       0.0))
+                (* (hmm-lambda-3 hmm)
+                   (or (aref (the (simple-array t (* * *)) (hmm-trigram-table hmm)) (first previous) (second previous)
+                             current)
+                       0.0))))
+            (t (error "What!")))))))
 
 (defun make-transition-table (hmm order smoothing)
   (setf (hmm-current-transition-table hmm)
@@ -88,18 +94,21 @@
 	  (loop
 	      for i from 0 below tag-card
 	      do (loop
-		     for j below tag-card do
-		       (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
+                 for j below tag-card do
+                   (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
 	  table))
        ((= order 2)
-	(let* ((table (make-array (list tag-card tag-card tag-card) :element-type 'single-float :initial-element most-negative-single-float)))
-	  (loop
-	      for i from 0 below tag-card
-	      do (loop for j  from 0 below tag-card
-		     do (loop
-			    for k from 0 below tag-card do
-			      (setf (aref table i j k) (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
-	  table))))))
+        (let* ((table (make-array (list tag-card tag-card tag-card) 
+                                  :element-type 'single-float :initial-element most-negative-single-float)))
+          (loop
+              for i from 0 below tag-card
+              do (loop 
+                     for j  from 0 below tag-card
+                     do (loop
+                            for k from 0 below tag-card do
+                              (setf (aref table i j k) 
+                                (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
+          table))))))
 
 (defmacro bi-cached-transition (hmm from to)
   `(the single-float  
@@ -181,8 +190,7 @@
                 (make-array n :element-type 'fixnum 
                             :initial-contents (loop for i from 0 to (1- n) collect i)))
           (calculate-deleted-interpolation-weights hmm)
-          (calculate-theta hmm)          
-          (build-suffix-tries hmm)
+          (calculate-theta hmm)           
           (train-hmm hmm)
           (return hmm)))
 
@@ -220,11 +228,11 @@
   (loop 
       for state below (hmm-n hmm)
       for emmission-map = (aref (hmm-emissions hmm) state)
-      when (gethash :unk emmission-map) do
+       do
         (loop 
             for word being the hash-keys in emmission-map
             for count = (gethash word emmission-map)
-            when (and (<= count 250) (<= (total-emissions word hmm) 250)
+            when (and (<= count 10) (<= (total-emissions word hmm) 10)
                       (not (eql word :unk)))                       
             do (add-to-suffix-tries hmm word state count)))
   (maphash (lambda (k v)
@@ -279,6 +287,7 @@
       hmm)))
 
 (defun train-hmm (hmm)
+  (build-suffix-tries hmm)
   (let ((n (hmm-n hmm)))
     (loop
         with transitions = (hmm-transitions hmm)
@@ -298,15 +307,14 @@
           (make-good-turing-estimate (aref (hmm-emissions hmm) i)
                                      (hash-table-sum (aref (hmm-emissions hmm) i))
                                      (elt (hmm-tags hmm) i))
-          
           (loop
               with map = (aref (hmm-emissions hmm) i)
               for code being each hash-key in map
               for count = (gethash code map)
               when (and count (> count *estimation-cutoff*))
               do (setf (gethash code map) (float (log (/ count total))))))
+    
           
-    (build-suffix-tries hmm)
     
     (loop for k from 0 below n
         for total = (let ((sum 0))

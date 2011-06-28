@@ -1,13 +1,14 @@
 (in-package :mulm)
 
 (defun viterbi-trigram (hmm input)
+  (declare (:explain :boxing :calls))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
          (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
          (pointer (make-array (list nn l) :initial-element nil))
-         (final nil)
+         (final most-negative-single-float)
          (final-back nil)
          (end-tag (tag-to-code hmm "</s>"))
          (start-tag (tag-to-code hmm "<s>")))
@@ -15,13 +16,15 @@
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer))
-    (declare (type fixnum n nn l start-tag end-tag))
-    (loop with form = (first input)
+    (declare (type fixnum n nn l start-tag end-tag)
+             (type single-float final))
+    (loop 
+        with form = (first input)
         for tag fixnum from 0 to (- n 1)
-        for state fixnum = (+ (* start-tag n) tag)
+        for state fixnum = (+ (the fixnum (* start-tag n)) tag)
         do (setf (aref viterbi state 0)
-               (+ (transition-probability hmm (tag-to-code hmm "<s>") tag
-                                              :order 1 :smoothing :deleted-interpolation)
+               (+ (the single-float (transition-probability hmm start-tag tag
+                                              :order 1 :smoothing :deleted-interpolation))
                       (emission-probability hmm tag form)))
         do (setf (aref pointer state 0) 0))
     (loop 
@@ -35,30 +38,30 @@
                   with emission of-type single-float = (emission-probability hmm current form)
                   when (> prev-prob old)
                   do (multiple-value-bind (t1 t2)
-                     (truncate previous n)
-                 (declare (type fixnum t1 t2))
-			   (let ((new (+ prev-prob
-                             emission
-					 (tri-cached-transition hmm  t1 t2 current))))
-			     (declare (type single-float new))
-			     (when (> new old)
-			       (setf old new)
-			       (setf (aref viterbi (+ (* t2 n) current) time) new)
-			       (setf (aref pointer (+ (* t2 n) current) time) previous)))))))         
+                         (truncate previous n)
+                       (declare (type fixnum t1 t2))
+                       (let ((new (+ prev-prob
+                                     emission
+                                     (tri-cached-transition hmm t1 t2 current))))
+                         (declare (type single-float new))
+                         (when (> new old)
+                           (setf old new)
+                           (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
+                           (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))))         
     (loop
         with time fixnum = (1- l)
         for previous fixnum from 0 below nn
         for t1 fixnum = (truncate previous n)
         for t2 fixnum = (rem previous n)
         for new of-type single-float = (+ (aref viterbi previous time)
-                                      (tri-cached-transition hmm  t1 t2 end-tag))
-        when (or (null final) (> new final))
+                                          (tri-cached-transition hmm t1 t2 end-tag))
+        when (> new final)
         do (setf final new)
         and do (setf final-back previous))
     (loop with time = (1- l)
         with last = final-back
         with result = (list (code-to-bigram hmm last))
-        for i from time downto 1
+        for i fixnum from time downto 1
         for state = (aref pointer last i) then (aref pointer state i)
         do (push (code-to-bigram hmm state) result)
         finally (return
