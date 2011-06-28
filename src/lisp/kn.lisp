@@ -2,6 +2,7 @@
 
 (defstruct lm-tree-node
   weight
+  (adds 0)
   (total 0)
   (emissions (make-hash-table :size 11))
   (children (make-hash-table :size 11)))

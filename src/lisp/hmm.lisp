@@ -20,7 +20,7 @@
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
-  suffix-tries
+  (suffix-tries (make-hash-table :test #'equal))
   theta
   current-transition-table)
 
@@ -213,31 +213,34 @@
 (defun capitalized-p (string)
   (true-p (cl-ppcre:scan "^[A-Z]" string)))
 
-(defun add-to-suffix-tries (hmm state word count)
+(defun add-to-suffix-tries (hmm  word tag count)
   (let* ((form (code-to-symbol word))
-         (nodes (coerce (if (> (length form) 10)
-                                   (subseq form (- (length form)  10))
-			  form)
-                        'list))
-         (trie-key (list state (capitalized-p form)))
+         (trie-key (capitalized-p form))
          (lookup (gethash trie-key (hmm-suffix-tries hmm))))
     (when (null lookup)
-      (setf lookup (make-trie))
+      (setf lookup (make-lm-tree-node))
       (setf (gethash trie-key (hmm-suffix-tries hmm))
             lookup))
-    (add-to-trie lookup nodes count)))
+    (add-word word tag  count lookup)))
+
+(defun total-emissions (code hmm)
+  (loop
+      for table across (hmm-emissions hmm)
+      summing (gethash code table 0)))
 
 (defun build-suffix-tries (hmm)
-  (setf (hmm-suffix-tries hmm) (make-lm-tree-node))
   (loop 
       for state below (hmm-n hmm)
       for emmission-map = (aref (hmm-emissions hmm) state)
       do (loop 
 	     for word being the hash-keys in emmission-map
 	     for count = (gethash word emmission-map)
-	     when (<= count 10)
-	     do (add-word word state count (hmm-suffix-tries hmm))))
-  (compute-suffix-weights (hmm-suffix-tries hmm)))
+	     when (and (<= count 10) (<= (total-emissions word hmm) 10))
+	     do (add-to-suffix-tries hmm word state count)))
+  (maphash (lambda (k v)
+	     (declare (ignore k))
+	     (compute-suffix-weights v))
+	   (hmm-suffix-tries hmm)))
 
 (defun calculate-deleted-interpolation-weights (hmm)
   (let ((lambda-1 0)
@@ -468,6 +471,8 @@
         when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))
+    (if (null (aref pointer (tag-to-code hmm "</s>") (- l 1)))
+	nil
     (loop
 	with final = (tag-to-code hmm "</s>")
 	with time = (- l 1)
@@ -477,7 +482,7 @@
         for i of-type fixnum from time downto 1
         for state = (aref pointer last i) then (aref pointer state i)
         do (push (elt tags state) result)
-        finally (return result))))
+        finally (return result)))))
 
 (defparameter *beam-pruned* 0)
 
