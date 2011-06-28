@@ -12,6 +12,7 @@
                (:file "hmm" :depends-on ("symbol-table" "input" "trie"))
                (:file "heap" :depends-on ("mulm"))
                (:file "kn" :depends-on ("stats" "hmm"))
+               (:file "word-model" :depends-on ("kn"))
                (:file "gt" :depends-on ("stats" "input" "hmm"))
                (:file "best-first-decode" :depends-on ("heap" "symbol-table" "input" "hmm"))
                (:file "evaluate" :depends-on ("hmm")))
