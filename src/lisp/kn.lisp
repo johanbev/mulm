@@ -4,8 +4,8 @@
   weight
   (adds 0)
   (total 0)
-  (emissions (make-hash-table :size 11))
-  (children (make-hash-table :size 11)))
+  (emissions (make-hash-table :size 9))
+  (children (make-hash-table :size 9)))
 
 (defvar *lm-root* (make-lm-tree-node))
 
