@@ -1,4 +1,4 @@
-            (in-package :mulm)
+(in-package :mulm)
 
 (defvar *suffix-trie-root*
     (make-lm-tree-node))
@@ -7,15 +7,17 @@
 (defparameter *suffix-cutoff* 10)
 
 (defun add-word (word tag count node)
-  (incf (lm-tree-node-adds node) count)
   (let* ((form  (code-to-symbol word))
          (nodes (coerce (if (> (length form) *suffix-cutoff*)
                             (subseq form (- (length form)  *suffix-cutoff*))
                           form)
-                        'list)))
+                        'list))
+         (sufs (* count (length nodes))))
+    (incf (lm-tree-node-adds node) count)
+    (incf (gethash tag (lm-tree-node-emissions node) 0) sufs)
     (loop 
         for seq on nodes
-        do (add-word-to-trie seq tag count node))))
+        do (add-word-to-trie seq tag (abs count) node))))
 
 ;;; Add the word (character sequence) to the trie. When we reach the end of the
 ;;; sequence we add the emission
@@ -41,9 +43,8 @@
       summing (abs (* (/ v total) (funcall key (/ v total))))))
 
 (defun weight-suffix-trie-node (node)
-  (setf (lm-tree-node-weight node)
-    (*  
-     (weighted-average-of (lm-tree-node-emissions node) :key #'exp))))
+  (setf (lm-tree-node-weight node) 
+    (* (/ 1 (max (hash-table-entropy (lm-tree-node-emissions node)) 0.2)))))
 
 (defun compute-suffix-weights (node)
   (when (> (hash-table-count (lm-tree-node-emissions node)) 0)
@@ -78,35 +79,44 @@
                           form)
                         'list))
          (accu-weight 0.0)
-         (prob (make-array (hmm-n hmm) :initial-element 0.0 :element-type 'single-float)))
+         (theta (hmm-theta hmm))
+         (prob (make-array (hmm-n hmm) :initial-element nil)))
     (loop
-        for seq on nodes
+        for seq in (reverse (loop for seq on nodes collect seq))
         for i from 0
         for (weight dist) = (weight-and-dist-of seq *suffix-trie-root*)	
         for d-table = (and dist (lm-tree-node-emissions dist))
         for total = (and dist (hash-table-sum d-table)) ;; FIXME precompute
         when weight	     
         do 
-          (incf accu-weight weight)
-          (loop
+          (incf accu-weight  weight)
+          (loop  
+          
               for tag being the hash-keys in d-table
               for count = (float (gethash tag d-table))
-              for iprob = (/ count total)			  
-              for bayes = (* iprob ( / 1  (exp (aref (hmm-unigram-table hmm) tag))))
-                                        ; (expt (hmm-theta *hmm*) i))			      
-              do (incf (aref prob tag)
-                       (* weight bayes))))
+              for p-t/s = (/ count total)	   	  
+              for p-s = (/ total  (lm-tree-node-total *suffix-trie-root*))
+              for p-t = (/ (gethash tag (lm-tree-node-emissions *suffix-trie-root*) 0)
+                           (lm-tree-node-total *suffix-trie-root*))
+              for bayes = (* (/ (* p-t/s p-t)
+                                p-s))
+              when (null (aref prob tag)) do (Setf (aref prob tag) p-t)
+              do (setf (aref prob tag)
+                   (/ (+ (* p-t/s weight) (* theta (aref prob tag)))
+                      (1+ theta)))))
+    ;;; I don't know why not doing the bayesian inversion here makes it so much better
+    ;;; it should be theoretically motivated/neccesary.
     (loop
         for i from 0
         for tag-prob across prob
-        if (>= 0.0 tag-prob) do
+        if (or (null tag-prob) (>= 0.0 tag-prob)) do
           (setf (aref prob i)
             (+ (gethash :unk (aref (hmm-emissions hmm) i) -19.0)
                -133.37))
         else
         do (setf (aref prob i) 
-             (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.0)
-                (log (/ tag-prob accu-weight)))))
+             (+ (gethash :unk (aref (hmm-emissions hmm) i) -19.0)
+                 (log tag-prob ))))
     prob))
 
  ;
