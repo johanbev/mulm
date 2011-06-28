@@ -70,17 +70,17 @@
 		  child)
 	  (weight-and-dist-of rest child))))))
 
-(defun query-suffix-trie (word)
+(defun query-suffix-trie (hmm word)
   (let* ((form (code-to-symbol word))
 	 (trie-key (capitalized-p form))
-         (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries *hmm*)))
+         (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries hmm)))
 	 (*suffix-adds* (lm-tree-node-adds *suffix-trie-root*))
          (nodes (coerce (if (> (length form) *suffix-cutoff*)
 			    (subseq form (- (length form)  *suffix-cutoff*))
 			  form)
                         'list))
 	 (accu-weight 0.0)
-	 (prob (make-array (hmm-n *hmm*) :initial-element 0.0 :element-type 'single-float)))
+	 (prob (make-array (hmm-n hmm) :initial-element 0.0 :element-type 'single-float)))
     (loop
 	for seq on nodes
 	for i from 0
@@ -94,7 +94,7 @@
 	       for tag being the hash-keys in d-table
 	       for count = (float (gethash tag d-table))
 	       for iprob = (/ count total)			  
-	       for bayes = (* iprob ( / 1  (exp (aref (hmm-unigram-table *hmm*) tag))))
+	       for bayes = (* iprob ( / 1  (exp (aref (hmm-unigram-table hmm) tag))))
 			     ; (expt (hmm-theta *hmm*) i))			      
 	       do (incf (aref prob tag)
 			(* weight bayes))))
@@ -104,11 +104,11 @@
 	;initially (format t "~&~a"  prob)
 	if (>= 0.0 tag-prob) do
 	  (setf (aref prob i)
-	    (+ (gethash :unk (aref (hmm-emissions *hmm*) i) -19.0)
+	    (+ (gethash :unk (aref (hmm-emissions hmm) i) -19.0)
 	       -133.37))
 	else
 	do (setf (aref prob i) 
-	     (+ (gethash :unk (aref (hmm-emissions *hmm*) i) -7.0)
+	     (+ (gethash :unk (aref (hmm-emissions hmm) i) -7.0)
 		(log (/ tag-prob accu-weight)))))
     prob))
 
