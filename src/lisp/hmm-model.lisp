@@ -158,7 +158,6 @@
              (loop for bigram in bigrams
                    for previous = (tag-to-code hmm (first bigram))
                    for current = (tag-to-code hmm (second bigram))
-                   
                    do (if (aref transitions previous current)
                         (incf (aref transitions previous current))
                         (setf (aref transitions previous current) 1)))
@@ -182,7 +181,7 @@
                 (make-array n :element-type 'fixnum 
                             :initial-contents (loop for i from 0 to (1- n) collect i)))
           (calculate-deleted-interpolation-weights hmm)
-          (calculate-theta hmm)
+          (calculate-theta hmm)          
           (build-suffix-tries hmm)
           (train-hmm hmm)
           (return hmm)))
@@ -197,8 +196,9 @@
                   (hmm-n hmm))))
     (setf (hmm-theta hmm)
           (float (* (/ 1.0 (1- (hmm-n hmm)))
-                    (loop for p in probs
-                          summing (expt (- p mean) 2)))))))
+                    (loop 
+                        for p in probs
+                        summing (expt (- p mean) 2)))))))
 
 
 (defun add-to-suffix-tries (hmm  word tag count)
@@ -220,15 +220,17 @@
   (loop 
       for state below (hmm-n hmm)
       for emmission-map = (aref (hmm-emissions hmm) state)
-      do (loop 
-	     for word being the hash-keys in emmission-map
-	     for count = (gethash word emmission-map)
-	     when (and (<= count 10) (<= (total-emissions word hmm) 10))
-	     do (add-to-suffix-tries hmm word state count)))
+      when (gethash :unk emmission-map) do
+        (loop 
+            for word being the hash-keys in emmission-map
+            for count = (gethash word emmission-map)
+            when (and (<= count 250) (<= (total-emissions word hmm) 250)
+                      (not (eql word :unk)))                       
+            do (add-to-suffix-tries hmm word state count)))
   (maphash (lambda (k v)
-	     (declare (ignore k))
-	     (compute-suffix-weights v))
-	   (hmm-suffix-tries hmm)))
+             (declare (ignore k))
+             (compute-suffix-weights v))
+           (hmm-suffix-tries hmm)))
 
 (defun calculate-deleted-interpolation-weights (hmm)
   (let ((lambda-1 0)
@@ -279,50 +281,52 @@
 (defun train-hmm (hmm)
   (let ((n (hmm-n hmm)))
     (loop
-      with transitions = (hmm-transitions hmm)
-      for i from 0 to (- n 1)
-      for total = (float (loop
-                      for j from 0 to (- n 1)
-                      for count = (aref transitions i j)
-                      when (and count (> count *estimation-cutoff*))
-                      sum count))
-      do
-        (loop
-            for j from 0 to (- n 1)
-            for count = (aref transitions i j)
-            when (and count (> count *estimation-cutoff*))
-            do (setf (aref transitions i j) (float (/ count total))))
-	
-	 (make-good-turing-estimate (aref (hmm-emissions hmm) i)
-	 			   (hash-table-sum (aref (hmm-emissions hmm) i))
-	 			   (elt (hmm-tags hmm) i))
-	
-        (loop
-            with map = (aref (hmm-emissions hmm) i)
-            for code being each hash-key in map
-            for count = (gethash code map)
-            when (and count (> count *estimation-cutoff*))
-            do (setf (gethash code map) (float (log (/ count total))))))
+        with transitions = (hmm-transitions hmm)
+        for i from 0 to (- n 1)
+        for total = (float (loop
+                               for j from 0 to (- n 1)
+                               for count = (aref transitions i j)
+                               when (and count (> count *estimation-cutoff*))
+                               sum count))
+        do
+          (loop
+              for j from 0 to (- n 1)
+              for count = (aref transitions i j)
+              when (and count (> count *estimation-cutoff*))
+              do (setf (aref transitions i j) (float (/ count total))))
+          
+          (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+                                     (hash-table-sum (aref (hmm-emissions hmm) i))
+                                     (elt (hmm-tags hmm) i))
+          
+          (loop
+              with map = (aref (hmm-emissions hmm) i)
+              for code being each hash-key in map
+              for count = (gethash code map)
+              when (and count (> count *estimation-cutoff*))
+              do (setf (gethash code map) (float (log (/ count total))))))
+          
+    (build-suffix-tries hmm)
     
     (loop for k from 0 below n
-	for total = (let ((sum 0))
-		      (loop for i from 0 below n
-			  do (loop for j from 0 below n
-				 for count = (aref (hmm-trigram-table hmm) i j k)
-				 when (and count (> count *estimation-cutoff*))
-				 do (incf sum count)))
-		      sum)
-	do (loop for i from 0 below n
-	       do (loop for j from 0 below n
-			  for count = (aref (hmm-trigram-table hmm) i j k)
-		      when (and count (> count 1))
-		      do (setf (aref (hmm-trigram-table hmm) i j k)
-			   (float (/ count total))))))
+        for total = (let ((sum 0))
+                      (loop for i from 0 below n
+                          do (loop for j from 0 below n
+                                 for count = (aref (hmm-trigram-table hmm) i j k)
+                                 when (and count (> count *estimation-cutoff*))
+                                 do (incf sum count)))
+                      sum)
+        do (loop for i from 0 below n
+               do (loop for j from 0 below n
+                      for count = (aref (hmm-trigram-table hmm) i j k)
+                      when (and count (> count 1))
+                      do (setf (aref (hmm-trigram-table hmm) i j k)
+                           (float (/ count total))))))
     (loop for i from 0 below n
-	for count = (aref (hmm-unigram-table hmm) i)
-	with total = (hmm-token-count hmm)
-	do (setf (aref (hmm-unigram-table hmm) i)
-	     (float (/ count total)))))
+        for count = (aref (hmm-unigram-table hmm) i)
+        with total = (hmm-token-count hmm)
+        do (setf (aref (hmm-unigram-table hmm) i)
+             (float (/ count total)))))
   
   hmm)
 

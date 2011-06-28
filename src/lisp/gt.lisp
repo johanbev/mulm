@@ -39,11 +39,11 @@
 (defun make-good-turing-estimate (counts total &optional tag)
   (declare (ignorable total))
   (cond 
-   ((< (hash-table-count counts) 20) counts)
+   ((< (hash-table-count counts) 50) counts)
    (t
     (let* ((coc-table (coc-table counts))
 	   (coc-list (coc-list coc-table))
-	   (offset (min (find-contig coc-list) 6)))
+	   (offset (min (find-contig coc-list) 25)))
       (unless (> 2 offset)
 	(let*
 	    ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
@@ -84,7 +84,7 @@
       for y1 = (log (second (first coc-vector))) then (log  y2)
       for (x2 y2) in (rest coc-vector)
       for slope = (/ (float (- (log y2) y1))
-		     (float (- (log x2) (log x1))))
+                     (float (- (log x2) (log x1))))
       for offset = (- (log y2) (* (log x2) slope))
       do (push (list slope offset) avgs)	   
       finally (return avgs)))
