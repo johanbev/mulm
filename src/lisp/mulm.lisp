@@ -16,6 +16,3 @@
 ;; default placement of evaluation corpora is beside the src directory
 (defparameter *eval-path*
   (merge-pathnames "../../eval/" *package-path*))
-
-
-(defvar *hmm* nil)
