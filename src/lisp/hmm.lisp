@@ -434,20 +434,15 @@
 	for form of-type fixnum in (rest input)
 	for time of-type fixnum from 1 to (- l 1)
 	for unk = (eql :unk (gethash form *known-codes* :unk))
-	when unk do
-	  (loop
-	      with suffix = (query-suffix-trie form)
-	      for tag from 0 below n
-	      for prob across suffix do
-		(setf (aref viterbi tag time) prob))
+	for unk-emi = (and unk (query-suffix-trie form))
         do
 	  (loop
 	      for current of-type fixnum from 0 to (- n 1)
 	      do
 		(loop
-		    with old of-type single-float = most-negative-single-float
+		    with old of-type single-float = (aref viterbi current time)
 		    with emission of-type single-float = (if unk
-							     (aref viterbi current time)
+							     (aref unk-emi current)
 							   (emission-probability hmm current form))
 		    for previous of-type fixnum from 0 to (- n 1)
 		    for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
@@ -481,6 +476,7 @@
         with result = (list (elt tags last))
         for i of-type fixnum from time downto 1
         for state = (aref pointer last i) then (aref pointer state i)
+	never (null state)
         do (push (elt tags state) result)
         finally (return result)))))
 
