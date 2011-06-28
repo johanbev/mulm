@@ -39,7 +39,7 @@
 (defun make-good-turing-estimate (counts total &optional tag)
   (declare (ignorable total))
   (cond 
-   ((< (hash-table-count counts) 100) counts)
+   ((< (hash-table-count counts) 20) counts)
    (t
     (let* ((coc-table (coc-table counts))
 	   (coc-list (coc-list coc-table))
