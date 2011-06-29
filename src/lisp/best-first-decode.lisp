@@ -79,7 +79,6 @@
 (defparameter num-nodes 0)
 
 (defun trellis-best-first (hmm input)
-  #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (space 0) (debug 0)))
   (setf *emission-array* (make-emission-array input))
   (setf num-nodes 0)

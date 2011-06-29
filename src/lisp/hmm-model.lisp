@@ -323,8 +323,8 @@
         with count-tree = (build-model (mapcar (lambda (x)
                                                  (mapcar (lambda (x)
                                                            (tag-to-code hmm x))
-                                                         x)
-                                               (ll-to-tag-list corpus))) 3)
+                                                         x))
+                                               (ll-to-tag-list corpus)) 3)
         for t1 from 0 below n
         for t1-node = (gethash t1 (lm-tree-node-children *lm-root*))
         do

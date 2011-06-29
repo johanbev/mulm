@@ -22,7 +22,7 @@
           (add-sequence (rest seq) child)
         (incf (lm-tree-node-total child))))))
 
-(defun sentence-to-n-grams (sen tence n)
+(defun sentence-to-n-grams (sentence n)
   (let ((buffer (make-instance 'lru-queue)))
     (initialize-instance buffer :size n)
     (loop
@@ -38,4 +38,4 @@
           (append 
            (list "<s>")
            sent
-           (list  "</s>" ))) n))
+           (list  "</s>" )) n)))

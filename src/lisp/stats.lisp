@@ -1,14 +1,5 @@
 (in-package :mulm)
 
-;; this could go somewhere nicer
-(defmacro get-or-add (key table add-form)
-  (let ((tkey (gensym))
-        (ttable (gensym)))
-    `(let ((,tkey ,key)
-           (,ttable ,table))
-       (or (gethash ,tkey ,ttable) (setf (gethash ,tkey ,ttable) ,add-form)))))
-
-
 (defvar *total-tokens* 0)
 
 (defvar *word-counts*
@@ -30,19 +21,6 @@
 			     (make-hash-table))
 		 0)))
 
-(defun hash-table-sum (table)
-  (let ((sum 0))
-    (maphash (lambda (k v)
-	       (declare (ignore k))
-               (incf sum v))
-             table)
-    sum))
-
-(defun hash-table-entropy (table)
-  (loop
-      with sum = (hash-table-sum table)
-      for v being the hash-values in table
-      summing (* -1 (/ v sum) (log (/ v sum) 2))))
 
 ;; Weighted average of entropies p(t|w)
 (defun syncretism-measure ()
@@ -77,19 +55,6 @@
 	       for point = (aref matrix i j)
 	       do (format t "~3,5T~a" point))
 	   (format t "~%"))))
-
-(defun hash-table-diff (map1 map2)
-  "Takes two hash-tables as arguments and returns nil if they have identical
-   keys and values, t if they don't."
-  (when (/= (hash-table-sum map1) (hash-table-sum map2))
-    (return-from hash-table-diff t))
-  (maphash #'(lambda (k val1)
-               (let* ((nokey (gensym))
-                      (val2 (gethash k map2 nokey)))
-                 (if (or (equal val2 nokey) (not (equal val1 val2)))
-                   (return-from hash-table-diff t))))
-           map2)
-  nil)
 
 ;; Prints out points where there is a difference between two models (trained
 ;; on the same material).

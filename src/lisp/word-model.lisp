@@ -36,11 +36,6 @@
           (incf (lm-tree-node-total child-node) count)
           (incf (gethash tag (lm-tree-node-emissions child-node) 0)))))))
 
-(defun weighted-average-of (table &key (key #'identity))
-  (loop
-      with total = (float (hash-table-sum table))
-      for v being the hash-values in table
-      summing (abs (* (/ v total) (funcall key (/ v total))))))
 
 (defun weight-suffix-trie-node (node)
   (setf (lm-tree-node-weight node) 
@@ -119,6 +114,3 @@
                  (log tag-prob ))))
     prob))
 
- ;
- ; p a|b = (/ (* pb|a pa) pb)
- ;
