@@ -57,7 +57,6 @@
       finally (return bigram-probs)))
 
 (defun kn-trigrams (bigrams)
-  (declare (:explain :calls :boxing :types))
   (loop
       with *kn-d* of-type single-float  = 0.93
       with trigram-probs = (make-array
@@ -92,8 +91,6 @@
                             most-negative-single-float
                           (float (log trigram-prob))))))
       finally (return trigram-probs)))
-                           
-      
 
 (defun find-d ()	     
   (loop

@@ -11,3 +11,43 @@
 
 (defun capitalized-p (string)
   (true-p (cl-ppcre:scan "^[A-Z]" string)))
+
+(defun hash-table-sum (table)
+  (let ((sum 0))
+    (maphash (lambda (k v)
+	       (declare (ignore k))
+               (incf sum v))
+             table)
+    sum))
+
+(defun hash-table-entropy (table)
+  (loop
+      with sum = (hash-table-sum table)
+      for v being the hash-values in table
+      summing (* -1 (/ v sum) (log (/ v sum) 2))))
+
+(defun weighted-average-of (table &key (key #'identity))
+  (loop
+      with total = (float (hash-table-sum table))
+      for v being the hash-values in table
+      summing (abs (* (/ v total) (funcall key (/ v total))))))
+
+(defmacro get-or-add (key table add-form)
+  (let ((tkey (gensym))
+        (ttable (gensym)))
+    `(let ((,tkey ,key)
+           (,ttable ,table))
+       (or (gethash ,tkey ,ttable) (setf (gethash ,tkey ,ttable) ,add-form)))))
+
+(defun hash-table-diff (map1 map2)
+  "Takes two hash-tables as arguments and returns nil if they have identical
+   keys and values, t if they don't."
+  (when (/= (hash-table-sum map1) (hash-table-sum map2))
+    (return-from hash-table-diff t))
+  (maphash #'(lambda (k val1)
+               (let* ((nokey (gensym))
+                      (val2 (gethash k map2 nokey)))
+                 (if (or (equal val2 nokey) (not (equal val1 val2)))
+                   (return-from hash-table-diff t))))
+           map2)
+  nil)
