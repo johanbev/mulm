@@ -5,43 +5,43 @@
 
 (defun evaluate (hmm corpus)
   (let ((seqs (ll-to-word-list corpus))
-	(tag-seqs (ll-to-tag-list corpus)))
+        (tag-seqs (ll-to-tag-list corpus)))
     (loop
-	with correct = 0
-	with total = 0
-	with correct-unknown = 0
-	with total-unknown = 0
-	with correct-sequence = 0
-	with unknown-sequence = 0
-	with correct-unknown-sequence = 0
-	for total-sequence from 0
-	for seq in seqs
-	for tag-seq in tag-seqs
-	for result = (funcall *decoder* hmm seq)
-	for unknown = (loop 
-			  for x in seq 
-			  when (not (gethash x *known-codes*))
-			  do (return t) 
-			  finally (return nil))
-	when unknown
-	do (incf unknown-sequence)
-	when (equal tag-seq result)
-	do (incf correct-sequence)
-	   (when unknown
-	     (incf correct-unknown-sequence))
-	do
-	  (loop
-	      for x in seq
-	      for unknown = (not (gethash x *known-codes*))
-	      for blue in result
-	      for gold in tag-seq
-	      when unknown do (incf total-unknown)
-	      when (equal blue gold)
-	      do (incf correct) (when unknown (incf correct-unknown))
-	      do (incf total))
-	finally (return
-		  (values (/ correct total) (/ correct-sequence total-sequence)
-			  correct total correct-sequence total-sequence
+        with correct = 0
+        with total = 0
+        with correct-unknown = 0
+        with total-unknown = 0
+        with correct-sequence = 0
+        with unknown-sequence = 0
+        with correct-unknown-sequence = 0
+        for total-sequence from 0
+        for seq in seqs
+        for tag-seq in tag-seqs
+        for result = (funcall *decoder* hmm seq)
+        for unknown = (loop 
+                          for x in seq 
+                          when (not (gethash x *known-codes*))
+                          do (return t) 
+                          finally (return nil))
+        when unknown
+        do (incf unknown-sequence)
+        when (equal tag-seq result)
+        do (incf correct-sequence)
+           (when unknown
+             (incf correct-unknown-sequence))
+        do
+          (loop
+              for x in seq
+              for unknown = (not (gethash x *known-codes*))
+              for blue in result
+              for gold in tag-seq
+              when unknown do (incf total-unknown)
+              when (equal blue gold)
+              do (incf correct) (when unknown (incf correct-unknown))
+              do (incf total))
+        finally (return
+                  (values (/ correct total) (/ correct-sequence total-sequence)
+                          correct total correct-sequence total-sequence
 			  correct-unknown total-unknown unknown-sequence correct-unknown-sequence)))))
 
 (defun do-evaluation (&key (hmm *hmm*) (corpus *wsj-test-corpus*) (clobber t))
