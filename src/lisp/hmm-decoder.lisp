@@ -18,7 +18,8 @@
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer))
     (declare (type fixnum n nn l start-tag end-tag)
-             (type single-float final))
+             (type single-float final))    
+    (declare (type single-float beam-width))
     (loop 
         with form = (first input)
         with unk = (eql :unk (gethash form *known-codes* :unk))
@@ -49,7 +50,7 @@
         for trigger of-type single-float = most-negative-single-float
         do (loop for current fixnum from 0 to (- n 1)
                do (loop
-                      for index fixnum from 0 to (1- (fill-pointer indices))
+                      for index from 0 below (fill-pointer indices)
                       for previous = (aref indices index)
                       for prev-prob of-type single-float = (aref viterbi previous (- time 1))
                       with old of-type single-float = (aref viterbi current time)
@@ -97,7 +98,7 @@
                     (mapcar #'second result)))))
 
 ;;; hvor conser denne?
-(defun viterbi-bigram (hmm input &key (beam-width 10.0))
+(defun viterbi-bigram (hmm input &key (beam-width 13.80))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))

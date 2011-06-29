@@ -35,7 +35,5 @@
   (loop 
       for sent in sentences
       do (sentence-to-n-grams 
-          (append 
-           (list "<s>")
            sent
-           (list  "</s>" )) n)))
+            n)))
