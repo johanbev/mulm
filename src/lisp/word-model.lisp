@@ -82,7 +82,7 @@
          (theta (hmm-theta hmm))
          (prob (make-array (hmm-n hmm) :initial-element nil)))
     (loop
-        for seq in (reverse (loop for seq on nodes collect seq))
+        for seq in (reverse (loop for seq on nodes collect seq)) ;;loop from small to big
         for i from 0
         for (weight dist) = (weight-and-dist-of seq *suffix-trie-root*)	
         for d-table = (and dist (lm-tree-node-emissions dist))

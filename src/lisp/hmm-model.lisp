@@ -42,7 +42,6 @@
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
 (defun transition-probability (hmm previous current &key (order 1) (smoothing :constant))
-  (declare (:explain :calls :boxing))
   (declare (type fixnum current order))
   (declare (type hmm hmm))
   ;;
@@ -191,7 +190,7 @@
                             :initial-contents (loop for i from 0 to (1- n) collect i)))
           (calculate-deleted-interpolation-weights hmm)
           (calculate-theta hmm)           
-          (train-hmm hmm)
+          (train-hmm hmm corpus)
           (return hmm)))
 
 (defun calculate-theta (hmm)
@@ -286,7 +285,7 @@
       (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
       hmm)))
 
-(defun train-hmm (hmm)
+(defun train-hmm (hmm corpus)
   (build-suffix-tries hmm)
   (let ((n (hmm-n hmm)))
     (loop
@@ -315,21 +314,29 @@
               do (setf (gethash code map) (float (log (/ count total))))))
     
           
-    
-    (loop for k from 0 below n
-        for total = (let ((sum 0))
-                      (loop for i from 0 below n
-                          do (loop for j from 0 below n
-                                 for count = (aref (hmm-trigram-table hmm) i j k)
-                                 when (and count (> count *estimation-cutoff*))
-                                 do (incf sum count)))
-                      sum)
-        do (loop for i from 0 below n
-               do (loop for j from 0 below n
-                      for count = (aref (hmm-trigram-table hmm) i j k)
-                      when (and count (> count 1))
-                      do (setf (aref (hmm-trigram-table hmm) i j k)
-                           (float (/ count total))))))
+    ;;; this is quite hacky but count-trees will be abstracted nicely
+    ;;; in the near future, however, this should estimate correct
+    ;;; n-gram probabilities
+    (loop
+        with *lm-root* = (make-lm-tree-node)
+        with *hmm* = hmm
+        with count-tree = (build-model (ll-to-tag-list corpus) 3)
+        for t1 from 0 below n
+        for t1-node = (gethash t1 (lm-tree-node-children *lm-root*))
+        do
+          (loop 
+              for t2 from 0 below n 
+              for t2-node = (gethash t2 (lm-tree-node-children t1-node))
+              when t2-node do
+                (loop 
+                    with total = (lm-tree-node-total t2-node)
+                    for t3 from 0 below n
+                    for t3-node = (gethash t3 (lm-tree-node-children t2-node))
+                    when t3-node do
+                      (let ((prob (/ (lm-tree-node-total t3-node)
+                                     total)))
+                        (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                          prob)))))
     (loop for i from 0 below n
         for count = (aref (hmm-unigram-table hmm) i)
         with total = (hmm-token-count hmm)
