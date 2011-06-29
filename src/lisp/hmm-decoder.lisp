@@ -1,7 +1,8 @@
 (in-package :mulm)
 
-(defun viterbi-trigram (hmm input)
-  (declare (:explain :boxing :calls))
+(defvar *bigrams* nil)
+
+(defun viterbi-trigram (hmm input &key (bigrams *bigrams*) (beam-width 15.0))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
@@ -20,34 +21,62 @@
              (type single-float final))
     (loop 
         with form = (first input)
+        with unk = (eql :unk (gethash form *known-codes* :unk))
+        with unk-emi = (and unk (query-suffix-trie hmm form))
         for tag fixnum from 0 to (- n 1)
         for state fixnum = (+ (the fixnum (* start-tag n)) tag)
         do (setf (aref viterbi state 0)
-               (+ (the single-float (transition-probability hmm start-tag tag
-                                              :order 1 :smoothing :deleted-interpolation))
-                      (emission-probability hmm tag form)))
+             (+ (the single-float (if bigrams
+                                      (aref bigrams start-tag tag)
+                                    (transition-probability hmm start-tag tag
+                                                            :order 1 :smoothing :deleted-interpolation)))
+                  (if unk
+                      (aref unk-emi tag)
+                    (emission-probability hmm tag form))))
         do (setf (aref pointer state 0) 0))
     (loop 
         for form in (rest input)
-        for time fixnum from 1 to (- l 1)				    
+        for time fixnum from 1 to (- l 1)
+        for unk = (eql :unk (gethash form *known-codes* :unk))
+        for unk-emi = (and unk (query-suffix-trie hmm form))
+        with indices = (hmm-beam-array hmm)
+        initially (setf (fill-pointer indices) 0)
+                  (loop 
+                      for tag below n
+                      for x = (+ (the fixnum (* start-tag n)) tag)                                  
+                      do (vector-push x indices))
+        for best-hypothesis of-type single-float = most-negative-single-float
+        for trigger of-type single-float = most-negative-single-float
         do (loop for current fixnum from 0 to (- n 1)
-	       do (loop 
-                  for previous fixnum from 0 below nn
-                  for prev-prob of-type single-float = (aref viterbi previous (- time 1))
-                  with old of-type single-float = (aref viterbi current time)
-                  with emission of-type single-float = (emission-probability hmm current form)
-                  when (> prev-prob old)
-                  do (multiple-value-bind (t1 t2)
+               do (loop
+                      for index fixnum from 0 to (1- (fill-pointer indices))
+                      for previous = (aref indices index)
+                      for prev-prob of-type single-float = (aref viterbi previous (- time 1))
+                      with old of-type single-float = (aref viterbi current time)
+                      with emission of-type single-float = (if unk
+                                                               (aref unk-emi current)
+                                                             (emission-probability hmm current form))
+                      when (> prev-prob old)                       
+                      do (multiple-value-bind (t1 t2)
                          (truncate previous n)
                        (declare (type fixnum t1 t2))
                        (let ((new (+ prev-prob
                                      emission
                                      (tri-cached-transition hmm t1 t2 current))))
                          (declare (type single-float new))
+                         (when (> new trigger)
+                          (setf trigger new)
+                          (setf best-hypothesis (- new beam-width)))
                          (when (> new old)
                            (setf old new)
                            (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
-                           (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))))         
+                           (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous))))))
+           (loop
+               initially (setf (fill-pointer indices) 0)
+               for current of-type fixnum from 0 below nn
+               for prob of-type single-float = (the single-float (aref viterbi current time))
+               when (> prob best-hypothesis)
+               do (vector-push current indices)))
     (loop
         with time fixnum = (1- l)
         for previous fixnum from 0 below nn
@@ -68,7 +97,7 @@
                     (mapcar #'second result)))))
 
 ;;; hvor conser denne?
-(defun viterbi-bigram (hmm input)
+(defun viterbi-bigram (hmm input &key (beam-width 10.0))
   (declare (optimize (speed 3) (debug  0) (space 0)))
   (let* ((n (hmm-n hmm))
          (l (length input))
@@ -96,6 +125,13 @@
         for time of-type fixnum from 1 to (- l 1)
         for unk = (eql :unk (gethash form *known-codes* :unk))
         for unk-emi = (and unk (query-suffix-trie hmm form))
+        with indices = (hmm-beam-array hmm)
+        initially (setf (fill-pointer indices) 0)
+                  (loop 
+                      for x below n
+                      do (vector-push x indices))
+        for best-hypothesis of-type single-float = most-negative-single-float
+        for trigger of-type single-float = most-negative-single-float
         do
           (loop
               for current of-type fixnum from 0 to (- n 1)
@@ -105,7 +141,8 @@
                     with emission of-type single-float = (if unk
                                                              (aref unk-emi current)
                                                            (emission-probability hmm current form))
-                    for previous of-type fixnum from 0 to (- n 1)
+                    for index fixnum from 0 to (1- (fill-pointer indices))
+                    for previous = (aref indices index)
                     for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
                     when (> prev-prob old) do
                       (let ((new
@@ -113,10 +150,20 @@
                                 (bi-cached-transition hmm previous current)
                                 emission)))
                         (declare (type single-float new))
+                        (when (> new trigger)
+                          (setf trigger new)
+                          (setf best-hypothesis (- new beam-width)))
                         (when (> new old)
                           (setf old new)
                           (setf (aref viterbi current time) new)
-                          (setf (aref pointer current time) previous))))))
+                          (setf (aref pointer current time) previous)))))
+          (loop
+              initially (setf (fill-pointer indices) 0)
+              for current of-type fixnum from 0 to (- n 1)
+              for prob of-type single-float = (the single-float (aref viterbi current time))
+              when (> prob best-hypothesis)
+              do (vector-push current indices)))
+
     (loop
         with final = (tag-to-code hmm "</s>")
         with time of-type fixnum = (- l 1)
@@ -196,15 +243,13 @@
                         (when (> new old)
                           (setf old new)
                           (setf (aref viterbi current time) new)
-                          (setf (aref pointer current time) previous)))
-                    else do (incf *beam-pruned*)))
+                          (setf (aref pointer current time) previous)))))
           (loop
               initially (setf (fill-pointer indices) 0)
               for current of-type fixnum from 0 to (- n 1)
               for prob of-type single-float = (the single-float (aref viterbi current time))
               when (> prob best-hypothesis)
-              do (vector-push current indices)
-              else do (incf *beam-pruned* n)))
+              do (vector-push current indices)))
     (loop
         with final = (tag-to-code hmm "</s>")
         with time of-type fixnum = (- l 1)
