@@ -1,11 +1,14 @@
 (in-package :mulm)
 
 (defun create-kn-count-tree (corpus n hmm)
-  (setf *lm-root* (make-lm-tree-node))
+  (setf *lm-root* (make-lm-tree-node))  
   (build-model (mapcar (lambda (x)
-                         (mapcar (lambda (x)
-                                   (tag-to-code hmm x))
-                                 x))
+                         (append
+                          (list (tag-to-code hmm "<s>"))
+                          (mapcar (lambda (x)
+                                    (tag-to-code hmm x))
+                                  x)
+                          (list (tag-to-code hmm "</s>"))))
                        (ll-to-tag-list corpus)) n))
 
 
@@ -33,7 +36,7 @@
 
 (defun kn-bigrams (unigrams)
   (loop
-      with *kn-d* = 1.207
+      with *kn-d* = 1.107
       with bigram-probs = (make-array (list (hmm-n *hmm*)
                                             (hmm-n *hmm*))
                                       :element-type 'single-float
@@ -58,7 +61,7 @@
 
 (defun kn-trigrams (bigrams)
   (loop
-      with *kn-d* of-type single-float  = 0.93
+      with *kn-d* of-type single-float  = 1.33
       with trigram-probs = (make-array
                             (list (hmm-n *hmm*)
                                   (hmm-n *hmm*)

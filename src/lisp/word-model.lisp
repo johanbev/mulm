@@ -14,7 +14,7 @@
                         'list))
          (sufs (* count (length nodes))))
     (incf (lm-tree-node-adds node) count)
-    (incf (gethash tag (lm-tree-node-emissions node) 0) sufs)
+    (incf (gethash tag (lm-tree-node-emissions node) 0) count)
     (loop 
         for seq on nodes
         do (add-word-to-trie seq tag (abs count) node))))
@@ -34,7 +34,7 @@
           (add-word-to-trie rest tag count (get-or-add first children (make-lm-tree-node)))
         (progn
           (incf (lm-tree-node-total child-node) count)
-          (incf (gethash tag (lm-tree-node-emissions child-node) 0)))))))
+          (incf (gethash tag (lm-tree-node-emissions child-node) 0) count))))))
 
 
 (defun weight-suffix-trie-node (node)
@@ -64,6 +64,7 @@
                   child)
           (weight-and-dist-of rest child))))))
 
+
 (defun query-suffix-trie (hmm word)
   (let* ((form (code-to-symbol word))
          (trie-key (capitalized-p form))
@@ -85,32 +86,35 @@
         when weight	     
         do 
           (incf accu-weight  weight)
-          (loop  
-          
+          (loop            
               for tag being the hash-keys in d-table
               for count = (float (gethash tag d-table))
-              for p-t/s = (/ count total)	   	  
-              for p-s = (/ total  (lm-tree-node-total *suffix-trie-root*))
-              for p-t = (/ (gethash tag (lm-tree-node-emissions *suffix-trie-root*) 0)
-                           (lm-tree-node-total *suffix-trie-root*))
-              for bayes = (* (/ (* p-t/s p-t)
-                                p-s))
+              for p-t/s = (/ count total)
+              for p-t = (aref (hmm-unigram-table hmm) tag) ;; check
               when (null (aref prob tag)) do (Setf (aref prob tag) p-t)
               do (setf (aref prob tag)
-                   (/ (+ (* p-t/s weight) (* theta (aref prob tag)))
+                   (/ (+ (* weight p-t/s) (* theta (aref prob tag)))
                       (1+ theta)))))
-    ;;; I don't know why not doing the bayesian inversion here makes it so much better
-    ;;; it should be theoretically motivated/neccesary.
+    (loop
+        for tag-prob across prob
+        for i from 0       
+        for p-t =  (aref (hmm-unigram-table hmm) i) ;; check
+        when tag-prob do (setf (aref prob i)
+                           (/ tag-prob 
+                              p-t)))
+                   
     (loop
         for i from 0
         for tag-prob across prob
         if (or (null tag-prob) (>= 0.0 tag-prob)) do
           (setf (aref prob i)
-            (+ (gethash :unk (aref (hmm-emissions hmm) i) -19.0)
-               -133.37))
-        else
-        do (setf (aref prob i) 
-             (+ (gethash :unk (aref (hmm-emissions hmm) i) -19.0)
-                 (log tag-prob ))))
+            (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
+               -19.37))    
+        else do (setf (aref prob i) 
+             (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
+               (log tag-prob ))))
     prob))
+
+;; 80.73% 87.71  86.16%
+
 

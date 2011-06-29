@@ -194,18 +194,18 @@
           (return hmm)))
 
 (defun calculate-theta (hmm)
-  (let* ((total (loop for count across (hmm-unigram-table hmm)
-                      summing count))
-         (probs (loop for count across (hmm-unigram-table hmm)
-                      collect (float (/ count total))))
-         (mean (/ (loop for p in probs
-                        summing p)
-                  (hmm-n hmm))))
-    (setf (hmm-theta hmm)
-          (float (* (/ 1.0 (1- (hmm-n hmm)))
-                    (loop 
-                        for p in probs
-                        summing (expt (- p mean) 2)))))))
+   (let* ((total (loop for count across (hmm-unigram-table hmm)
+                     summing count))
+          (probs (loop for count across (hmm-unigram-table hmm)
+                     collect (float (/ count total))))
+          (mean (/ (loop for p in probs
+                       summing p)
+                   (hmm-n hmm))))
+     (setf (hmm-theta hmm)
+       (sqrt (float (* (/ 1.0 (1- (hmm-n hmm)))
+                 (loop 
+                     for p in probs
+                     summing (expt (- p mean) 2))))))))
 
 
 (defun add-to-suffix-tries (hmm  word tag count)
@@ -321,13 +321,16 @@
         with *lm-root* = (make-lm-tree-node)
         with *hmm* = hmm
         with count-tree = (build-model (mapcar (lambda (x)
-                                                 (mapcar (lambda (x)
-                                                           (tag-to-code hmm x))
-                                                         x))
+                                                 (append
+                                                  (list (tag-to-code hmm "<s>"))
+                                                  (mapcar (lambda (x)
+                                                            (tag-to-code hmm x))
+                                                          x)
+                                                  (list (tag-to-code hmm "</s>"))))
                                                (ll-to-tag-list corpus)) 3)
         for t1 from 0 below n
         for t1-node = (gethash t1 (lm-tree-node-children *lm-root*))
-        do
+        when t1-node do
           (loop 
               for t2 from 0 below n 
               for t2-node = (gethash t2 (lm-tree-node-children t1-node))
