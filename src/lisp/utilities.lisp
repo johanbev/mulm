@@ -32,6 +32,34 @@
       for v being the hash-values in table
       summing (abs (* (/ v total) (funcall key (/ v total))))))
 
+(defun renyi-entropy (table alpha)
+  (if (= 1 alpha)
+      (hash-table-entropy table)
+    (* (/ 1 (- 1 alpha))
+       (log
+        (loop
+            for v being the hash-values in table
+            summing  (expt v alpha))
+        2))))
+
+(defun kl-divergence (p q)
+  (loop
+      for x being the hash-keys in p
+      for P-x = (gethash x p)
+      for Q-x = (gethash x q)
+      summing (log (/ P-x Q-x))))
+                                      
+(defun renyi-divergence (p q alpha)
+  (if (= 1 alpha)
+      (kl-divergence p q)
+  (* (/ 1.0 (- alpha 1.0))
+     (log
+      (loop
+          for x being the hash-keys in p
+          for P-x = (gethash x p)
+          for Q-x = (gethash x q)
+          summing (* (expt P-x alpha) (expt Q-x (- 1 alpha))))))))
+
 (defmacro get-or-add (key table add-form)
   (let ((tkey (gensym))
         (ttable (gensym)))

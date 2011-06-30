@@ -236,8 +236,9 @@
                       (not (eql word :unk)))                       
             do (add-to-suffix-tries hmm word state count)))
   (maphash (lambda (k v)
-             (declare (ignore k))
-             (compute-suffix-weights v))
+             (let ((*suffix-trie-root* v))
+               (declare (ignore k))
+               (compute-suffix-weights v)))
            (hmm-suffix-tries hmm)))
 
 (defun calculate-deleted-interpolation-weights (hmm)

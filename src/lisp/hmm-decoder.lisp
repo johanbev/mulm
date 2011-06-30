@@ -50,7 +50,8 @@
                                                      (emission-probability hmm current form))
                when (or unk (> emission -19.0))                                           
                do (setf touch t)
-                  (loop                      
+                  (loop
+                    ;;; the loop of death, we really don't want to go here if we can spare it
                       for previous fixnum  from 0 below nn
                       for prev-prob of-type single-float = (aref viterbi previous previous-time)
                       with old of-type single-float = (aref viterbi current time)
@@ -67,7 +68,7 @@
                                (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
                                (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous))))
                   (unless touch
-                    ;; rescue loop
+                    ;; rescue loop, shoudn't come here normally.                    
                     (format t "~% To the rescue!")
                     (loop                      
                         for current fixnum from 0 to (- n 1)
