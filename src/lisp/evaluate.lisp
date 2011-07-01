@@ -50,6 +50,8 @@
     (unless *wsj-train-corpus*
       (read-wsj-corpus))
     (setf hmm (train *wsj-train-corpus*)))
+  (unless corpus
+    (setf corpus (read-tt-corpus *wsj-eval-file*)))
   (cond
    ((and (eq *decoder* #'viterbi-bigram) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
