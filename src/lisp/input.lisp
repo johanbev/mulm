@@ -26,7 +26,9 @@
               (and (not (find-if #'(lambda (c)
                                      (member c '(#\| #\")))
                                  tok))
-                   (numberp (read-from-string tok))))
+                   ;; intern arbitrary strings into the keyword package
+                   (with-package :keyword
+                     (numberp (read-from-string tok)))))
 	  (prog1 
 	      (if (eql #\. (aref token (1- (length token))))
 		  "¦OD¦"

@@ -1,5 +1,11 @@
 (in-package :mulm)
 
+(defmacro with-package (name &body body)
+  "Evaluates the statements on the body *package* bound to the named package."
+  `(let ((*package* (find-package ,name)))
+     ; reader interns all symbol in body in outer package?
+     ,@body))
+
 (defun partition (list &optional (len 2))
   "Partitions the list into ordered sequences of len consecutive elements."
   (loop for i on list
