@@ -62,6 +62,13 @@
      (compute-suffix-weights v :fcn fcn))
    (lm-tree-node-children node)))
 
+(defun reweight-suffix-tries (hmm lambda)  
+  (maphash (lambda (k v)
+             (declare (ignore k))
+             (let ((*suffix-trie-root* v))               
+               (compute-suffix-weights v :fcn lambda)))
+           (hmm-suffix-tries hmm)))
+
 (defun diff-entropy-suffix-weighting (node root-entropy &key (alpha 1))
   (let ((sum (hash-table-sum (lm-tree-node-emissions node))))
     (if (> sum 0)
@@ -69,6 +76,30 @@
           (max (- root-entropy (renyi-entropy (lm-tree-node-emissions node) alpha)) 0.0))
       (setf (lm-tree-node-weight node)
         nil))))
+
+(defun ig-suffix-weighting (node root-node root-entropy)
+  ;; IG = H(x) + P(f)-H(x|f) + P(not-f)-H(x|not-f)
+  ;; P(not-f) = 1 - P(f)
+  ;; f = node
+  ;; x = tags
+  (with-slots (emissions total) node
+    (let* ((total-ems (hash-table-sum emissions))
+           (global-ems (lm-tree-node-adds root-node)))
+      (if (not (or (= 0 total-ems) (eq node root-node) (= total-ems global-ems)))
+        (loop
+            with p-f = (/ total-ems (lm-tree-node-adds root-node))
+            with p-not-f = (- 1 p-f)
+            with positive-gain = (* -1 p-f (hash-table-entropy emissions))
+            for k being the hash-keys in (lm-tree-node-emissions root-node)
+            for em fixnum = (gethash k (lm-tree-node-emissions root-node))
+            for adjusted-em of-type single-float  = (float (- em (gethash k emissions 0)))
+            for p-adj-em-not-f = (/ adjusted-em (- global-ems total-ems))
+            unless (or (zerop p-adj-em-not-f) (null p-adj-em-not-f))
+            summing (* p-adj-em-not-f (log p-adj-em-not-f 2)) into sum
+            finally             
+              (setf (lm-tree-node-weight node)
+                      (+ root-entropy positive-gain (* -1 p-not-f sum))))
+        (setf (lm-tree-node-weight node) nil)))))
 
 (defun inverse-entropy-suffix-weighting (node)
   (setf (lm-tree-node-weight node)     

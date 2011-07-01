@@ -22,7 +22,7 @@
 
 (defun hash-table-entropy (table)
   (loop
-      with sum = (hash-table-sum table)
+      with sum = (float (hash-table-sum table))
       for v being the hash-values in table
       summing (* -1 (/ v sum) (log (/ v sum) 2))))
 
