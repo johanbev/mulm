@@ -1,9 +1,6 @@
 (in-package :mulm)
 
-(defparameter *decoder*
-    #'viterbi-bigram)
-
-(defun evaluate (hmm corpus)
+(defun evaluate (hmm corpus decoder &key (seq-handler nil))
   (let ((seqs (ll-to-word-list corpus))
         (tag-seqs (ll-to-tag-list corpus)))
     (loop
@@ -17,7 +14,7 @@
         for total-sequence from 0
         for seq in seqs
         for tag-seq in tag-seqs
-        for result = (funcall *decoder* hmm seq)
+        for result = (funcall decoder hmm seq)
         for unknown = (loop 
                           for x in seq 
                           when (not (gethash x *known-codes*))
@@ -39,12 +36,14 @@
               when (equal blue gold)
               do (incf correct) (when unknown (incf correct-unknown))
               do (incf total))
+        when seq-handler
+        do (funcall seq-handler total)
         finally (return
                   (values (/ correct total) (/ correct-sequence total-sequence)
                           correct total correct-sequence total-sequence
 			  correct-unknown total-unknown unknown-sequence correct-unknown-sequence)))))
 
-(defun do-evaluation (&key (hmm *hmm*) (corpus *wsj-test-corpus*) (clobber t))
+(defun do-evaluation (&key (order 1) (hmm *hmm*) (corpus *wsj-test-corpus*) (clobber t) (marker nil))
   (unless hmm
     (format t "~&do-evaluation(): No model! Using WSJ")
     (unless *wsj-train-corpus*
@@ -53,21 +52,31 @@
   (unless corpus
     (setf corpus (read-tt-corpus *wsj-eval-file*)))
   (cond
-   ((and (eq *decoder* #'viterbi-bigram) clobber)
+   ((and (= order 1) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
     (make-transition-table hmm 1 :constant))
-   ((and (eq *decoder* #'viterbi-trigram) clobber)
+   ((and (= order 2) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
     (make-transition-table hmm 2 :deleted-interpolation))
    (t (format t "~&do-evaluation(): Make sure to have a transition-table")))    
   (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length corpus))
-  (time
-   (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
-       (evaluate hmm corpus)
-     (declare (ignore cs ts))
-     (format t "~%Correct:          ~2,4T~a~%" correct)
-     (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
-     (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
-     (format t "Unknown Token Acc:~2,4T~,3f %~%" (if (> tu 0) (* 100 (/ cu tu)) nil))
-     (format t "Unknown Seq Acc:  ~2,4T~,3f %~%" (if (> us 0) (* 100 (/ cus us)) nil))
-     (format t "Tokens: ~a, Unknown: ~a, ~,3f %~%" total tu (* 100 (/ tu total))))))
+  (let ((decoder (ecase order
+                   (1 #'viterbi-bigram)
+                   (2 #'viterbi-trigram)))
+        (seq-handler (if marker
+                       #'(lambda (total)
+                                    (when (and marker
+                                               (= (rem total marker) 0))
+                                      (write-char #\.))))))
+    (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
+        (time
+         (evaluate hmm corpus decoder
+                   :seq-handler seq-handler))
+       (declare (ignore cs ts))
+       (format t "~%Order:            ~a~%" order)
+       (format t "Correct:          ~2,4T~a~%" correct)
+       (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
+       (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
+       (format t "Unknown Token Acc:~2,4T~,3f %~%" (if (> tu 0) (* 100 (/ cu tu)) nil))
+       (format t "Unknown Seq Acc:  ~2,4T~,3f %~%" (if (> us 0) (* 100 (/ cus us)) nil))
+       (format t "Tokens: ~a, Unknown: ~a, ~,3f %~%" total tu (* 100 (/ tu total))))))
