@@ -3,11 +3,12 @@
 (defvar *bigrams* nil)
 
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*))
-  (declare (optimize (speed 3) (debug  0) (space 0)))
+  (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
          (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
+         ;; TODO use more memory friendly type for backpointer table
          (pointer (make-array (list nn l) :initial-element nil))
          (final most-negative-single-float)
          (final-back nil)
@@ -18,7 +19,9 @@
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer))
     (declare (type fixnum n nn l start-tag end-tag)
-             (type single-float final))    
+             (type single-float final))
+    ;; LW6 can't handle enormous allocations on the stack
+    #+allegro
     (declare (dynamic-extent viterbi pointer))
     (loop 
         with form = (first input)
