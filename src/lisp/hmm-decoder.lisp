@@ -226,17 +226,19 @@
         (make-hash-table))
   decoder)
 
-(defun decode-start (decoder hmm input viterbi pointer)
+(defun decode-start (decoder hmm input viterbi pointer &optional (constraints nil))
   (let ((n (hmm-n hmm)))
     (loop
      with form of-type fixnum = (first input)
      for state of-type fixnum from 0 to (- n 1)
+     when (or (null constraints) (member state constraints)) 
      do (setf (aref viterbi state 0)
               (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
                  (emission-probability-slow decoder hmm state form)))
-     do (setf (aref pointer state 0) 0))))
+     and do (setf (aref pointer state 0) 0))))
 
-(defun decode-form (decoder hmm time form viterbi pointer indices trigger beam-width best-hypothesis)
+(defun decode-form (decoder hmm time form viterbi pointer indices trigger
+                            beam-width best-hypothesis &optional (constraints nil))
   (let ((n (hmm-n hmm)))
     (loop
      for current of-type fixnum from 0 to (- n 1)
@@ -246,19 +248,20 @@
          for index fixnum from 0 to (1- (fill-pointer indices))
          for previous = (aref indices index)
          for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
-         when (> prev-prob old) do
-         (let ((new
-                (+ prev-prob
-                   (bi-cached-transition hmm previous current)
-                   emission)))
-           (declare (type single-float new))
-           (when (> new trigger)
-             (setf trigger new)
-             (setf best-hypothesis (- new beam-width)))
-           (when (> new old)
-             (setf old new)
-             (setf (aref viterbi current time) new)
-             (setf (aref pointer current time) previous)))))
+         when (and (> prev-prob old)
+                   (or (null constraints) (member current constraints)))
+         do (let ((new
+                   (+ prev-prob
+                      (bi-cached-transition hmm previous current)
+                      emission)))
+              (declare (type single-float new))
+              (when (> new trigger)
+                (setf trigger new)
+                (setf best-hypothesis (- new beam-width)))
+              (when (> new old)
+                (setf old new)
+                (setf (aref viterbi current time) new)
+                (setf (aref pointer current time) previous)))))
     (loop
      initially (setf (fill-pointer indices) 0)
      for current of-type fixnum from 0 to (- n 1)
@@ -294,12 +297,15 @@
      do (push (elt tags state) result)
      finally (return result))))
 
-(defun viterbi-bigram-slow (hmm input &key (beam-width 13.80) (decoder nil))
+(defun viterbi-bigram-slow (hmm input &key (beam-width 13.80) (decoder nil) (constraints nil))
   (declare (ignore hmm))
   ; (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((hmm (viterbi-decoder-model decoder))
          (n (hmm-n hmm))
          (l (length input))
+         (constraints (loop for tags in constraints
+                            collect (loop for tag in tags
+                                          collect (tag-to-code hmm tag))))
          (viterbi (make-array (list n l)
                               :initial-element most-negative-single-float
                               :element-type 'single-float))
@@ -313,11 +319,12 @@
     ;; nuke existing caches
     (setup-decoder decoder)
 
-    (decode-start decoder hmm input viterbi pointer)
+    (decode-start decoder hmm input viterbi pointer (first constraints))
     
     (loop
         for form of-type fixnum in (rest input)
         for time of-type fixnum from 1 to (- l 1)
+
         with indices = (hmm-beam-array hmm)
         initially (setf (fill-pointer indices) 0)
                   (loop 
@@ -325,7 +332,11 @@
                       do (vector-push x indices))
         for best-hypothesis of-type single-float = most-negative-single-float
         for trigger of-type single-float = most-negative-single-float
-        do (decode-form decoder hmm time form viterbi pointer indices trigger beam-width best-hypothesis))
+
+        for constraint = (and constraints (elt constraints time))
+
+        do (decode-form decoder hmm time form viterbi pointer indices
+                        trigger beam-width best-hypothesis constraint))
 
     (decode-end hmm viterbi pointer l)
     
