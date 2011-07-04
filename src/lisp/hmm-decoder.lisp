@@ -211,17 +211,88 @@
 (defstruct viterbi-decoder
   function
   model
-  (caches (make-hash-table)))
+  (caches (make-hash-table))
+  trellis
+  back)
 
 (defun make-decoder (training-corpus)
-  (init-decoder
+  (setup-decoder
    (make-viterbi-decoder :function #'viterbi-bigram-slow
                          :model (train training-corpus))))
 
-(defun init-decoder (decoder)
+(defun setup-decoder (decoder &optional input)
+  (declare (ignore input))
   (setf (gethash :unknown-word (viterbi-decoder-caches decoder))
         (make-hash-table))
   decoder)
+
+(defun decode-start (decoder hmm input viterbi pointer)
+  (let ((n (hmm-n hmm)))
+    (loop
+     with form of-type fixnum = (first input)
+     for state of-type fixnum from 0 to (- n 1)
+     do (setf (aref viterbi state 0)
+              (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
+                 (emission-probability-slow decoder hmm state form)))
+     do (setf (aref pointer state 0) 0))))
+
+(defun decode-form (decoder hmm time form viterbi pointer indices trigger beam-width best-hypothesis)
+  (let ((n (hmm-n hmm)))
+    (loop
+     for current of-type fixnum from 0 to (- n 1)
+     do (loop
+         with old of-type single-float = (aref viterbi current time)
+         with emission of-type single-float = (emission-probability-slow decoder hmm current form)
+         for index fixnum from 0 to (1- (fill-pointer indices))
+         for previous = (aref indices index)
+         for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
+         when (> prev-prob old) do
+         (let ((new
+                (+ prev-prob
+                   (bi-cached-transition hmm previous current)
+                   emission)))
+           (declare (type single-float new))
+           (when (> new trigger)
+             (setf trigger new)
+             (setf best-hypothesis (- new beam-width)))
+           (when (> new old)
+             (setf old new)
+             (setf (aref viterbi current time) new)
+             (setf (aref pointer current time) previous)))))
+    (loop
+     initially (setf (fill-pointer indices) 0)
+     for current of-type fixnum from 0 to (- n 1)
+     for prob of-type single-float = (the single-float (aref viterbi current time))
+     when (> prob best-hypothesis)
+     do (vector-push current indices))))
+
+(defun decode-end (hmm viterbi pointer l)
+  (let ((n (hmm-n hmm)))
+    (loop
+     with final = (tag-to-code hmm "</s>")
+     with time of-type fixnum = (- l 1)
+     for previous of-type fixnum from 0 to (- n 1)
+     for old of-type single-float = (aref viterbi final time)
+     for new of-type single-float = (+ (the single-float (aref viterbi previous time))
+                                       (bi-cached-transition hmm previous final))
+     when (> new old) do
+     (setf (aref viterbi final time) new)
+     (setf (aref pointer final time) previous))))
+
+(defun backtrack-slow (hmm pointer l)
+  (if (null (aref pointer (tag-to-code hmm "</s>") (- l 1)))
+    nil
+    (loop
+     with final = (tag-to-code hmm "</s>")
+     with time = (- l 1)
+     with last  = (aref pointer final time)
+     with tags = (hmm-tags hmm)
+     with result = (list (elt tags last))
+     for i of-type fixnum from time downto 1
+     for state = (aref pointer last i) then (aref pointer state i)
+     never (null state)
+     do (push (elt tags state) result)
+     finally (return result))))
 
 (defun viterbi-bigram-slow (hmm input &key (beam-width 13.80) (decoder nil))
   (declare (ignore hmm))
@@ -238,14 +309,12 @@
     (declare (type fixnum n l))
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer))
-    (init-decoder decoder)
-    (loop
-        with form of-type fixnum = (first input)
-        for state of-type fixnum from 0 to (- n 1)
-        do (setf (aref viterbi state 0)
-                 (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
-                    (emission-probability-slow decoder hmm state form)))
-        do (setf (aref pointer state 0) 0))
+
+    ;; nuke existing caches
+    (setup-decoder decoder)
+
+    (decode-start decoder hmm input viterbi pointer)
+    
     (loop
         for form of-type fixnum in (rest input)
         for time of-type fixnum from 1 to (- l 1)
@@ -256,54 +325,8 @@
                       do (vector-push x indices))
         for best-hypothesis of-type single-float = most-negative-single-float
         for trigger of-type single-float = most-negative-single-float
-        do (loop
-            for current of-type fixnum from 0 to (- n 1)
-            do (loop
-                with old of-type single-float = (aref viterbi current time)
-                with emission of-type single-float = (emission-probability-slow decoder hmm current form)
-                for index fixnum from 0 to (1- (fill-pointer indices))
-                for previous = (aref indices index)
-                for prev-prob of-type single-float = (aref viterbi previous   (- time 1))
-                when (> prev-prob old) do
-                (let ((new
-                       (+ prev-prob
-                          (bi-cached-transition hmm previous current)
-                          emission)))
-                  (declare (type single-float new))
-                  (when (> new trigger)
-                    (setf trigger new)
-                    (setf best-hypothesis (- new beam-width)))
-                  (when (> new old)
-                    (setf old new)
-                    (setf (aref viterbi current time) new)
-                    (setf (aref pointer current time) previous)))))
-          (loop
-              initially (setf (fill-pointer indices) 0)
-              for current of-type fixnum from 0 to (- n 1)
-              for prob of-type single-float = (the single-float (aref viterbi current time))
-              when (> prob best-hypothesis)
-              do (vector-push current indices)))
+        do (decode-form decoder hmm time form viterbi pointer indices trigger beam-width best-hypothesis))
 
-    (loop
-        with final = (tag-to-code hmm "</s>")
-        with time of-type fixnum = (- l 1)
-        for previous of-type fixnum from 0 to (- n 1)
-        for old of-type single-float = (aref viterbi final time)
-        for new of-type single-float = (+ (the single-float (aref viterbi previous time))
-                                          (bi-cached-transition hmm previous final))
-        when (> new old) do
-          (setf (aref viterbi final time) new)
-          (setf (aref pointer final time) previous))
-    (if (null (aref pointer (tag-to-code hmm "</s>") (- l 1)))
-        nil
-      (loop
-          with final = (tag-to-code hmm "</s>")
-          with time = (- l 1)
-          with last  = (aref pointer final time)
-          with tags = (hmm-tags hmm)
-          with result = (list (elt tags last))
-          for i of-type fixnum from time downto 1
-          for state = (aref pointer last i) then (aref pointer state i)
-          never (null state)
-          do (push (elt tags state) result)
-          finally (return result)))))
+    (decode-end hmm viterbi pointer l)
+    
+    (backtrack-slow hmm pointer l)))
