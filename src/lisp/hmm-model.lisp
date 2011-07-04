@@ -27,8 +27,7 @@
   (let ((code (position tag (hmm-tags hmm) :test #'string=)))
     (unless code
       (setf (hmm-tags hmm) (append (hmm-tags hmm) (list tag)))
-      (setf code (hmm-n hmm))
-      (incf (hmm-n hmm)))
+      (setf code (hmm-n hmm)))
     code))
 
 (defun bigram-to-code (hmm bigram)
@@ -86,28 +85,28 @@
 
 (defun make-transition-table (hmm order smoothing)
   (setf (hmm-current-transition-table hmm)
-    (let ((tag-card (hmm-n hmm)))
-      (cond
-       ((= order 1)
-	(let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
-	  (loop
-	      for i from 0 below tag-card
-	      do (loop
-                 for j below tag-card do
+        (let ((tag-card (hmm-n hmm)))
+          (cond
+           ((= order 1)
+            (let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
+              (loop
+               for i from 0 below tag-card
+               do (loop
+                   for j below tag-card do
                    (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
-	  table))
-       ((= order 2)
-        (let* ((table (make-array (list tag-card tag-card tag-card) 
-                                  :element-type 'single-float :initial-element most-negative-single-float)))
-          (loop
-              for i from 0 below tag-card
-              do (loop 
-                     for j  from 0 below tag-card
-                     do (loop
-                            for k from 0 below tag-card do
-                              (setf (aref table i j k) 
-                                (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
-          table))))))
+              table))
+           ((= order 2)
+            (let* ((table (make-array (list tag-card tag-card tag-card) 
+                                      :element-type 'single-float :initial-element most-negative-single-float)))
+              (loop
+               for i from 0 below tag-card
+               do (loop 
+                   for j  from 0 below tag-card
+                   do (loop
+                       for k from 0 below tag-card do
+                       (setf (aref table i j k) 
+                             (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
+              table))))))
 
 (defmacro bi-cached-transition (hmm from to)
   `(the single-float  
@@ -194,6 +193,7 @@
                           (setf (aref trigram-table t1 t2 t3) 1)))))
         
         finally
+          (setf (hmm-n hmm) n)
           (setf (hmm-transitions hmm) transitions)
           (setf (hmm-emissions hmm) emissions)
           (setf (hmm-trigram-table hmm) trigram-table)
