@@ -121,6 +121,20 @@
 (defmacro emission-probability (hmm state form)
   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
 
+(defun emission-probability-slow (decoder hmm state form)
+  (if (eql :unk (gethash form *known-codes* :unk))
+    (let* ((cache (gethash :unknown-word (viterbi-decoder-caches decoder)))
+           (cache-lookup (gethash form cache))
+           (dist (or cache-lookup
+                     (let ((dist (query-suffix-trie hmm form)))
+                       (setf (gethash form cache) dist)
+                       dist))))
+      (aref dist state))
+    (the single-float
+         (gethash form
+                  (aref (the (simple-array t (*)) (hmm-emissions hmm)) state)
+                  -19.0))))
+
 (defun train (corpus &optional (n nil))
   "Trains a HMM model from a corpus (a list of lists of word/tag pairs)."
 
@@ -207,7 +221,6 @@
                  (loop 
                      for p in probs
                      summing (expt (- p mean) 2))))))))
-
 
 (defun add-to-suffix-tries (hmm  word tag count)
   (let* ((form (code-to-symbol word))

@@ -1,6 +1,6 @@
 (in-package :mulm)
 
-(defun evaluate (hmm corpus decoder &key (seq-handler nil))
+(defun evaluate (hmm corpus decoder-func &key (seq-handler nil) (decoder nil))
   (let ((seqs (ll-to-word-list corpus))
         (tag-seqs (ll-to-tag-list corpus)))
     (loop
@@ -14,7 +14,7 @@
         for total-sequence from 0
         for seq in seqs
         for tag-seq in tag-seqs
-        for result = (funcall decoder hmm seq)
+        for result = (funcall decoder-func hmm seq :decoder decoder)
         for unknown = (loop 
                           for x in seq 
                           when (not (gethash x *known-codes*))
@@ -43,7 +43,14 @@
                           correct total correct-sequence total-sequence
 			  correct-unknown total-unknown unknown-sequence correct-unknown-sequence)))))
 
-(defun do-evaluation (&key (order 1) (hmm *hmm*) (corpus *wsj-test-corpus*) (clobber t) (marker nil))
+(defun do-evaluation (&key (order 1)
+                           (decoder nil)
+                           (hmm *hmm*)
+                           (corpus *wsj-test-corpus*)
+                           (clobber t)
+                           (marker nil))
+  (when decoder
+    (setf hmm (viterbi-decoder-model decoder)))
   (unless hmm
     (format t "~&do-evaluation(): No model! Using WSJ")
     (unless *wsj-train-corpus*
@@ -60,9 +67,10 @@
     (make-transition-table hmm 2 :deleted-interpolation))
    (t (format t "~&do-evaluation(): Make sure to have a transition-table")))    
   (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length corpus))
-  (let ((decoder (ecase order
-                   (1 #'viterbi-bigram)
-                   (2 #'viterbi-trigram)))
+  (let ((func (or (and decoder (viterbi-decoder-function decoder))
+                  (ecase order
+                    (1 #'viterbi-bigram)
+                    (2 #'viterbi-trigram))))
         (seq-handler (if marker
                        #'(lambda (total)
                                     (when (and marker
@@ -70,10 +78,11 @@
                                       (write-char #\.))))))
     (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
         (time
-         (evaluate hmm corpus decoder
-                   :seq-handler seq-handler))
+         (evaluate hmm corpus func
+                   :seq-handler seq-handler
+                   :decoder decoder))
        (declare (ignore cs ts))
-       (format t "~%Order:            ~a~%" order)
+       (format t "~%Order:            ~a~%" (if decoder func order))
        (format t "Correct:          ~2,4T~a~%" correct)
        (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
        (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
