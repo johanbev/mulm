@@ -105,16 +105,70 @@
   (setf (lm-tree-node-weight node)     
     (* (/ 1 (max (hash-table-entropy (lm-tree-node-emissions node)) 0.08)))))
 
+(defun get-suffix-seqs (form cutoff)
+  (coerce (if (> (length form) cutoff)
+            (subseq form (- (length form) cutoff))
+            form)
+          'list))
+
+(defun get-prob-at (suffix tag trie)
+  (let* ((node (second (weight-and-dist-of suffix trie)))
+         (map (if node (lm-tree-node-emissions node)))
+         (sum (if map (hash-table-sum map))))
+    (if (and map (/= sum 0))
+      (the single-float (/ (gethash tag map 0) sum))
+      0)))
+
+;; simple word model which uses distribiution of longest seen suffix
+;; current best performer
+(defun top-suff-word-model (hmm form)
+  (let* ((form (code-to-symbol form))
+         (dist (make-array (hmm-n hmm) :initial-element nil))
+         (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
+         (suffixes (nreverse (loop for seq on (get-suffix-seqs form *suffix-cutoff*)
+                                   collect seq))))
+    (loop for i below (hmm-n hmm)
+          for prob = (first
+                      (last
+                       (loop for suffix in suffixes
+                             for suff-prob = (get-prob-at suffix i trie)
+                             until (= suff-prob 0)
+                             collect suff-prob)))
+          do (setf (aref dist i) (if prob (log prob) -19.0)))
+    dist))
+
+;; TnT style word model with theta coefficient for increasing weight
+;; on longer suffixes
+(defun tnt-word-model (hmm form &optional (theta-coeff 5))
+  (let* ((form (code-to-symbol form))
+         (theta (hmm-theta hmm))
+         (dist (make-array (hmm-n hmm) :initial-element nil))
+         (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
+         (suffixes (nreverse (loop for seq on (get-suffix-seqs form *suffix-cutoff*)
+                                   collect seq))))
+    (loop for i below (hmm-n hmm)
+          do (loop for suffix in suffixes
+                   for suff-prob = (get-prob-at suffix i trie)
+                   with prob = nil
+                   until (= suff-prob 0)
+                   do (setf prob
+                            (/ (+ (if prob
+                                    prob
+                                    (aref (hmm-unigram-table hmm) i))
+                                  (* theta
+                                     suff-prob))
+                               (1+ theta)))
+                   do (setf theta (* theta theta-coeff))
+                   finally (setf (aref dist i) (if prob (log prob) -19.0))))
+    dist))
+
 (defun query-suffix-trie (hmm word)
   (declare (optimize (speed 3) (debug 0) (space 0)))
   (let* ((form (code-to-symbol word))
          (trie-key (capitalized-p form))
          (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries hmm)))
          (*suffix-adds* (lm-tree-node-adds *suffix-trie-root*))
-         (nodes (coerce (if (> (length form) *suffix-cutoff*)
-                            (subseq form (- (length form)  *suffix-cutoff*))
-                          form)
-                        'list))
+         (nodes (get-suffix-seqs form *suffix-cutoff*))
          (accu-weight 0.0)
          (theta (hmm-theta hmm))
          (prob (make-array (hmm-n hmm) :initial-element nil)))
