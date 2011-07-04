@@ -2,7 +2,8 @@
 
 (defun evaluate (hmm corpus decoder-func &key (seq-handler nil) (decoder nil))
   (let ((seqs (ll-to-word-list corpus))
-        (tag-seqs (ll-to-tag-list corpus)))
+        (tag-seqs (ll-to-tag-list corpus))
+        (constraints (ll-to-constraint-list corpus)))
     (loop
         with correct = 0
         with total = 0
@@ -14,7 +15,8 @@
         for total-sequence from 0
         for seq in seqs
         for tag-seq in tag-seqs
-        for result = (funcall decoder-func hmm seq :decoder decoder)
+        for constraint in constraints
+        for result = (funcall decoder-func hmm seq :decoder decoder :constraints constraint)
         for unknown = (loop 
                           for x in seq 
                           when (not (gethash x *known-codes*))

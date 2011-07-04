@@ -18,9 +18,9 @@
 
 (defmethod normalize (token (normalizer cd-normalizer))
   (let ((tok (remove-if (lambda (x) (find x ":,.-/%\\#¤$£€'`()#:;"))
-				(string-downcase token))))
+                        (string-downcase token))))
     (if (string= tok "")
-	token
+      token
       (if (or (member tok '("one" "two" "three" "four" "five" "six" "seven" "ten" "twenty") :test #'string=)
               ;; the CL reader doesn't like these two characters which appear in the OBT corpora
               (and (not (find-if #'(lambda (c)
@@ -29,11 +29,11 @@
                    ;; intern arbitrary strings into the keyword package
                    (with-package :keyword
                      (numberp (read-from-string tok)))))
-	  (prog1 
-	      (if (eql #\. (aref token (1- (length token))))
-		  "¦OD¦"
-		"¦CD¦"))
-	token))))
+        (prog1 
+            (if (eql #\. (aref token (1- (length token))))
+              "¦OD¦"
+              "¦CD¦"))
+        token))))
 
 (defvar *normalizer*
     (make-instance 'cd-normalizer))
@@ -53,7 +53,11 @@
 (defun normalize-token (token)
   (normalize token *normalizer*))
 
-(defun read-tt-corpus (file &key symbol-table)
+(defun split-tag-constraint (tag)
+  (let ((tags (cl-ppcre:all-matches-as-strings "[^\|\\s]+" tag)))
+    (list (first tags) (rest tags))))
+
+(defun read-tt-corpus (file &key symbol-table (constrained nil))
   "Create a list of lists corpus from TT format file."
   (with-open-file (stream file :direction :input)
     (loop with forms
@@ -66,7 +70,10 @@
           for tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
           while line
           when (and form tag (not (string= form "")))
-          do (push (list code tag) forms)
+          do (if constrained
+               (destructuring-bind (tag constraint) (split-tag-constraint tag)
+                 (push (list code tag constraint) forms))
+               (push (list code tag) forms))
           else collect (nreverse forms) and do (setf forms nil))))
 
 (defun ll-to-word-list (ll)
@@ -80,6 +87,11 @@
   (mapcar (lambda (x)
 	     (mapcar #'second x))
 	  ll))
+
+(defun ll-to-constraint-list (ll)
+  (loop for seq in ll
+        collect (loop for tok in seq
+                      collect (third tok))))
 
 (defun read-wsj-corpus ()
   (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
