@@ -1,12 +1,13 @@
 (in-package :mime)
 
-(defun prepare-corpora (corpora type)
+(defun prepare-corpora (corpora type file)
   (loop
       with reader = (ecase type
                       (:tt #'mulm::read-tt-corpus)
                       (:brown #'mulm::read-brown-corpus))
       for corpus in corpora
-      nconcing (funcall reader corpus)))
+      for path = (make-pathname :directory (pathname-directory file) :name corpus)
+      nconcing (funcall reader path)))
 
 (defun split-into-folds (corpus folds)
   "Sequentially split the corpus into folds. ie. each |fold| sentence is held out in turn"
@@ -59,7 +60,7 @@
   (format t "reading in experiment file...~%")
   (with-experiment file
     (format t "read experiment file...~%")
-    (let* ((corpus (prog1 (prepare-corpora corpora corpus-type) (format t "read corpora...~%")))
+    (let* ((corpus (prog1 (prepare-corpora corpora corpus-type file) (format t "read corpora...~%")))
            (splits (prog1 (split-into-folds corpus folds) (format t "split into folds...~%")))
            (clobber (eql smoothing :deleted-interpolation)))
       (loop
