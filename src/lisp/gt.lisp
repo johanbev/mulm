@@ -39,7 +39,7 @@
 (defun make-good-turing-estimate (counts total &optional tag)
   (declare (ignorable total))
   (cond 
-   ((< (hash-table-count counts) 10) counts)
+   ((< (hash-table-count counts) 3) counts)
    (t
     (let* ((coc-table (coc-table counts))
 	   (coc-list (coc-list coc-table))
@@ -49,7 +49,7 @@
 	    ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
 	     (a (avg-list (mapcar #'first params)))
 	     (b (avg-list (mapcar #'second params))))
-	  (unless (> a 0.0)
+	  (unless (> a -1.0)
           (loop
 	      for key being the hash-keys in counts
 	      for val = (gethash key counts)
@@ -73,7 +73,7 @@
 				(* ones (exp a))				
 				(mapcar (lambda (x)
 					  (list x (adjust-count x a b)))
-					'(1 1 2 3 4 5 6))))
+					'(1 2 3 4 5 6))))
 		      (setf (gethash :unk counts)
 			(* ones (exp a)))))))))))
 
