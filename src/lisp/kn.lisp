@@ -1,20 +1,6 @@
 (in-package :mulm)
 
-(defun create-kn-count-tree (corpus n hmm)
-  (setf *lm-root* (make-lm-tree-node))  
-  (build-model (mapcar (lambda (x)
-                         (append
-                          (list (tag-to-code hmm "<s>"))
-                          (mapcar (lambda (x)
-                                    (tag-to-code hmm x))
-                                  x)
-                          (list (tag-to-code hmm "</s>"))))
-                       (ll-to-tag-list corpus))
-               n
-               *lm-root*)) ;; fixme
-
-
-(defparameter *kn-d* 1.16) ;; should be found empirically!
+(defparameter *lm-root* nil)
 
 (defun kn-unigrams ()
   (loop
@@ -96,13 +82,3 @@
                             most-negative-single-float
                           (float (log trigram-prob))))))
       finally (return trigram-probs)))
-
-(defun find-d ()	     
-  (loop
-      with *decoder* = #'beam-viterbi
-      for *kn-d* in '(1.1 1.12 1.14 1.16 1.18 1.2 1.22 1.24 1.26 1.28 1.3)
-      with uni = (kn-unigrams)
-      for bigs = (kn-bigrams uni)
-      do (format t "~&D: ~a" *kn-d*)
-      do (setf (hmm-current-transition-table *hmm*) bigs)
-	 (do-evaluation)))

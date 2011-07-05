@@ -44,15 +44,17 @@
       (:deleted-interpolation )
       (:constant (setf (mulm::hmm-current-transition-table hmm)
                    (mulm::make-transition-table hmm order :constant)))
-      (:tt
-       (mulm::create-kn-count-tree train order hmm)
-       (ecase order
-         (1 (setf (mulm::hmm-current-transition-table hmm)
-              (mulm::kn-bigrams (mulm::kn-unigrams))))
-         (2 (setf (mulm::hmm-current-transition-table hmm)
-              (mulm::kn-trigrams (mulm::kn-bigrams (mulm::kn-unigrams))))
-            (setf mulm::*bigrams*
-              (mulm::kn-bigrams (mulm::kn-unigrams)))))))
+      (:kn
+       (let ((mulm::*lm-root*
+              (mulm::hmm-tag-lm hmm))
+             (mulm::*hmm* hmm))
+         (ecase order
+           (1 (setf (mulm::hmm-current-transition-table hmm)
+                (mulm::kn-bigrams (mulm::kn-unigrams))))
+           (2 (setf (mulm::hmm-current-transition-table hmm)
+                (mulm::kn-trigrams (mulm::kn-bigrams (mulm::kn-unigrams))))
+              (setf mulm::*bigrams*
+                (mulm::kn-bigrams (mulm::kn-unigrams))))))))
     hmm))
   
 

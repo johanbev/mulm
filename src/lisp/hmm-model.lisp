@@ -16,6 +16,7 @@
   emissions
   trigram-table
   unigram-table
+  tag-lm
   ; the number of tokens in the training corpus used
   (token-count 0)
   (lambda-1 0.0 :type single-float)
@@ -303,7 +304,8 @@
                         (let ((prob (/ (lm-tree-node-total t3-node)
                                        total)))
                           (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
-                            prob)))))
+                            prob))))
+          finally (setf (hmm-tag-lm hmm) lm-root))
       
       
       (loop for i from 0 below n
