@@ -4,6 +4,7 @@
 
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*) &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
+  (declare (:explain :calls :boxing))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
@@ -24,7 +25,7 @@
     #+allegro
     (declare (dynamic-extent viterbi pointer))
     (loop 
-        with form = (first input)
+        with form fixnum = (first input)
         with unk = (eql :unk (gethash form *known-codes* :unk))
         with unk-emi = (and unk (query-suffix-trie hmm form))
         for tag fixnum from 0 to (- n 1)
@@ -39,14 +40,17 @@
                       (aref unk-emi tag)
                     (emission-probability hmm tag form)))))
         do (setf (aref pointer state 0) 0))
-    (loop 
-        for form in (rest input)
+    (loop
+        with previous-possible = (loop for x below nn collect x)
+        for form fixnum in (rest input)
         for time fixnum from 1 to (- l 1)
         for previous-time fixnum = (1- time)
         for unk = (eql :unk (gethash form *known-codes* :unk))
-        for unk-emi = (and unk (query-suffix-trie hmm form))
-        do (loop
+        for unk-emi  = (and unk (query-suffix-trie hmm form))
+        do           
+          (loop
                with touch = nil
+               with next-possible
                for current fixnum from 0 to (- n 1)
                for emission of-type single-float = (if unk
                                                        (aref unk-emi current)
@@ -54,8 +58,11 @@
                when (or unk (> emission -19.0))                                           
                do (setf touch t)
                   (loop
+                      for x below n
+                      do (push (+ (* x n) current) next-possible))
+                  (loop
                     ;;; the loop of death, we really don't want to go here if we can spare it
-                      for previous fixnum  from 0 below nn
+                      for previous in previous-possible
                       for prev-prob of-type single-float = (aref viterbi previous previous-time)
                       with old of-type single-float = (aref viterbi current time)
                       when (> prev-prob old)
@@ -69,31 +76,36 @@
                              (when (> new old)
                                (setf old new)
                                (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
-                               (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous))))
-                  (unless touch
-                    ;; rescue loop, shoudn't come here normally.                    
-                    (format t "~% To the rescue!")
-                    (loop                      
-                        for current fixnum from 0 to (- n 1)
-                        for emission of-type single-float = (if unk
-                                                                (aref unk-emi current)
-                                                              (emission-probability hmm current form))
-                        do
-                          (loop
-                              for previous from 0 below nn
-                              for prev-prob of-type single-float = (aref viterbi previous previous-time)
-                              with old of-type single-float = (aref viterbi current time)
-                              do (multiple-value-bind (t1 t2)
-                                     (truncate previous n)
-                                   (declare (type fixnum t1 t2))
-                                   (let ((new (+ prev-prob
-                                                 emission
-                                                 (tri-cached-transition hmm t1 t2 current))))
-                                     (declare (type single-float new))
-                                     (when (> new old)
-                                       (setf old new)
-                                       (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
-                                       (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous))))))))))
+                               (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))
+               finally
+                 (setf previous-possible next-possible)
+                 (unless touch
+                   ;; rescue loop, shoudn't come here normally.                    
+                   (format t "~% To the rescue!")
+                   (loop                      
+                       for current fixnum from 0 to (- n 1)
+                       for emission of-type single-float = (if unk
+                                                               (aref unk-emi current)
+                                                             (emission-probability hmm current form))
+                       do
+                         (loop
+                             for previous from 0 below nn
+                             for prev-prob of-type single-float = (aref viterbi previous previous-time)
+                             with old of-type single-float = (aref viterbi current time)
+                             do 
+                               (multiple-value-bind (t1 t2)
+                                   (truncate previous n)
+                                 (declare (type fixnum t1 t2))
+                                 (let ((new (+ prev-prob
+                                               emission
+                                               (tri-cached-transition hmm t1 t2 current))))
+                                   (declare (type single-float new))
+                                   (when (> new old)
+                                     (setf old new)
+                                     (setf (aref viterbi 
+                                                 (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
+                                     (setf (aref pointer 
+                                                 (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))))))
     (loop
         with time fixnum = (1- l)
         for previous fixnum from 0 below nn
