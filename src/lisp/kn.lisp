@@ -9,7 +9,9 @@
                                     (tag-to-code hmm x))
                                   x)
                           (list (tag-to-code hmm "</s>"))))
-                       (ll-to-tag-list corpus)) n))
+                       (ll-to-tag-list corpus))
+               n
+               *lm-root*)) ;; fixme
 
 
 (defparameter *kn-d* 1.16) ;; should be found empirically!

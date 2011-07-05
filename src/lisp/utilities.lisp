@@ -30,6 +30,7 @@
   (loop
       with sum = (float (hash-table-sum table))
       for v being the hash-values in table
+      when (= 1 sum) do (return 0.0)
       summing (* -1 (/ v sum) (log (/ v sum) 2))))
 
 (defun weighted-average-of (table &key (key #'identity))

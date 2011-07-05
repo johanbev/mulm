@@ -4,9 +4,6 @@
   (backing-array (make-array 20000 :fill-pointer 1 :adjustable t) :type (array t (*)))
   next)
 
-(declaim (optimize (speed 3) (debug 0)))
-
-
 (defmacro parent (idx)
   `(the fixnum (truncate ,idx 2)))
 
