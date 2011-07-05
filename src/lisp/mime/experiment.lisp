@@ -4,7 +4,7 @@
   (loop
       with reader = (ecase type
                       (:tt #'mulm::read-tt-corpus)
-                      (:brown #'mulm::read-brown-corpus))
+                      (:brown #'mulm::read-brown-file))
       for corpus in corpora
       for path = (make-pathname :directory (pathname-directory file) :name corpus)
       nconcing (funcall reader path)))
@@ -17,8 +17,8 @@
                   with held-out
                   with rest
                   for sequence in corpus
-                  for i from 0
-                  if (= 0 (rem i (+ fold folds)))
+                  for i from fold
+                  if (= 0 (mod i folds))
                   do (push sequence held-out)
                   else do (push sequence rest)
                   finally (return (list rest held-out)))))
@@ -73,7 +73,3 @@
              (format t "Training model....~%")
              (let ((hmm (make-hmm train order smoothing)))
                (mulm::do-evaluation :order order :corpus test :hmm hmm :clobber clobber))))))
-             
-      
-      
-           
