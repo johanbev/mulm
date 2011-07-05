@@ -1,0 +1,6 @@
+
+(experiment "WSJ"
+            :corpora ("wsj.tt" "test.tt")
+            :order 1
+            :folds 10)
+             
