@@ -1,7 +1,6 @@
 (in-package :mulm)
 
-(defvar *suffix-trie-root*
-    (make-lm-tree-node))
+(defvar *suffix-trie-root* nil)
 
 (defparameter *suffix-cutoff* 10)
 
@@ -48,25 +47,43 @@
                   child)
           (weight-and-dist-of rest child))))))
 
-(defparameter *default-suffix-weighting*
-    (lambda (node)
-      (diff-entropy-suffix-weighting 
-       node 
-       (hash-table-entropy (lm-tree-node-emissions *suffix-trie-root*)))))
 
-(defun compute-suffix-weights (node &key (fcn *default-suffix-weighting*))
-  (funcall fcn node)
+(defparameter *default-suffix-weighting*
+    'diff-entropy)
+
+(defun compute-suffix-trie-weights (trie)
+  "Compute the weights in a trie"
+  ;;
+  (case *default-suffix-weighting*
+    (diff-entropy
+     (let* ((root-entropy (hash-table-entropy (lm-tree-node-emissions trie)))
+            (fcn (compile nil 
+                         (lambda (node)
+                           (diff-entropy-suffix-weighting node root-entropy)))))
+       (compute-suffix-weights trie fcn)))
+    (ig
+     (let* ((root-entropy (hash-table-entropy (lm-tree-node-emissions trie)))
+            (fcn (compile nil
+                          (lambda (node)
+                            (ig-suffix-weighting node trie root-entropy)))))
+       (compute-suffix-weights trie fcn)))
+    (inv-ent
+     (compute-suffix-weights trie (lambda (node)
+                                    (inverse-entropy-suffix-weighting node))))))
+
+(defun compute-suffix-weights (node lambda)
+  (funcall lambda node)
   (maphash
    (lambda (k v)
      (declare (ignorable k))
-     (compute-suffix-weights v :fcn fcn))
+     (compute-suffix-weights v  lambda))
    (lm-tree-node-children node)))
 
 (defun reweight-suffix-tries (hmm lambda)  
   (maphash (lambda (k v)
              (declare (ignore k))
              (let ((*suffix-trie-root* v))               
-               (compute-suffix-weights v :fcn lambda)))
+               (compute-suffix-weights v lambda)))
            (hmm-suffix-tries hmm)))
 
 (defun diff-entropy-suffix-weighting (node root-entropy &key (alpha 1))

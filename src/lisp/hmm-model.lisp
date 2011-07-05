@@ -356,9 +356,7 @@
             do (add-to-suffix-tries hmm word state count)))
   (maphash (lambda (k v)
              (declare (ignore k))
-             (let ((*suffix-trie-root* v))
-               (declare (ignore k))
-               (compute-suffix-weights v)))
+             (compute-suffix-trie-weights v))
            (hmm-suffix-tries hmm)))
 
 (defun calculate-deleted-interpolation-weights (hmm)
