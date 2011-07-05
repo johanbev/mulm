@@ -4,7 +4,7 @@
 
 (defparameter *estimation-cutoff* 0)
 
-(defparameter *known-codes* (make-hash-table))
+(defparameter *known-codes* (make-hash-table)) ;;fixme
 
 (defstruct hmm
   tag-array
@@ -277,40 +277,40 @@
       ;;; in the near future, however, this should estimate correct
       ;;; n-gram probabilities
       (loop
-       with lm-root = (make-lm-tree-node)
-       ; with *hmm* = hmm
-       ;; modifies lm-root
-       initially (build-model (mapcar (lambda (x)
-                                        (append
-                                         (list (tag-to-code hmm "<s>"))
-                                         (mapcar (lambda (x)
-                                                   (tag-to-code hmm x))
-                                                 x)
-                                         (list (tag-to-code hmm "</s>"))))
-                                      (ll-to-tag-list corpus))
-                              3
-                              lm-root)
-       for t1 from 0 below n
-       for t1-node = (gethash t1 (lm-tree-node-children lm-root))
-       when t1-node do
-       (loop 
-        for t2 from 0 below n 
-        for t2-node = (gethash t2 (lm-tree-node-children t1-node))
-        when t2-node do
-        (loop 
-         with total = (lm-tree-node-total t2-node)
-         for t3 from 0 below n
-         for t3-node = (gethash t3 (lm-tree-node-children t2-node))
-         when t3-node do
-         (let ((prob (/ (lm-tree-node-total t3-node)
-                        total)))
-           (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
-                 prob)))))
+          with lm-root = (make-lm-tree-node)
+          initially (build-model (mapcar (lambda (x)
+                                           (append
+                                            (list (tag-to-code hmm "<s>"))
+                                            (mapcar (lambda (x)
+                                                      (tag-to-code hmm x))
+                                                    x)
+                                            (list (tag-to-code hmm "</s>"))))
+                                         (ll-to-tag-list corpus))
+                                 3
+                                 lm-root)
+          for t1 from 0 below n
+          for t1-node = (gethash t1 (lm-tree-node-children lm-root))
+          when t1-node do
+            (loop 
+                for t2 from 0 below n 
+                for t2-node = (gethash t2 (lm-tree-node-children t1-node))
+                when t2-node do
+                  (loop 
+                      with total = (lm-tree-node-total t2-node)
+                      for t3 from 0 below n
+                      for t3-node = (gethash t3 (lm-tree-node-children t2-node))
+                      when t3-node do
+                        (let ((prob (/ (lm-tree-node-total t3-node)
+                                       total)))
+                          (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                            prob)))))
+      
+      
       (loop for i from 0 below n
-            for count = (aref (hmm-unigram-table hmm) i)
-            with total = (hmm-token-count hmm)
-            do (setf (aref (hmm-unigram-table hmm) i)
-                     (float (/ count total)))))
+          for count = (aref (hmm-unigram-table hmm) i)
+          with total = (hmm-token-count hmm)
+          do (setf (aref (hmm-unigram-table hmm) i)
+               (float (/ count total)))))
 
     hmm))
 
@@ -401,12 +401,16 @@
 			       ((and (>= c1 c3) (>= c1 c2))
                                         (incf lambda-1 tri-count))
 			       (t (error "What!")))))))
+    ;; i have no idea why inverting these makes everyhing so much better
+    ;; is there a bug somewhere?
     (let ((total (+ lambda-1 lambda-2 lambda-3)))
-      (setf (hmm-lambda-1 hmm) (float (/ lambda-1 total)))
+      (setf (hmm-lambda-3 hmm) (float (/ lambda-1 total)))
       (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
-      (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
+      (setf (hmm-lambda-1 hmm) (float (/ lambda-3 total)))
       hmm)))
+
 
 (defun code-to-bigram (hmm bigram)
   (list (elt (hmm-tags hmm) (floor (/ bigram (hmm-n hmm))))
         (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
+
