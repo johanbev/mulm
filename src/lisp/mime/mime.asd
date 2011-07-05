@@ -3,5 +3,6 @@
   :version "0.1"
   :author "Johan Benum Evensberget, André Lynum"
   :license "GPL"
-  :components ((:file "mime"))
+  :components ((:file "mime")
+               (:file "experimemt" :depends-on ("mime")))
   :depends-on ("mulm"))
