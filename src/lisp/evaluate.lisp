@@ -79,10 +79,9 @@
                                                (= (rem total marker) 0))
                                       (write-char #\.))))))
     (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
-        (time
          (evaluate hmm corpus func
                    :seq-handler seq-handler
-                   :decoder decoder))
+                   :decoder decoder)
        (declare (ignore cs ts))
        (format t "~%Order:            ~a~%" (if decoder func order))
        (format t "Correct:          ~2,4T~a~%" correct)
