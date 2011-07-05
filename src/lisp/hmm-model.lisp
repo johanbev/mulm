@@ -10,12 +10,14 @@
   tag-array
   beam-array
   tags
+  ; model tag set size
   (n 0)
   transitions
   emissions
   trigram-table
   unigram-table
-  token-count
+  ; the number of tokens in the training corpus used
+  (token-count 0)
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
@@ -23,11 +25,16 @@
   theta
   current-transition-table)
 
+;; WARNING: this may add unseen tags to the tags list with the result that these tags codes
+;; are above the models tag set size. Using such codes will result in out-of-bounds array
+;; indexing in viterbi decoders.
 (defun tag-to-code (hmm tag)
+  "Transforms tag string to integer code based on index in the tags field of the hmm structure.
+   If the tag is unseen it is added to the tags field and the resulting index returned."
   (let ((code (position tag (hmm-tags hmm) :test #'string=)))
     (unless code
       (setf (hmm-tags hmm) (append (hmm-tags hmm) (list tag)))
-      (setf code (hmm-n hmm)))
+      (setf code (1- (length (hmm-tags hmm)))))
     code))
 
 (defun bigram-to-code (hmm bigram)
@@ -134,79 +141,178 @@
                   (aref (the (simple-array t (*)) (hmm-emissions hmm)) state)
                   -19.0))))
 
+;; WARNING this function processes the entire corpus
+(defun corpus-tag-set-size (corpus)
+  "Returns the number of unique tags observed in the corpus."
+  (let ((tag-map (make-hash-table :test #'equal)))
+    (loop for sentence in corpus
+          do (loop for token in sentence
+                   do (if (not (gethash (second token) tag-map))
+                        (setf (gethash (second token) tag-map) t))))
+    (hash-table-count tag-map)))
+
+;; WARNING does not fully initialize the hmm data structure.
+;; Do not use this function to reuse hmm structs.
+(defun setup-hmm (hmm n)
+  "Initializes the basic (but not all) hmm model data structures.
+   hmm - Instantiated hmm struct.
+   n   - Model tag set size.
+   Returns the passed hmm struct."
+  ;; add start and end tags to tag set size
+  (let ((n (+ n 2)))
+    (setf (hmm-token-count hmm) 0)
+    (setf (hmm-n hmm) n)
+    ;; setup empty tables for probability estimates
+    (setf (hmm-transitions hmm)
+          (make-array (list n n) :initial-element nil))
+    (setf (hmm-emissions hmm)
+          (make-array n :initial-element nil))
+    (setf (hmm-trigram-table hmm)
+          (make-array (list n n n) :initial-element nil))
+    (setf (hmm-unigram-table hmm)
+          (make-array n :initial-element nil))
+    (loop for i from 0 to (- n 1)
+          do (setf (aref (hmm-emissions hmm) i) (make-hash-table))))
+  hmm)
+
+(defun setup-hmm-beam (hmm)
+  "Initializes the hmm struct fields concerning the beam search.
+   hmm - Instantiated hmm struct.
+   Returns the passed hmm struct."
+  (let ((n (hmm-n hmm)))
+    (setf (hmm-beam-array hmm) (make-array n :fill-pointer t))
+    (setf (hmm-tag-array hmm)
+          (make-array n :element-type 'fixnum 
+                      :initial-contents (loop for i from 0 to (1- n) collect i))))
+  hmm)
+
+(defun add-sentence-to-hmm (hmm sentence)
+  "Adds emission, tag unigram, bigram and trigram counts to the appropriate fields
+   in the hmm struct.
+   hmm - Instantiated hmm struct.
+   sentence - In list of lists format.
+   Returns the passed hmm struct."
+  ;; Add start and end tags
+  (let* ((unigrams (append '("<s>")
+                           (mapcar #'second sentence)
+                           '("</s>")))
+         (bigrams (partition unigrams 2))
+         (trigrams (partition unigrams 3)))
+    (loop for (code tag) in sentence
+          do (incf (hmm-token-count hmm))
+          do (setf (gethash code *known-codes*) t)
+          do (incf (gethash code
+                            (aref (hmm-emissions hmm)
+                                  (tag-to-code hmm tag))
+                            0)))
+
+    (loop for unigram in unigrams
+          for code = (tag-to-code hmm unigram)
+          do (if (aref (hmm-unigram-table hmm) code)
+               (incf (aref (hmm-unigram-table hmm) code))
+               (setf (aref (hmm-unigram-table hmm) code) 1)))
+             
+    (loop for bigram in bigrams
+          for previous = (tag-to-code hmm (first bigram))
+          for current = (tag-to-code hmm (second bigram))
+          do (if (aref (hmm-transitions hmm) previous current)
+               (incf (aref (hmm-transitions hmm) previous current))
+               (setf (aref (hmm-transitions hmm) previous current) 1)))
+
+    (loop for trigram in trigrams
+          do (let ((t1 (tag-to-code hmm (first trigram)))
+                   (t2 (tag-to-code hmm (second trigram)))
+                   (t3 (tag-to-code hmm (third trigram))))
+               (if (aref (hmm-trigram-table hmm) t1 t2 t3)
+                 (incf (aref (hmm-trigram-table hmm) t1 t2 t3))
+                 (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
+    hmm))
+
 (defun train (corpus &optional (n nil))
-  "Trains a HMM model from a corpus (a list of lists of word/tag pairs)."
+  "Trains a HMM model from a corpus (a list of lists of word/tag pairs).
+   Returns a fully trained hmm struct."
 
   ;; determine tagset size if not specified by the n parameter
-  (when (null n)
-    (let ((tag-map (make-hash-table :test #'equal)))
-      (loop for sentence in corpus
-            do (loop for token in sentence
-                     do (if (not (gethash (second token) tag-map))
-                          (setf (gethash (second token) tag-map) t))))
-      (setf n (hash-table-count tag-map))))
-  
-  (loop with n = (+ n 2)
-        with hmm = (make-hmm)
-        with transitions = (make-array (list n n) :initial-element nil)
-        with emissions = (make-array n :initial-element nil)
-        with trigram-table = (make-array (list n n n) :initial-element nil)
-        with unigram-table = (make-array n :initial-element nil)
-        with token-count = 0
-        initially (loop for i from 0 to (- n 1)
-                        do (setf (aref emissions i) (make-hash-table)))
+  (let ((hmm (setup-hmm (make-hmm) (or n (corpus-tag-set-size corpus)))))
+    ;; collect counts from setences in the corpus
+    (loop for sentence in corpus
+          do (add-sentence-to-hmm hmm sentence))
 
-        for sentence in corpus
-        do (let* ((tags (append '("<s>")
-                                (mapcar #'second sentence)
-                                '("</s>")))
-                  (unigrams tags)
-                  (bigrams (partition tags 2))
-                  (trigrams (partition tags 3)))
-             (loop for (code tag) in sentence
-                 do (incf token-count)
-                 do (setf (gethash code *known-codes*) t)
-                 do (incf (gethash code
-                                   (aref emissions
-                                         (tag-to-code hmm tag))
-                                   0)))
+    (setup-hmm-beam hmm)
 
-             (loop for unigram in unigrams
-                   for code = (tag-to-code hmm unigram)
-                   do (if (aref unigram-table code)
-                        (incf (aref unigram-table code))
-                        (setf (aref unigram-table code) 1)))
-             
-             (loop for bigram in bigrams
-                   for previous = (tag-to-code hmm (first bigram))
-                   for current = (tag-to-code hmm (second bigram))
-                   do (if (aref transitions previous current)
-                        (incf (aref transitions previous current))
-                        (setf (aref transitions previous current) 1)))
+    ;; These steps must be performed before counts are converted into
+    ;; probability estimates
+    (calculate-deleted-interpolation-weights hmm)
+    (calculate-theta hmm)
+    (build-suffix-tries hmm)
 
-             (loop for trigram in trigrams
-                   do (let ((t1 (tag-to-code hmm (first trigram)))
-                            (t2 (tag-to-code hmm (second trigram)))
-                            (t3 (tag-to-code hmm (third trigram))))
-                        (if (aref trigram-table t1 t2 t3)
-                          (incf (aref trigram-table t1 t2 t3))
-                          (setf (aref trigram-table t1 t2 t3) 1)))))
-        
-        finally
-          (setf (hmm-n hmm) n)
-          (setf (hmm-transitions hmm) transitions)
-          (setf (hmm-emissions hmm) emissions)
-          (setf (hmm-trigram-table hmm) trigram-table)
-          (setf (hmm-unigram-table hmm) unigram-table)
-          (setf (hmm-token-count hmm) token-count)
-          (setf (hmm-beam-array hmm) (make-array n :fill-pointer t))
-          (setf (hmm-tag-array hmm)
-                (make-array n :element-type 'fixnum 
-                            :initial-contents (loop for i from 0 to (1- n) collect i)))
-          (calculate-deleted-interpolation-weights hmm)
-          (calculate-theta hmm)           
-          (train-hmm hmm corpus)
-          (return hmm)))
+    (let ((n (hmm-n hmm)))
+      (loop
+       with transitions = (hmm-transitions hmm)
+       for i from 0 to (- n 1)
+       for total = (float (loop
+                           for j from 0 to (- n 1)
+                           for count = (aref transitions i j)
+                           when (and count (> count *estimation-cutoff*))
+                           sum count))
+       do
+       (loop
+        for j from 0 to (- n 1)
+        for count = (aref transitions i j)
+        when (and count (> count *estimation-cutoff*))
+        do (setf (aref transitions i j) (float (/ count total))))
+          
+       (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+                                  (hash-table-sum (aref (hmm-emissions hmm) i))
+                                  (elt (hmm-tags hmm) i))
+       (loop
+        with map = (aref (hmm-emissions hmm) i)
+        for code being each hash-key in map
+        for count = (gethash code map)
+        when (and count (> count *estimation-cutoff*))
+        do (setf (gethash code map) (float (log (/ count total))))))
+    
+          
+      ;;; this is quite hacky but count-trees will be abstracted nicely
+      ;;; in the near future, however, this should estimate correct
+      ;;; n-gram probabilities
+      (loop
+       with lm-root = (make-lm-tree-node)
+       ; with *hmm* = hmm
+       ;; modifies lm-root
+       initially (build-model (mapcar (lambda (x)
+                                        (append
+                                         (list (tag-to-code hmm "<s>"))
+                                         (mapcar (lambda (x)
+                                                   (tag-to-code hmm x))
+                                                 x)
+                                         (list (tag-to-code hmm "</s>"))))
+                                      (ll-to-tag-list corpus))
+                              3
+                              lm-root)
+       for t1 from 0 below n
+       for t1-node = (gethash t1 (lm-tree-node-children lm-root))
+       when t1-node do
+       (loop 
+        for t2 from 0 below n 
+        for t2-node = (gethash t2 (lm-tree-node-children t1-node))
+        when t2-node do
+        (loop 
+         with total = (lm-tree-node-total t2-node)
+         for t3 from 0 below n
+         for t3-node = (gethash t3 (lm-tree-node-children t2-node))
+         when t3-node do
+         (let ((prob (/ (lm-tree-node-total t3-node)
+                        total)))
+           (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                 prob)))))
+      (loop for i from 0 below n
+            for count = (aref (hmm-unigram-table hmm) i)
+            with total = (hmm-token-count hmm)
+            do (setf (aref (hmm-unigram-table hmm) i)
+                     (float (/ count total)))))
+
+    hmm))
 
 (defun calculate-theta (hmm)
    (let* ((total (loop for count across (hmm-unigram-table hmm)
@@ -249,6 +355,7 @@
                       (not (eql word :unk)))                       
             do (add-to-suffix-tries hmm word state count)))
   (maphash (lambda (k v)
+             (declare (ignore k))
              (let ((*suffix-trie-root* v))
                (declare (ignore k))
                (compute-suffix-weights v)))
@@ -299,73 +406,6 @@
       (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
       (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
       hmm)))
-
-(defun train-hmm (hmm corpus)
-  (build-suffix-tries hmm)
-  (let ((n (hmm-n hmm)))
-    (loop
-        with transitions = (hmm-transitions hmm)
-        for i from 0 to (- n 1)
-        for total = (float (loop
-                               for j from 0 to (- n 1)
-                               for count = (aref transitions i j)
-                               when (and count (> count *estimation-cutoff*))
-                               sum count))
-        do
-          (loop
-              for j from 0 to (- n 1)
-              for count = (aref transitions i j)
-              when (and count (> count *estimation-cutoff*))
-              do (setf (aref transitions i j) (float (/ count total))))
-          
-          (make-good-turing-estimate (aref (hmm-emissions hmm) i)
-                                     (hash-table-sum (aref (hmm-emissions hmm) i))
-                                     (elt (hmm-tags hmm) i))
-          (loop
-              with map = (aref (hmm-emissions hmm) i)
-              for code being each hash-key in map
-              for count = (gethash code map)
-              when (and count (> count *estimation-cutoff*))
-              do (setf (gethash code map) (float (log (/ count total))))))
-    
-          
-    ;;; this is quite hacky but count-trees will be abstracted nicely
-    ;;; in the near future, however, this should estimate correct
-    ;;; n-gram probabilities
-    (loop
-        with *lm-root* = (make-lm-tree-node)
-        with *hmm* = hmm
-        with count-tree = (build-model (mapcar (lambda (x)
-                                                 (append
-                                                  (list (tag-to-code hmm "<s>"))
-                                                  (mapcar (lambda (x)
-                                                            (tag-to-code hmm x))
-                                                          x)
-                                                  (list (tag-to-code hmm "</s>"))))
-                                               (ll-to-tag-list corpus)) 3)
-        for t1 from 0 below n
-        for t1-node = (gethash t1 (lm-tree-node-children *lm-root*))
-        when t1-node do
-          (loop 
-              for t2 from 0 below n 
-              for t2-node = (gethash t2 (lm-tree-node-children t1-node))
-              when t2-node do
-                (loop 
-                    with total = (lm-tree-node-total t2-node)
-                    for t3 from 0 below n
-                    for t3-node = (gethash t3 (lm-tree-node-children t2-node))
-                    when t3-node do
-                      (let ((prob (/ (lm-tree-node-total t3-node)
-                                     total)))
-                        (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
-                          prob)))))
-    (loop for i from 0 below n
-        for count = (aref (hmm-unigram-table hmm) i)
-        with total = (hmm-token-count hmm)
-        do (setf (aref (hmm-unigram-table hmm) i)
-             (float (/ count total)))))
-  
-  hmm)
 
 (defun code-to-bigram (hmm bigram)
   (list (elt (hmm-tags hmm) (floor (/ bigram (hmm-n hmm))))
