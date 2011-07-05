@@ -30,7 +30,7 @@
   (loop
       with sum = (float (hash-table-sum table))
       for v being the hash-values in table
-      when (= 1 sum) do (return 0.0)
+      when (= 1.0 sum) do (return 0.0)
       summing (* -1 (/ v sum) (log (/ v sum) 2))))
 
 (defun weighted-average-of (table &key (key #'identity))
@@ -55,7 +55,7 @@
       for P-x = (gethash x p)
       for Q-x = (gethash x q)
       summing (log (/ P-x Q-x))))
-                                      
+
 (defun renyi-divergence (p q alpha)
   (if (= 1 alpha)
       (kl-divergence p q)
