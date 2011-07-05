@@ -346,11 +346,11 @@
 (defun build-suffix-tries (hmm)
   (loop 
       for state below (hmm-n hmm)
-      for emmission-map = (aref (hmm-emissions hmm) state)
+      for emission-map = (aref (hmm-emissions hmm) state)
        do
         (loop 
-            for word being the hash-keys in emmission-map
-            for count = (gethash word emmission-map)
+            for word being the hash-keys in emission-map
+            for count = (gethash word emission-map)
             when (and (<= count 10) (<= (total-emissions word hmm) 10)
                       (not (eql word :unk)))                       
             do (add-to-suffix-tries hmm word state count)))
