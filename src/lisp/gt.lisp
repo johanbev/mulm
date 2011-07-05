@@ -36,46 +36,49 @@
 (defun adjust-zero (a)
   (exp a))
 
+(defvar *verbose-gt* nil)
+
 (defun make-good-turing-estimate (counts total &optional tag)
   (declare (ignorable total))
   (cond 
    ((< (hash-table-count counts) 3) counts)
    (t
     (let* ((coc-table (coc-table counts))
-	   (coc-list (coc-list coc-table))
-	   (offset (min (find-contig coc-list) 6)))
+           (coc-list (coc-list coc-table))
+           (offset (min (find-contig coc-list) 6)))
       (unless (> 2 offset)
-	(let*
-	    ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
-	     (a (avg-list (mapcar #'first params)))
-	     (b (avg-list (mapcar #'second params))))
-	  (unless (> a -1.0)
-          (loop
-	      for key being the hash-keys in counts
-	      for val = (gethash key counts)
-	      with ones = (second (first coc-list))
-	      when (< val offset)
-	      do (setf (gethash key counts)
-		   (adjust-count val a b))
-	      finally (when tag
-			(format t 
-				"~&make-good-turing-estimate():~% Estimating `~a' with ~a emissions and ~a types.
+        (let*
+            ((params (fudge-smoothing (butlast coc-list (- (length coc-list) offset))))
+             (a (avg-list (mapcar #'first params)))
+             (b (avg-list (mapcar #'second params))))
+          (unless (> a -1.0)
+            (loop
+                for key being the hash-keys in counts
+                for val = (gethash key counts)
+                with ones = (second (first coc-list))
+                when (< val offset)
+                do (setf (gethash key counts)
+                     (adjust-count val a b))
+                finally (when (and tag 
+                                   *verbose-gt*)
+                          (format t 
+                                  "~&make-good-turing-estimate():~% Estimating `~a' with ~a emissions and ~a types.
  A:~,2f [~,2f]  B:~,2f [~,2f] Est. Unknown-count: ~,2f Est. Unknowns: ~,2f
  New counts: ~{~{~a: ~,2f~}~^, ~}"
-				tag
-				total
-				(hash-table-count counts)
-				a
-				(std-dev (mapcar #'first params))
-				b
-				(std-dev (mapcar #'second params))
-				(exp a)
-				(* ones (exp a))				
-				(mapcar (lambda (x)
-					  (list x (adjust-count x a b)))
-					'(1 2 3 4 5 6))))
-		      (setf (gethash :unk counts)
-			(* ones (exp a)))))))))))
+                                  tag
+                                  total
+                                  (hash-table-count counts)
+                                  a
+                                  (std-dev (mapcar #'first params))
+                                  b
+                                  (std-dev (mapcar #'second params))
+                                  (exp a)
+                                  (* ones (exp a))				
+                                  (mapcar (lambda (x)
+                                            (list x (adjust-count x a b)))
+                                          '(1 2 3 4 5 6))))
+                        (setf (gethash :unk counts)
+                          (* ones (exp a)))))))))))
 
   
 (defun fudge-smoothing (coc-vector)
