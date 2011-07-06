@@ -2,7 +2,8 @@
 
 (defvar *bigrams* nil)
 
-(defun viterbi-trigram (hmm input &key (bigrams *bigrams*) &allow-other-keys)
+(defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)
+  #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((n (hmm-n hmm))
          (nn (* n n))
@@ -21,8 +22,6 @@
     (declare (type fixnum n nn l start-tag end-tag)
              (type single-float final))
     ;; LW6 can't handle enormous allocations on the stack
-    #+allegro
-    (declare (dynamic-extent viterbi pointer))
     (loop 
         with form fixnum = (first input)
         with unk = (eql :unk (gethash form *known-codes* :unk))
@@ -40,32 +39,38 @@
                     (emission-probability hmm tag form)))))
         do (setf (aref pointer state 0) 0))
     (loop
-        with previous-possible = (make-array nn :fill-pointer 0)
-        with next-possible = (make-array nn :fill-pointer 0)
-        initially (loop for x below nn do (vector-push x previous-possible))
+        with previous-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
+        with next-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
+        initially (loop for x below n
+                      for state fixnum = (+ (the fixnum (* start-tag n)) x)
+                      do (vector-push state previous-possible))
         for form fixnum in (rest input)
         for time fixnum from 1 to (- l 1)
         for previous-time fixnum = (1- time)
         for unk = (eql :unk (gethash form *known-codes* :unk))
-        for unk-emi  = (and unk (query-suffix-trie hmm form))
-        do           
+        for unk-emi   = (and unk 
+                             (query-suffix-trie hmm form))
+                                                                   
+        do 
           (loop
                with touch = nil
                for current fixnum from 0 to (- n 1)
                for emission of-type single-float = (if unk
                                                        (aref unk-emi current)
                                                      (emission-probability hmm current form))
-               when (or unk (> emission -19.0))                                           
+              when (or  (> emission -19.0)
+                        (and unk (> emission -24.10)))
                do (setf touch t)
                   (loop
-                      for x below n
-                      do (vector-push (+ (* x n) current) next-possible))
+                      for x fixnum below n
+                      do (vector-push (the fixnum (+ (the fixnum (* x n)) current))
+                                      next-possible)) ;; add all possible tags for next time-step
                   (loop
                     ;;; the loop of death, we really don't want to go here if we can spare it
-                      for previous across previous-possible
+                      for previous fixnum across previous-possible ;;; for each possible tag
                       for prev-prob of-type single-float = (aref viterbi previous previous-time)
                       with old of-type single-float = (aref viterbi current time)
-                      when (> prev-prob old)
+                      when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets
                       do (multiple-value-bind (t1 t2)
                              (truncate previous n)
                            (declare (type fixnum t1 t2))
@@ -330,3 +335,7 @@
     (decode-end hmm viterbi pointer l)
     
     (backtrack-slow hmm pointer l)))
+
+
+
+

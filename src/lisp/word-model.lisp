@@ -226,7 +226,7 @@
         for tag-prob across prob
         if (or (null tag-prob) (>= 0.0 tag-prob)) do
           (setf (aref prob i)
-            (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
+            (+ (gethash :unk (aref (hmm-emissions hmm) i) -9.7)
                -19.37))    
         else do (setf (aref prob i) 
              (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
