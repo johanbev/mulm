@@ -24,7 +24,7 @@
 
 (defun kn-bigrams (unigrams)
   (loop
-      with *kn-d* = 1.107
+      with *kn-d* = (hmm-bigram-d *hmm*)
       with bigram-probs = (make-array (list (hmm-n *hmm*)
                                             (hmm-n *hmm*))
                                       :element-type 'single-float
@@ -49,7 +49,7 @@
 
 (defun kn-trigrams (bigrams)
   (loop
-      with *kn-d* of-type single-float  = 1.33
+      with *kn-d* of-type single-float = (hmm-trigram-d *hmm*)
       with trigram-probs = (make-array
                             (list (hmm-n *hmm*)
                                   (hmm-n *hmm*)
@@ -82,3 +82,36 @@
                             most-negative-single-float
                           (float (log trigram-prob))))))
       finally (return trigram-probs)))
+
+
+(defun estimate-bigram-d (hmm)
+  (loop
+      with once = 0
+      with twice = 0
+      for i below (hmm-n hmm)
+      do (loop 
+             for j below (hmm-n hmm)
+             for count = (or (aref (hmm-transitions hmm) i j) -1)
+             when (= count 1) do (incf once)
+             when (= count 2) do (incf twice))
+      finally (return
+                (if (or (= 0 once) (= 0 twice))
+                  1.107
+                  (/ once (+ once (* 2 twice)))))))
+
+(defun estimate-trigram-d (hmm)
+  (loop
+      with once = 0
+      with twice = 0
+      for i below (hmm-n hmm)
+      do (loop 
+             for j below (hmm-n hmm)
+             do (loop
+                    for k below (hmm-n hmm)
+                    for count = (or (aref (hmm-trigram-table hmm) i j k) -1)
+                    when (= count 1) do (incf once)
+                    when (= count 2) do (incf twice)))
+          finally (return
+                (if (or (= 0 once) (= 0 twice))
+                  1.107
+                  (/ once (+ once (* 2 twice)))))))

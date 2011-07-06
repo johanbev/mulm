@@ -16,7 +16,7 @@
         for seq in seqs
         for tag-seq in tag-seqs
         for constraint in constraints
-        for result = (funcall decoder-func hmm seq :decoder decoder :constraints constraint)
+        for result = (and seq (funcall decoder-func hmm seq :decoder decoder :constraints constraint))
         for unknown = (loop 
                           for x in seq 
                           when (not (gethash x *known-codes*))
