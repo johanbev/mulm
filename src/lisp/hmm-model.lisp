@@ -22,6 +22,8 @@
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
+  bigram-d
+  trigram-d
   (suffix-tries (make-hash-table :test #'equal))
   theta
   current-transition-table)
@@ -246,6 +248,10 @@
     (calculate-deleted-interpolation-weights hmm)
     (calculate-theta hmm)
     (build-suffix-tries hmm)
+    (setf (hmm-bigram-d hmm)
+      (float (estimate-bigram-d hmm)))
+    (setf (hmm-trigram-d hmm)
+      (float (estimate-trigram-d hmm)))
 
     (let ((n (hmm-n hmm)))
       (loop
