@@ -77,7 +77,8 @@
                        #'(lambda (total)
                                     (when (and marker
                                                (= (rem total marker) 0))
-                                      (write-char #\.))))))
+                                      (write-char #\.)
+                                      (finish-output))))))
     (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
          (evaluate hmm corpus func
                    :seq-handler seq-handler
