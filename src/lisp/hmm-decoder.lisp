@@ -41,7 +41,9 @@
                     (emission-probability hmm tag form)))))
         do (setf (aref pointer state 0) 0))
     (loop
-        with previous-possible = (loop for x below nn collect x)
+        with previous-possible = (make-array nn :fill-pointer 0)
+        with next-possible = (make-array nn :fill-pointer 0)
+        initially (loop for x below nn do (vector-push x previous-possible))
         for form fixnum in (rest input)
         for time fixnum from 1 to (- l 1)
         for previous-time fixnum = (1- time)
@@ -50,7 +52,6 @@
         do           
           (loop
                with touch = nil
-               with next-possible
                for current fixnum from 0 to (- n 1)
                for emission of-type single-float = (if unk
                                                        (aref unk-emi current)
@@ -59,10 +60,10 @@
                do (setf touch t)
                   (loop
                       for x below n
-                      do (push (+ (* x n) current) next-possible))
+                      do (vector-push (+ (* x n) current) next-possible))
                   (loop
                     ;;; the loop of death, we really don't want to go here if we can spare it
-                      for previous in previous-possible
+                      for previous across previous-possible
                       for prev-prob of-type single-float = (aref viterbi previous previous-time)
                       with old of-type single-float = (aref viterbi current time)
                       when (> prev-prob old)
@@ -78,34 +79,11 @@
                                (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
                                (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))
                finally
-                 (setf previous-possible next-possible)
+                (psetf previous-possible next-possible
+                       next-possible previous-possible)
+                (setf (fill-pointer next-possible) 0)
                  (unless touch
-                   ;; rescue loop, shoudn't come here normally.                    
-                   (format t "~% To the rescue!")
-                   (loop                      
-                       for current fixnum from 0 to (- n 1)
-                       for emission of-type single-float = (if unk
-                                                               (aref unk-emi current)
-                                                             (emission-probability hmm current form))
-                       do
-                         (loop
-                             for previous from 0 below nn
-                             for prev-prob of-type single-float = (aref viterbi previous previous-time)
-                             with old of-type single-float = (aref viterbi current time)
-                             do 
-                               (multiple-value-bind (t1 t2)
-                                   (truncate previous n)
-                                 (declare (type fixnum t1 t2))
-                                 (let ((new (+ prev-prob
-                                               emission
-                                               (tri-cached-transition hmm t1 t2 current))))
-                                   (declare (type single-float new))
-                                   (when (> new old)
-                                     (setf old new)
-                                     (setf (aref viterbi 
-                                                 (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
-                                     (setf (aref pointer 
-                                                 (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))))))
+                   (error "No tag generates current emission!"))))
     (loop
         with time fixnum = (1- l)
         for previous fixnum from 0 below nn
