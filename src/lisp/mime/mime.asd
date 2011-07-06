@@ -4,5 +4,5 @@
   :author "Johan Benum Evensberget, André Lynum"
   :license "GPL"
   :components ((:file "mime")
-               (:file "experimemt" :depends-on ("mime")))
+               (:file "experiment" :depends-on ("mime")))
   :depends-on ("mulm"))
