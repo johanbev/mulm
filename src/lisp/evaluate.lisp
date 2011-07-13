@@ -80,14 +80,16 @@
                                       (write-char #\.)
                                       (finish-output))))))
     (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
-         (evaluate hmm corpus func
-                   :seq-handler seq-handler
-                   :decoder decoder)
-       (declare (ignore cs ts))
-       (format t "~%Order:            ~a~%" (if decoder func order))
-       (format t "Correct:          ~2,4T~a~%" correct)
-       (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
-       (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
-       (format t "Unknown Token Acc:~2,4T~,3f %~%" (if (> tu 0) (* 100 (/ cu tu)) nil))
-       (format t "Unknown Seq Acc:  ~2,4T~,3f %~%" (if (> us 0) (* 100 (/ cus us)) nil))
-       (format t "Tokens: ~a, Unknown: ~a, ~,3f %~%" total tu (* 100 (/ tu total))))))
+        (evaluate hmm corpus func
+                  :seq-handler seq-handler
+                  :decoder decoder)
+      (declare (ignore cs ts))
+      (format t "~%Order:            ~a~%" (if decoder func order))
+      (format t "Correct:          ~2,4T~a~%" correct)
+      (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
+      (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))
+      (format t "Unknown Token Acc:~2,4T~,3f %~%" (if (> tu 0) (* 100 (/ cu tu)) nil))
+      (format t "Unknown Seq Acc:  ~2,4T~,3f %~%" (if (> us 0) (* 100 (/ cus us)) nil))
+      (format t "Tokens: ~a, Unknown: ~a, ~,3f %~%" total tu (* 100 (/ tu total)))
+
+      (values (float acc) correct total))))
