@@ -59,6 +59,7 @@
 
 (defun read-tt-corpus (file &key symbol-table (constrained nil))
   "Create a list of lists corpus from TT format file."
+  (declare (ignore symbol-table))
   (with-open-file (stream file :direction :input)
     (loop with forms
           for line = (read-line stream nil)
@@ -107,6 +108,7 @@
          appending (list item i))))
 
 (defun read-brown-line (line &key symbol-table)
+  (declare (ignore symbol-table))
   (let ((items (split-sequence-if #'(lambda (x)
                                       (member x '(#\Space #\Tab)))
                                   line
