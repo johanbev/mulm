@@ -24,7 +24,7 @@
 
 (defun kn-bigrams (unigrams)
   (loop
-      with *kn-d* = (hmm-bigram-d *hmm*)
+      with kn-d = (hmm-bigram-d *hmm*)
       with bigram-probs = (make-array (list (hmm-n *hmm*)
                                             (hmm-n *hmm*))
                                       :element-type 'single-float
@@ -37,9 +37,9 @@
              for second from 0 below (hmm-n *hmm*)
              for second-node = (gethash second (lm-tree-node-children first-node))
              for second-count = (or (and second-node (lm-tree-node-total second-node)) 0)
-             for adjusted-count = (max (- second-count *kn-d*) 0)
+             for adjusted-count = (max (- second-count kn-d) 0)
              for bigram-prob = (+ (/ adjusted-count first-count) ;; adjusted estimate
-                                  (* (/ *kn-d* first-count)
+                                  (* (/ kn-d first-count)
                                      first-decs
                                      (aref unigrams second)))
              do (setf (aref bigram-probs first second) (if (= 0 bigram-prob)
@@ -49,7 +49,7 @@
 
 (defun kn-trigrams (bigrams)
   (loop
-      with *kn-d* of-type single-float = (hmm-trigram-d *hmm*)
+      with kn-d of-type single-float = (hmm-trigram-d *hmm*)
       with trigram-probs = (make-array
                             (list (hmm-n *hmm*)
                                   (hmm-n *hmm*)
@@ -68,10 +68,10 @@
                    for third fixnum from 0 below (hmm-n *hmm*)
                    for third-node = (gethash third (lm-tree-node-children second-node))
                    for third-count fixnum  = (or (and third-node (lm-tree-node-total third-node)) 0)
-                   for adjusted-count of-type single-float = (max (- third-count *kn-d*) 0.0)
+                   for adjusted-count of-type single-float = (max (- third-count kn-d) 0.0)
                    for bigram of-type single-float = (aref (the (simple-array single-float (* *)) bigrams) second third)
                    for trigram-prob = (+ (the single-float (/ adjusted-count (the single-float (float second-count))))
-                                         (* (the single-float (/ (the single-float *kn-d*)
+                                         (* (the single-float (/ (the single-float kn-d)
                                                                  (the single-float (float second-count))))
                                             (the single-float (float second-decs))
                                             (the single-float  (if (< bigram -100.0)

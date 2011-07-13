@@ -21,7 +21,7 @@
 
 (defun find-contig (coc-list)
   (loop
-      for (count forms) = (first coc-list) then next
+      for (count) = (first coc-list) then next
       for next in (rest coc-list)
       for index from 0
       while (= (1+ count) (first next))

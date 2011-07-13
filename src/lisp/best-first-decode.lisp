@@ -93,9 +93,11 @@
 	 (*heap* (make-heap))
 	 (start-node (make-node :time -1 :probability 0.0 :value (tag-to-code hmm "<s>")))
 	 (end-tag (tag-to-code hmm "</s>")))
-    (declare (dynamic-extent trellis *heap* generation-vector limit-array input))
+    (declare (dynamic-extent trellis *heap* generation-vector limit-array))
     ;; make transitions from the start node and enqueue
-    (declare (type (simple-array single-float (* *)) limit-array)
+    (declare
+       ;; this declaration should be redundant
+       ; (type (simple-array single-float (* *)) limit-array)
 	     (type (simple-array t (* *)) trellis)
 	     (type (simple-array t (*)) input))
     (loop
@@ -120,7 +122,7 @@
 	when (and (= end-tag (node-value next))
 		 (= length (node-time next))) do
 	  (return (backtrack hmm next))
-	  
+
 	when (= (node-time next) (the fixnum (1- length))) do
 	  (let ((prob (+ (node-probability next)
 			 (bi-cached-transition hmm (node-value next)
