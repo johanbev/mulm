@@ -45,7 +45,7 @@
                                      (member c '(#\| #\")))
                                  tok))
                    ;; intern arbitrary strings into the keyword package
-                   (with-package :keyword
+                   (let ((*package* (find-package :keyword)))
                      (numberp (read-from-string tok)))))
         (prog1 
             (if (eql #\. (aref token (1- (length token))))
@@ -54,13 +54,13 @@
               #-lispworks
               (coerce '(#\| #\U0195 #\U00C2 #\|) 'string)
               #+lispworks
-              (coerce '(#\| #\U+0195 #\U+00C2 #\|) 'string)
+              (coerce '(#\| #\U+0195 #\U+00C2 #\|) 'lispworks:text-string)
 
               ;;false
               #-lispworks
               (coerce '(#\| #\U00C2 #\U00C2 #\|) 'string)
               #+lispworks
-              (coerce '(#\| #\U+00C2 #\U+00C2 #\|) 'string)))
+              (coerce '(#\| #\U+00C2 #\U+00C2 #\|) 'lispworks:text-string)))
         token))))
 
 (defvar *normalizer*
