@@ -1,8 +1,6 @@
 ;; Delivery script for Lispworks 6.0
 (in-package :cl-user)
 
-(load-all-patches)
-
 ;; replace with your path to asdf
 (load (compile-file "../../../config/asdf.lisp"))
 
@@ -15,6 +13,4 @@
 (defun main ()
   (mulm::do-evaluation))
 
-(deliver 'main "mulm-lw-test" 2
-         :console :input
-         :interface nil)
+(save-lisp-and-die #p"mulm-sbcl-test" :executable t :toplevel #'main)
