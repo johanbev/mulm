@@ -1,7 +1,7 @@
 (defsystem :mulm
   :description "Mulm natural language processing system."
   :version "0.1"
-  :author "Johan Benum Evensberget, André Lynum"
+  :author "Johan Benum Evensberget, Andre Lynum"
   :license "GPL"
   :components ((:file "mulm")
                (:file "utilities" :depends-on ("mulm"))

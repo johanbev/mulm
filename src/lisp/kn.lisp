@@ -62,7 +62,7 @@
              for second fixnum from 0 below (hmm-n *hmm*)
              for second-node = (gethash second (lm-tree-node-children first-node))
              for second-count fixnum = (or (and second-node (lm-tree-node-total second-node)) 0)
-             for second-decs fixnum = (and second-node (hash-table-count (lm-tree-node-children second-node)))
+             for second-decs = (and second-node (hash-table-count (lm-tree-node-children second-node)))
              when second-node do
                (loop
                    for third fixnum from 0 below (hmm-n *hmm*)
