@@ -10,6 +10,24 @@
 (defclass id-normalizer (normalizer) nil)
 (defclass cd-normalizer (normalizer) nil)
 
+#-lispworks
+(defparameter *illegal-token-chars*
+    '(#\: #\, #\. #\- #\/ #\% #\\ #\#
+      #\U00A4 ;; CURRENCY SIGN
+      #\$
+      #\U00A3 ;; POUND SIGN
+      #\U29AC ;; EURO SIGN
+      #\' #\` #\( #\) #\;))
+
+#+lispworks
+(defparameter *illegal-token-chars*
+    '(#\: #\, #\. #\- #\/ #\% #\\ #\#
+      #\U+00A4 ;; CURRENCY SIGN
+      #\$
+      #\U+00A3 ;; POUND SIGN
+      #\U+29AC ;; EURO SIGN
+      #\' #\` #\( #\) #\;))
+
 (defmethod normalize (token (normalizer downcasing))
   (string-downcase token))
 
@@ -17,7 +35,7 @@
   token)
 
 (defmethod normalize (token (normalizer cd-normalizer))
-  (let ((tok (remove-if (lambda (x) (find x ":,.-/%\\#¤$£€'`()#:;"))
+  (let ((tok (remove-if (lambda (x) (find x *illegal-token-chars*))
                         (string-downcase token))))
     (if (string= tok "")
       token
@@ -31,8 +49,18 @@
                      (numberp (read-from-string tok)))))
         (prog1 
             (if (eql #\. (aref token (1- (length token))))
-              "¦OD¦"
-              "¦CD¦"))
+              ;; number identifiers? change into something more sensible
+              ;;; true
+              #-lispworks
+              (coerce '(#\| #\U0195 #\U00C2 #\|) 'string)
+              #+lispworks
+              (coerce '(#\| #\U+0195 #\U+00C2 #\|) 'string)
+
+              ;;false
+              #-lispworks
+              (coerce '(#\| #\U00C2 #\U00C2 #\|) 'string)
+              #+lispworks
+              (coerce '(#\| #\U+00C2 #\U+00C2 #\|) 'string)))
         token))))
 
 (defvar *normalizer*
