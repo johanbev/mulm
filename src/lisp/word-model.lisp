@@ -5,7 +5,7 @@
 (defparameter *suffix-cutoff* 10)
 
 (defun add-word (word tag count node)
-  (let* ((form  (code-to-symbol word))
+  (let* ((form  (code-to-token word))
          (nodes (coerce (if (> (length form) *suffix-cutoff*)
                             (subseq form (- (length form)  *suffix-cutoff*))
                           form)
@@ -138,7 +138,7 @@
 ;; simple word model which uses distribiution of longest seen suffix
 ;; current best performer
 (defun top-suff-word-model (hmm form)
-  (let* ((form (code-to-symbol form))
+  (let* ((form (code-to-token form))
          (dist (make-array (hmm-n hmm) :initial-element nil))
          (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
          (suffixes (nreverse (loop for seq on (get-suffix-seqs form *suffix-cutoff*)
@@ -156,7 +156,7 @@
 ;; TnT style word model with theta coefficient for increasing weight
 ;; on longer suffixes
 (defun tnt-word-model (hmm form &optional (theta-coeff 5))
-  (let* ((form (code-to-symbol form))
+  (let* ((form (code-to-token form))
          (theta (hmm-theta hmm))
          (dist (make-array (hmm-n hmm) :initial-element nil))
          (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
@@ -180,7 +180,7 @@
 
 (defun query-suffix-trie (hmm word)
   (declare (optimize (speed 3) (debug 0) (space 0)))
-  (let* ((form (code-to-symbol word))
+  (let* ((form (code-to-token word))
          (trie-key (capitalized-p form))
          (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries hmm)))
          (nodes (get-suffix-seqs form *suffix-cutoff*))

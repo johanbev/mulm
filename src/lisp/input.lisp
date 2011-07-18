@@ -85,9 +85,9 @@
   (let ((tags (cl-ppcre:all-matches-as-strings "[^\|\\s]+" tag)))
     (list (first tags) (rest tags))))
 
-(defun read-tt-corpus (file &key symbol-table (constrained nil))
+(defun read-tt-corpus (file &key lexicon (constrained nil))
   "Create a list of lists corpus from TT format file."
-  (declare (ignore symbol-table))
+  (declare (ignore lexicon))
   (with-open-file (stream file :direction :input)
     (loop with forms
           for line = (read-line stream nil)
@@ -95,7 +95,7 @@
           for split = (position-if #'(lambda (c)
                                        (member c *whitespace*)) line)
           for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
-          for code = (symbol-to-code form)
+          for code = (token-to-code form)
           for tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
           while line
           when (and form tag (not (string= form "")))
@@ -125,7 +125,7 @@
 (defun read-wsj-corpus ()
   (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
   (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*
-                                          :symbol-table *symbol-table*)))
+                                          :lexicon *lexicon*)))
 ;; Brown corpus
 (defvar *brown-train-corpus* nil)
 (defvar *brown-eval-corpus* nil)
@@ -135,8 +135,8 @@
    (loop for i in (reverse list)
          appending (list item i))))
 
-(defun read-brown-line (line &key symbol-table)
-  (declare (ignore symbol-table))
+(defun read-brown-line (line &key lexicon)
+  (declare (ignore lexicon))
   (let ((items (split-sequence-if #'(lambda (x)
                                       (member x '(#\Space #\Tab)))
                                   line
@@ -145,7 +145,7 @@
           ;; Handle cases where the word contains #\/
           collect (let* ((split (position #\/ item :from-end t))
                          (token (subseq item 0 split))
-			 (code  (symbol-to-code (normalize-token token)))
+			 (code  (token-to-code (normalize-token token)))
                          (tag (destructure-brown-tag (subseq item (1+ split)))))
                     (list code tag)))))
 
@@ -162,13 +162,13 @@
 	(or (second parts) (first parts)))
      (t (first parts)))))
 
-(defun read-brown-file (file &key symbol-table)
+(defun read-brown-file (file &key lexicon)
   (with-open-file (s file :direction :input)
     (loop for input  = (read-line s nil nil)
           for line = (or input (string-trim '(#\Space #\Tab #\Newline) input))
           until (null input)
           unless (string-equal "" line)
-          collect (read-brown-line line :symbol-table symbol-table))))
+          collect (read-brown-line line :lexicon lexicon))))
 
 (defun read-brown-corpus (&optional (eval-split 0.1))
   ;; Directory globbing might not work on all systems
@@ -188,7 +188,7 @@
     (setf *brown-train-corpus* (loop for file in train-files
                                      appending (read-brown-file file)))
     (setf *brown-eval-corpus* (loop for file in eval-files
-                                     appending (read-brown-file file :symbol-table *symbol-table*)))))
+                                     appending (read-brown-file file :lexicon *lexicon*)))))
 
 
 (defun write-tt-file (path corpus)
@@ -197,5 +197,5 @@
 	for sequence in corpus
 	do (loop
 	       for (form tag) in sequence
-	       do (format stream "~a~c~a~%" (code-to-symbol form) #\Tab tag))
+	       do (format stream "~a~c~a~%" (code-to-token form) #\Tab tag))
 	   (format stream "~%"))))

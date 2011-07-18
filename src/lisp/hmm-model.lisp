@@ -337,7 +337,7 @@
                      summing (expt (- p mean) 2))))))))
 
 (defun add-to-suffix-tries (hmm  word tag count)
-  (let* ((form (code-to-symbol word))
+  (let* ((form (code-to-token word))
          (trie-key (capitalized-p form))
          (lookup (gethash trie-key (hmm-suffix-tries hmm))))
     (when (null lookup)
@@ -419,4 +419,3 @@
 (defun code-to-bigram (hmm bigram)
   (list (elt (hmm-tags hmm) (floor (/ bigram (hmm-n hmm))))
         (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
-
