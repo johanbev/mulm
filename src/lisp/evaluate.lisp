@@ -19,7 +19,7 @@
         for result = (and seq (funcall decoder-func hmm seq :decoder decoder :constraints constraint))
         for unknown = (loop 
                           for x in seq 
-                          when (not (gethash x *known-codes*))
+                          when (not (token-to-code x (hmm-token-lexicon hmm) :rop t))
                           do (return t) 
                           finally (return nil))
         when unknown
@@ -31,7 +31,7 @@
         do
           (loop
               for x in seq
-              for unknown = (not (gethash x *known-codes*))
+              for unknown = (not (token-to-code x (hmm-token-lexicon hmm) :rop t))
               for blue in result
               for gold in tag-seq
               when unknown do (incf total-unknown)

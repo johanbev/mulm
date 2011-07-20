@@ -196,21 +196,46 @@
   (format stream "~%")
   (print-fold-header stream)
   (print-profile-averages profile stream)
-  (print-profile-std-dev profile stream))
+  (print-profile-std-dev profile stream)
+  (format stream "~%")
+  (loop
+      for fold in (profile-folds profile)
+      do (clrhash *word-types*)
+         (setf *lexicon* (mulm::make-lexicon))
+         (register-lexicon-from-train fold)
+         (register-lexicon-from-results fold)
+      collect (avg-tags-token fold) into avg                                         
+      finally
+         (format t "~&Average tags/token: ~,2f ~,2f" (avg-list avg) (std-dev avg))
+         (format t "~&~2,9T~a~3,9T~,2f~4,9T~a~5,9T~,2f~%"
+                 "Ambiguity"
+                 "Accuracy"
+                 "Types"
+                 "Type Recall")
+         (format t
+                 "~&~{~{~2,9T~a~3,9T~,2f%~4,9T~a~5,9T~,2f%~}~^~%~}"
+                 (accuracy-ambiguity))))
+                 ;;; FIXME do the averages!
+                 
+                 
 
 (defstruct word
   (count 0)
+  unseen
   tags
   (correct 0))
 
-(defparameter *word-types* (make-hash-table))
+(defparameter *word-types* (make-hash-table :test #'equal))
+(defparameter *lexicon*
+    (mulm::make-lexicon))
 
 (defun register-lexicon-from-train (fold)
   (loop
       for seq in (fold-train fold)
       do (loop 
              for (form gold) in seq
-             for word = (mulm::get-or-add form *word-types* (make-word))
+             for code = (mulm::token-to-code form *lexicon*)
+             for word = (mulm::get-or-add code *word-types* (make-word))
              do (pushnew gold (word-tags word) :test #'equal))))
 
 (defun register-lexicon-from-results (fold)
@@ -219,9 +244,10 @@
       do
         (loop
             for form in (result-forms result)
+            for code = (mulm::token-to-code form *lexicon*)
             for gold in (result-gold result)
             for blue in (result-blue result)
-            for word = (mulm::get-or-add form *word-types* (make-word))
+            for word = (mulm::get-or-add code *word-types* (make-word :unseen t))
             do
               (incf (word-count word))
               (pushnew gold (word-tags word) :test #'equal)
@@ -235,25 +261,28 @@
       for result in (fold-results fold)
       do (loop
              for form in (result-forms result)
-             for word = (gethash form *word-types*)
+             for code = (mulm::token-to-code form *lexicon*)
+             for word = (gethash code *word-types*)
              for count = (length (word-tags word))
              do (incf accu count)
                 (incf i))
-      finally (return (/ accu i))))  
+      finally (return (/ accu i))))
 
 (defun accuracy-ambiguity ()
   (loop
       with bins = (make-hash-table)
       for word being the hash-values in *word-types*
       for length = (length (word-tags word))
-      for bin = (mulm::get-or-add length bins (list 0 0 0))
+      for bin = (mulm::get-or-add length bins (list 0 0 0 0))
       do (incf (first bin) (word-count word))
          (incf (second bin) (word-correct word))
          (incf (third bin))
+         (when (word-unseen word)
+           (incf (fourth bin)))
       finally (return
                 (sort (loop
-                    for tags being the hash-keys in bins
-                    for (count correct types) being the hash-values in bins
-                    collect (list tags (float (/ correct count)) types))
+                          for tags being the hash-keys in bins
+                          for (count correct types unseen) being the hash-values in bins
+                          collect (list tags (* 100 (float (/ correct count))) types (* 100(float (/ (- types unseen) types)))))
                 #'<
                 :key #'car))))

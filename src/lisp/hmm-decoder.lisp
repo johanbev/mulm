@@ -2,10 +2,25 @@
 
 (defvar *bigrams* nil)
 
+;; TODO maybe do the encoded forms as a struct for speed
+(defun encode-input (hmm input)
+  "Encodes the input to the integer codes of the token lexicon of the HMM model. If a word is not
+   in the lexicon it is encoded as a list containing the :unk keyword and the token.
+
+   returns a list of encoded tokens."
+  (loop for token in input
+        for code = (token-to-code token (hmm-token-lexicon hmm) :rop t)
+        if code collect code
+        else collect (list :unk token)))
+
+(defun unknown-token-p (hmm token)
+  (declare (ignore hmm))
+  (and (listp token) (eql (first token) :unk)))
+
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)
-  #+:allegro(declare (:explain :calls :boxing))
   (declare (optimize (speed 3) (debug  1) (space 0)))
-  (let* ((n (hmm-n hmm))
+  (let* ((input (encode-input hmm input))
+         (n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
          (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
@@ -23,20 +38,20 @@
              (type single-float final))
     ;; LW6 can't handle enormous allocations on the stack
     (loop 
-        with form fixnum = (first input)
-        with unk = (eql :unk (gethash form *known-codes* :unk))
-        with unk-emi = (and unk (query-suffix-trie hmm form))
+        with form = (first input)
+        with unk = (unknown-token-p hmm form)
+        with unk-emi = (and unk (query-suffix-trie hmm (second form)))
         for tag fixnum from 0 to (- n 1)
         for state fixnum = (+ (the fixnum (* start-tag n)) tag)
         do (setf (aref viterbi state 0)
-             (+ (the single-float (if bigrams
-                                      (aref (the (simple-array single-float (* *)) bigrams) start-tag tag)
-                                    (transition-probability hmm start-tag tag
-                                                            :order 1 :smoothing :deleted-interpolation)))
-                (the single-float
-                  (if unk
-                      (aref unk-emi tag)
-                    (emission-probability hmm tag form)))))
+                 (+ (the single-float (if bigrams
+                                        (aref (the (simple-array single-float (* *)) bigrams) start-tag tag)
+                                        (transition-probability hmm start-tag tag
+                                                                :order 1 :smoothing :deleted-interpolation)))
+                    (the single-float
+                         (if unk
+                           (aref unk-emi tag)
+                           (emission-probability hmm tag form)))))
         do (setf (aref pointer state 0) 0))
     (loop
         with previous-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
@@ -44,22 +59,23 @@
         initially (loop for x below n
                       for state fixnum = (+ (the fixnum (* start-tag n)) x)
                       do (vector-push state previous-possible))
-        for form fixnum in (rest input)
+        for form in (rest input)
         for time fixnum from 1 to (- l 1)
         for previous-time fixnum = (1- time)
-        for unk = (eql :unk (gethash form *known-codes* :unk))
-        for unk-emi   = (and unk 
-                             (query-suffix-trie hmm form))
+        for unk = (unknown-token-p hmm form)
+        for unk-emi = (and unk 
+                           (query-suffix-trie hmm (second form)))
                                                                    
         do 
           (loop
                with touch = nil
                for current fixnum from 0 to (- n 1)
                for emission of-type single-float = (if unk
-                                                       (aref unk-emi current)
+                                                     (aref unk-emi current)
                                                      (emission-probability hmm current form))
               when (or  (> emission -19.0)
                         (and unk (> emission -100.10)))
+
                do (setf touch t)
                   (loop
                       for x fixnum below n
@@ -110,10 +126,11 @@
         finally (return
                     (mapcar #'second result)))))
 
-;;; hvor conser denne?
+;; NOTE transition tables must be cached by calling make-transition-table() before calling this function
 (defun viterbi-bigram (hmm input &key (beam-width 13.80) &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
-  (let* ((n (hmm-n hmm))
+  (let* ((input (encode-input hmm input))
+         (n (hmm-n hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float :element-type 'single-float))
          (pointer (make-array (list n l) :initial-element nil)))
@@ -123,22 +140,21 @@
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer))
     (loop
-        with form of-type fixnum = (first input)
+        with form = (first input)
         for state of-type fixnum from 0 to (- n 1)
-        with unk = (eql :unk (gethash form *known-codes* :unk))
-        with unk-emi = (and unk (query-suffix-trie hmm form))
-        do
-          (setf (aref viterbi state 0)
-            (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
-               (if unk
-                   (aref unk-emi state)
-                 (emission-probability hmm state form))))
+        with unk = (unknown-token-p hmm form)
+        with unk-emi = (and unk (query-suffix-trie hmm (second form)))
+        do (setf (aref viterbi state 0)
+                 (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
+                    (if unk
+                      (aref unk-emi state)
+                      (emission-probability hmm state form))))
           (setf (aref pointer state 0) 0))
     (loop
-        for form of-type fixnum in (rest input)
+        for form in (rest input)
         for time of-type fixnum from 1 to (- l 1)
-        for unk = (eql :unk (gethash form *known-codes* :unk))
-        for unk-emi = (and unk (query-suffix-trie hmm form))
+        for unk = (unknown-token-p hmm form)
+        for unk-emi = (and unk (query-suffix-trie hmm (second form)))
         with indices = (hmm-beam-array hmm)
         initially (setf (fill-pointer indices) 0)
                   (loop 
@@ -223,7 +239,7 @@
 (defun decode-start (decoder hmm input viterbi pointer &optional (constraints nil))
   (let ((n (hmm-n hmm)))
     (loop
-     with form of-type fixnum = (first input)
+     with form = (first input)
      for state of-type fixnum from 0 to (- n 1)
      when (or (null constraints) (member state constraints)) 
      do (setf (aref viterbi state 0)
@@ -295,6 +311,7 @@
   (declare (ignore hmm))
   ; (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((hmm (viterbi-decoder-model decoder))
+         (input (encode-input hmm input))
          (n (hmm-n hmm))
          (l (length input))
          (constraints (loop for tags in constraints
@@ -316,7 +333,7 @@
     (decode-start decoder hmm input viterbi pointer (first constraints))
     
     (loop
-        for form of-type fixnum in (rest input)
+        for form in (rest input)
         for time of-type fixnum from 1 to (- l 1)
 
         with indices = (hmm-beam-array hmm)

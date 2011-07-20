@@ -72,7 +72,6 @@
           for (train test) in splits
           for i from 1
           do (format t "~&Doing fold ~a~%" i)
-             (setf mulm::*known-codes* (make-hash-table))
              (format t "~&Training model....~%")
              (let ((hmm (make-hmm train order smoothing)))
                (format t "~&Model trained.")
@@ -87,7 +86,7 @@
                                    forms
                                    gold-tags
                                    (funcall decoder hmm forms)) into res
-                     finally (push (list mulm::*known-codes* res train) *working-set*))))))))
+                     finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))  res train) *working-set*))))))))
                        
                                 
                
