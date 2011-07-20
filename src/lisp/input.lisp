@@ -13,10 +13,11 @@
 #-lispworks
 (defparameter *illegal-token-chars*
     '(#\: #\, #\. #\- #\/ #\% #\\ #\#
-      #\U00A4 ;; CURRENCY SIGN
+      #\¤ ;; CURRENCY SIGN
       #\$
-      #\U00A3 ;; POUND SIGN
-      #\U29AC ;; EURO SIGN
+      #\£ ;; POUND SIGN
+      #\€ ;; EURO SIGN
+      #\¥
       #\' #\` #\( #\) #\;))
 
 #+lispworks
@@ -52,13 +53,13 @@
               ;; number identifiers? change into something more sensible
               ;;; true
               #-lispworks
-              (coerce '(#\| #\U0195 #\U00C2 #\|) 'string)
+              "|cd"
               #+lispworks
               (coerce '(#\| #\U+0195 #\U+00C2 #\|) 'lispworks:text-string)
 
               ;;false
               #-lispworks
-              (coerce '(#\| #\U00C2 #\U00C2 #\|) 'string)
+              "|od|"
               #+lispworks
               (coerce '(#\| #\U+00C2 #\U+00C2 #\|) 'lispworks:text-string)))
         token))))

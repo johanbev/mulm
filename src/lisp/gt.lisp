@@ -107,9 +107,10 @@
       summing (expt (- x average) 2) into res
       finally (return (sqrt (/ res n)))))
 
-(defun tag-split (tag counts &optional replacement-table)
+(defun tag-split (tag counts hmm &optional replacement-table)
   (let* ((total (hash-table-sum counts))
-         (types (hash-table-count counts)))
+         (types (hash-table-count counts))
+         (lexicon (hmm-token-lexicon hmm)))
     (format t "~&Considering tag-splitting `~a' with ~a types and ~a total" tag types total)
     (cond ((> types 50)
            (format t "~&Too many types, tag-split rejected"))
@@ -128,8 +129,8 @@
                    for count = (gethash form counts)
                    when (> count 75) do
                      (setf (gethash (list form tag) replacement-table)
-                       (format nil "~a|~a" (code-to-token form) tag))
-                     (format t "~&Splitted ~a into new tag" (code-to-token form))
+                       (format nil "~a|~a" (code-to-token form lexicon) tag))
+                     (format t "~&Splitted ~a into new tag" (code-to-token form lexicon))
                    finally (return replacement-table))))))))
 
 (defun create-tag-split-table (corpus)
@@ -140,17 +141,19 @@
     (loop
         for counts across (hmm-emissions hmm)
         for tag in (hmm-tags hmm)
-        do (tag-split tag counts replacement-table))
-    replacement-table))
+        do (tag-split tag counts hmm replacement-table))
+    (values replacement-table hmm)))
 
 (defun tag-split-corpora (train test)
-  (let ((replacement-table (create-tag-split-table train)))
+  (multiple-value-bind  (replacement-table hmm)
+      (create-tag-split-table train)
     (flet ((replacer (corp)
              (loop for sentence in corp
                  collecting
                    (loop 
                        for (form tag) in sentence
-                       for replacement = (gethash (list form tag) replacement-table)
+                       for code = (token-to-code form (hmm-token-lexicon hmm))
+                       for replacement = (gethash (list code tag) replacement-table)
                        if replacement 
                        collect (list form replacement)
                        else collect (list form tag)))))
