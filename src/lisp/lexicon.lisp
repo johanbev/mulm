@@ -1,9 +1,15 @@
 (in-package :mulm)
 
+;; These tokens are added to every lexicon
+(defparameter *default-tokens*
+  ;; model internal sequence start/end tokens
+  '("<s>" "</s>"))
+
 ;; The lexicon holds the tokens of a corpora and their mapping
 ;; to internal codes
-(defstruct (lexicon 
-            (:constructor make-lexicon
+(defstruct (lexicon
+            ;; This constructor is for internal use only
+            (:constructor init-lexicon
              (&key (test #'equal)
                    (forward (make-hash-table :test test))
                    (backward (make-array 512))
@@ -11,10 +17,14 @@
                    (count 0))))
   forward backward size count)
 
-;; Global lexicon
-;; TODO this should be a part of the model
-(defvar *lexicon*
-  (make-lexicon))
+;; external constructor for lexicon struct
+(defun make-lexicon (&rest kwords &key &allow-other-keys)
+  (let ((lexicon (apply #'init-lexicon kwords)))
+    ;; inject default tokens
+    (loop for token in *default-tokens*
+        do (token-to-code token lexicon))
+    
+    lexicon))
 
 (defmethod print-object ((object lexicon) stream)
   (let ((n (hash-table-count (lexicon-forward object))))
@@ -28,7 +38,7 @@
 
 ;; TODO mixed optional and keyword arguments should be removed
 ;; rop is read-only ?
-(defun token-to-code (token &optional (lexicon *lexicon*) &key rop)
+(defun token-to-code (token lexicon &key rop)
   "Translate token to code, if the token is added if it's not already in the lexicon.
    rop - read-only, new tokens are not added
    returns the integer code for the token"
@@ -54,7 +64,7 @@
        
        i))))
 
-(defun code-to-token (code &optional (lexicon *lexicon*))
+(defun code-to-token (code lexicon)
   "Translates an integer code to the corresponding token.
    returns the integer code or nil if the token is not present in the lexicon."
   (when (< code (lexicon-count lexicon))
