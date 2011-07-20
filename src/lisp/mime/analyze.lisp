@@ -17,6 +17,7 @@
   (unk-correct 0))
 
 (defstruct fold
+  train
   (id (new-id))
   results
   (token-length 0)
@@ -95,6 +96,8 @@
   (let ((fold (make-fold)))
     (with-slots (results token-length token-correct unknown-tokens unknown-correct known-tokens known-correct)
         fold
+      (setf (fold-train fold)
+        (third res))
       (loop
           with known-codes = (first res)
           for seq in (second res)
@@ -143,6 +146,7 @@
                  "Corr."
                  "ACC"
                  "UNK"
+
                  "UNK%"
                  "ACC-U"
                  "ACC-K")))
@@ -193,3 +197,63 @@
   (print-fold-header stream)
   (print-profile-averages profile stream)
   (print-profile-std-dev profile stream))
+
+(defstruct word
+  (count 0)
+  tags
+  (correct 0))
+
+(defparameter *word-types* (make-hash-table))
+
+(defun register-lexicon-from-train (fold)
+  (loop
+      for seq in (fold-train fold)
+      do (loop 
+             for (form gold) in seq
+             for word = (mulm::get-or-add form *word-types* (make-word))
+             do (pushnew gold (word-tags word) :test #'equal))))
+
+(defun register-lexicon-from-results (fold)
+  (loop
+      for result in (fold-results fold)
+      do
+        (loop
+            for form in (result-forms result)
+            for gold in (result-gold result)
+            for blue in (result-blue result)
+            for word = (mulm::get-or-add form *word-types* (make-word))
+            do
+              (incf (word-count word))
+              (pushnew gold (word-tags word) :test #'equal)
+              (when (string= gold blue)
+                (incf (word-correct word))))))
+              
+(defun avg-tags-token (fold)
+  (loop
+      with accu = 0
+      with i = 0
+      for result in (fold-results fold)
+      do (loop
+             for form in (result-forms result)
+             for word = (gethash form *word-types*)
+             for count = (length (word-tags word))
+             do (incf accu count)
+                (incf i))
+      finally (return (/ accu i))))  
+
+(defun accuracy-ambiguity ()
+  (loop
+      with bins = (make-hash-table)
+      for word being the hash-values in *word-types*
+      for length = (length (word-tags word))
+      for bin = (mulm::get-or-add length bins (list 0 0 0))
+      do (incf (first bin) (word-count word))
+         (incf (second bin) (word-correct word))
+         (incf (third bin))
+      finally (return
+                (sort (loop
+                    for tags being the hash-keys in bins
+                    for (count correct types) being the hash-values in bins
+                    collect (list tags (float (/ correct count)) types))
+                #'<
+                :key #'car))))

@@ -87,7 +87,7 @@
                                    forms
                                    gold-tags
                                    (funcall decoder hmm forms)) into res
-                     finally (push (list mulm::*known-codes* res) *working-set*))))))))
+                     finally (push (list mulm::*known-codes* res train) *working-set*))))))))
                        
                                 
                
