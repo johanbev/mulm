@@ -42,7 +42,9 @@
 (defun make-hmm (train order smoothing)
   (let* ((hmm (mulm::train train)))
     (ecase smoothing
-      (:deleted-interpolation )
+      (:deleted-interpolation
+       (setf (mulm::hmm-current-transition-table hmm)
+         (mulm::make-transition-table hmm order :deleted-interpolation)))
       (:constant (setf (mulm::hmm-current-transition-table hmm)
                    (mulm::make-transition-table hmm order :constant)))
       (:kn
@@ -57,24 +59,39 @@
               (setf mulm::*bigrams*
                 (mulm::kn-bigrams (mulm::kn-unigrams))))))))
     hmm))
-  
+
+(defparameter *working-set* nil)
 
 (defun perform-experiment (file)
+  (setf *working-set* nil)
   (format t "reading in experiment file...~%")
   (with-experiment file
     (format t "read experiment file...~%")
     (let* ((corpus (prog1 (prepare-corpora corpora corpus-type file) (format t "read corpora...~%")))
-           (splits (prog1 (split-into-folds corpus folds) (format t "split into folds...~%")))
-           (clobber (eql smoothing :deleted-interpolation)))
+           (splits (prog1 (split-into-folds corpus folds) (format t "split into folds...~%"))))
       (loop
-          for (train test) in splits
-          for i from 1
+       for (train test) in splits
+       for i from 1
           do (format t "~&Doing fold ~a~%" i)
-             (when tag-split
-               (let ((ts (mulm::tag-split-corpora train test)))
-                 (setf train (first ts)
-                       test (second ts))))
-             (setf mulm::*known-codes* (make-hash-table))
-             (format t "~&Training model....~%")
-             (let ((hmm (make-hmm train order smoothing)))
-               (mulm::do-evaluation :order order :corpus test :hmm hmm :clobber clobber))))))
+          (when tag-split
+            (let ((ts (mulm::tag-split-corpora train test)))
+              (setf train (first ts)
+                    test (second ts))))
+          (format t "~&Training model....~%")
+          (let ((hmm (make-hmm train order smoothing)))
+            (format t "~&Model trained.")
+            (format t "~&Decoding ~a sequences" (length test))
+            (let ((decoder (ecase order
+                             (1 #'mulm::viterbi-bigram)
+                             (2 #'mulm::viterbi-trigram))))
+              (loop
+               for forms in (mulm::ll-to-word-list test)
+               for gold-tags in (mulm::ll-to-tag-list test)
+               collect (list 
+                        forms
+                        gold-tags
+                        (funcall decoder hmm forms)) into res
+                     finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))  res train) *working-set*))))))))
+                       
+                                
+               
