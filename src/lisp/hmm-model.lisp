@@ -231,6 +231,12 @@
                  (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
     hmm))
 
+
+
+(defun populate-counts (corpus hmm)
+  (loop for sentence in corpus
+      do (add-sentence-to-hmm hmm sentence)))
+
 (defun train (corpus &optional (n nil))
   "Trains a HMM model from a corpus (a list of lists of word/tag pairs).
    Returns a fully trained hmm struct."
@@ -238,8 +244,7 @@
   ;; determine tagset size if not specified by the n parameter
   (let ((hmm (setup-hmm (make-hmm) (or n (corpus-tag-set-size corpus)))))
     ;; collect counts from setences in the corpus
-    (loop for sentence in corpus
-          do (add-sentence-to-hmm hmm sentence))
+    (populate-counts corpus hmm)
 
     (setup-hmm-beam hmm)
 
