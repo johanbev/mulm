@@ -59,7 +59,7 @@
                                                        (aref unk-emi current)
                                                      (emission-probability hmm current form))
               when (or  (> emission -19.0)
-                        (and unk (> emission -24.10)))
+                        (and unk (> emission -100.10)))
                do (setf touch t)
                   (loop
                       for x fixnum below n
