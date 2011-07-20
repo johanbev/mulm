@@ -4,9 +4,10 @@
 
 (defparameter *estimation-cutoff* 0)
 
-(defparameter *known-codes* (make-hash-table)) ;;fixme
-
 (defstruct hmm
+  (token-lexicon (make-lexicon))
+  (tag-lexicon (make-lexicon))
+  (token-count 0)
   tag-array
   beam-array
   tags
@@ -18,7 +19,6 @@
   unigram-table
   tag-lm
   ; the number of tokens in the training corpus used
-  (token-count 0)
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
@@ -131,8 +131,10 @@
   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
 
 (defun emission-probability-slow (decoder hmm state form)
-  (if (eql :unk (gethash form *known-codes* :unk))
-    (let* ((cache (gethash :unknown-word (viterbi-decoder-caches decoder)))
+  (if (unknown-token-p hmm form)
+    (let* ((form (token-to-code (second form)
+                                (hmm-token-lexicon hmm) :rop t))
+           (cache (gethash :unknown-word (viterbi-decoder-caches decoder)))
            (cache-lookup (gethash form cache))
            (dist (or cache-lookup
                      (let ((dist (query-suffix-trie hmm form)))
@@ -163,8 +165,8 @@
    Returns the passed hmm struct."
   ;; add start and end tags to tag set size
   (let ((n (+ n 2)))
-    (setf (hmm-token-count hmm) 0)
     (setf (hmm-n hmm) n)
+    (setf (hmm-token-count hmm) 0)
     ;; setup empty tables for probability estimates
     (setf (hmm-transitions hmm)
           (make-array (list n n) :initial-element nil))
@@ -201,9 +203,9 @@
                            '("</s>")))
          (bigrams (partition unigrams 2))
          (trigrams (partition unigrams 3)))
-    (loop for (code tag) in sentence
+    (loop for (token tag) in sentence
+          for code = (token-to-code token (hmm-token-lexicon hmm))
           do (incf (hmm-token-count hmm))
-          do (setf (gethash code *known-codes*) t)
           do (incf (gethash code
                             (aref (hmm-emissions hmm)
                                   (tag-to-code hmm tag))
@@ -321,7 +323,10 @@
       
       (loop for i from 0 below n
           for count = (aref (hmm-unigram-table hmm) i)
-          with total = (hmm-token-count hmm)
+          with total = (loop for count across (hmm-unigram-table hmm)
+                     summing count)
+          ;; TODO discrepancy between token count and unigram count total
+          ; with total = (hmm-token-count hmm)
           do (setf (aref (hmm-unigram-table hmm) i)
                (float (/ count total)))))
 
@@ -341,15 +346,15 @@
                      for p in probs
                      summing (expt (- p mean) 2))))))))
 
-(defun add-to-suffix-tries (hmm  word tag count)
-  (let* ((form (code-to-token word))
+(defun add-to-suffix-tries (hmm word tag count)
+  (let* ((form (code-to-token word (hmm-token-lexicon hmm)))
          (trie-key (capitalized-p form))
          (lookup (gethash trie-key (hmm-suffix-tries hmm))))
     (when (null lookup)
       (setf lookup (make-lm-tree-node))
       (setf (gethash trie-key (hmm-suffix-tries hmm))
             lookup))
-    (add-word word tag  count lookup)))
+    (add-word hmm word tag count lookup)))
 
 (defun total-emissions (code hmm)
   (loop
@@ -376,7 +381,10 @@
   (let ((lambda-1 0)
         (lambda-2 0)
         (lambda-3 0)
-        (n (hmm-n hmm)))
+        (n (hmm-n hmm))
+
+        (uni-total (loop for count across (hmm-unigram-table hmm)
+                         summing count)))
     (loop 
 	for i from 0 below n
 	do 
@@ -404,7 +412,8 @@
 					   (1- uni-count))
 				      0)))
 			      (c3 (/ (1- uni-count)
-				     (1- (hmm-token-count hmm)))))
+				     ; (1- (hmm-token-count hmm))
+             (1- uni-total))))
 			 (cond ((and (>= c3 c2) (>= c3 c1))
 				(incf lambda-3 tri-count))
 			       ((and (>= c2 c3) (>= c2 c1))
@@ -415,9 +424,9 @@
     ;; i have no idea why inverting these makes everyhing so much better
     ;; is there a bug somewhere?
     (let ((total (+ lambda-1 lambda-2 lambda-3)))
-      (setf (hmm-lambda-3 hmm) (float (/ lambda-1 total)))
+      (setf (hmm-lambda-1 hmm) (float (/ lambda-1 total)))
       (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
-      (setf (hmm-lambda-1 hmm) (float (/ lambda-3 total)))
+      (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
       hmm)))
 
 
