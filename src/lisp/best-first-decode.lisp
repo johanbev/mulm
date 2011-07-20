@@ -6,7 +6,6 @@
   (probability most-negative-single-float :type single-float)
   backpointer)
 
-
 (defvar *minimum-transition* 0.0)
 
 (defvar *max-emission-table* )
@@ -22,7 +21,7 @@
 (defun fill-max-emissions (hmm)
   (loop
       with table = (make-hash-table)
-      for i from 0 below (symbol-table-count *symbol-table*)
+      for i from 0 below (lexicon-count (hmm-token-lexicon hmm))
       for val = (loop 
 		    for j from 0 below (hmm-n hmm)
 		    maximizing (emission-probability hmm j i))
@@ -114,8 +113,8 @@
 	      (setf (aref trellis time value) it)
 	      (setf (aref limit-array time value) probability))))
     (loop
-	for next of-type node = (pop-heap)
-	while next
+     for next of-type node = (pop-heap)
+     while next
 
         ;; first node to be dequeued at the end with end-tag is best
 	      
