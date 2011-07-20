@@ -70,28 +70,31 @@
     (let* ((corpus (prog1 (prepare-corpora corpora corpus-type file) (format t "read corpora...~%")))
            (splits (prog1 (split-into-folds corpus folds) (format t "split into folds...~%"))))
       (loop
-       for (train test) in splits
-       for i from 1
+          for (train test) in splits
+          for i from 1
           do (format t "~&Doing fold ~a~%" i)
-          (when tag-split
-            (let ((ts (mulm::tag-split-corpora train test)))
-              (setf train (first ts)
-                    test (second ts))))
-          (format t "~&Training model....~%")
-          (let ((hmm (make-hmm train order smoothing)))
-            (format t "~&Model trained.")
-            (format t "~&Decoding ~a sequences" (length test))
-            (let ((decoder (ecase order
-                             (1 #'mulm::viterbi-bigram)
-                             (2 #'mulm::viterbi-trigram))))
-              (loop
-               for forms in (mulm::ll-to-word-list test)
-               for gold-tags in (mulm::ll-to-tag-list test)
-               collect (list 
-                        forms
-                        gold-tags
-                        (funcall decoder hmm forms)) into res
-                     finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))  res train) *working-set*))))))))
+             (when tag-split
+               (let ((ts (mulm::tag-split-corpora train test)))
+                 (setf train (first ts)
+                       test (second ts))))
+             (format t "~&Training model....~%")
+             (let ((hmm (make-hmm train order smoothing)))
+               (format t "~&Model trained.")
+               (format t "~&Model has ~a states." (mulm::hmm-n hmm))
+               (format t "~&Decoding ~a sequences" (length test))
+               (let ((decoder (ecase order
+                                (1 #'mulm::viterbi-bigram)
+                                (2 #'mulm::viterbi-trigram))))
+                 (loop
+                     for forms in (mulm::ll-to-word-list test)
+                     for gold-tags in (mulm::ll-to-tag-list test)
+                     collect (list 
+                              forms
+                              gold-tags
+                              (funcall decoder hmm forms)) into res
+                     finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
+                                         res train)
+                                   *working-set*))))))))
                        
                                 
                
