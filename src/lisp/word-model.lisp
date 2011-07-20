@@ -4,8 +4,8 @@
 
 (defparameter *suffix-cutoff* 10)
 
-(defun add-word (word tag count node)
-  (let* ((form  (code-to-token word))
+(defun add-word (hmm word tag count node)
+  (let* ((form  (code-to-token word (hmm-token-lexicon hmm)))
          (nodes (coerce (if (> (length form) *suffix-cutoff*)
                             (subseq form (- (length form)  *suffix-cutoff*))
                           form)
@@ -138,7 +138,7 @@
 ;; simple word model which uses distribiution of longest seen suffix
 ;; current best performer
 (defun top-suff-word-model (hmm form)
-  (let* ((form (code-to-token form))
+  (let* ((form (code-to-token form (hmm-token-lexicon hmm)))
          (dist (make-array (hmm-n hmm) :initial-element nil))
          (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
          (suffixes (nreverse (loop for seq on (get-suffix-seqs form *suffix-cutoff*)
@@ -156,7 +156,7 @@
 ;; TnT style word model with theta coefficient for increasing weight
 ;; on longer suffixes
 (defun tnt-word-model (hmm form &optional (theta-coeff 5))
-  (let* ((form (code-to-token form))
+  (let* ((form (code-to-token form (hmm-token-lexicon hmm)))
          (theta (hmm-theta hmm))
          (dist (make-array (hmm-n hmm) :initial-element nil))
          (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
@@ -179,8 +179,8 @@
     dist))
 
 (defun query-suffix-trie (hmm word)
-  (declare (optimize (speed 3) (debug 0) (space 0)))
-  (let* ((form (code-to-token word))
+  (declare (optimize (speed 3) (debug 1) (space 0)))
+  (let* ((form word)
          (trie-key (capitalized-p form))
          (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries hmm)))
          (nodes (get-suffix-seqs form *suffix-cutoff*))
@@ -196,7 +196,7 @@
         for total  = (and dist (hash-table-sum d-table)) ;; FIXME precompute
         when (and weight total)
         do 
-          (incf accu-weight  weight)
+          (incf accu-weight weight)
           (loop
               with total of-type single-float = (float total)
               for tag fixnum being the hash-keys in d-table
