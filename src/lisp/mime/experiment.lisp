@@ -33,6 +33,7 @@
          corpora
          (corpus-type :tt)
          (order 2)
+         (tag-split nil)
          (folds 10)
          (smoothing :deleted-interpolation))
         (read stream)
@@ -68,8 +69,12 @@
       (loop
           for (train test) in splits
           for i from 1
-          do (format t "Doing fold ~a~%" i)
+          do (format t "~&Doing fold ~a~%" i)
+             (when tag-split
+               (let ((ts (mulm::tag-split-corpora train test)))
+                 (setf train (first ts)
+                       test (second ts))))
              (setf mulm::*known-codes* (make-hash-table))
-             (format t "Training model....~%")
+             (format t "~&Training model....~%")
              (let ((hmm (make-hmm train order smoothing)))
                (mulm::do-evaluation :order order :corpus test :hmm hmm :clobber clobber))))))
