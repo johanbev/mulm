@@ -10,14 +10,14 @@
 (defclass id-normalizer (normalizer) nil)
 (defclass cd-normalizer (normalizer) nil)
 
+;; Lispworks doesn't do unicode char names
 #-lispworks
 (defparameter *illegal-token-chars*
     '(#\: #\, #\. #\- #\/ #\% #\\ #\#
-      #\¤ ;; CURRENCY SIGN
+      #\CURRENCY_SIGN
       #\$
-      #\£ ;; POUND SIGN
-      #\€ ;; EURO SIGN
-      #\¥
+      #\POUND_SIGN
+      #\EURO_SIGN
       #\' #\` #\( #\) #\;))
 
 #+lispworks
@@ -50,18 +50,8 @@
                      (numberp (read-from-string tok)))))
         (prog1 
             (if (eql #\. (aref token (1- (length token))))
-              ;; number identifiers? change into something more sensible
-              ;;; true
-              #-lispworks
-              "|cd"
-              #+lispworks
-              (coerce '(#\| #\U+0195 #\U+00C2 #\|) 'lispworks:text-string)
-
-              ;;false
-              #-lispworks
-              "|od|"
-              #+lispworks
-              (coerce '(#\| #\U+00C2 #\U+00C2 #\|) 'lispworks:text-string)))
+              "|cd|"
+              "|od|"))
         token))))
 
 (defvar *normalizer*
