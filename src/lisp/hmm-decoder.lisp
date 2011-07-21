@@ -19,7 +19,7 @@
 
 
 (defmacro encode-bigram (t1 t2 &optional (n 'n))
-  `(the fixnum (+ (the fixnum (* ,t1 ,n) ) ,t2)))
+  `(the fixnum (+ (the fixnum (* ,t1 ,n)) ,t2)))
 
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
@@ -38,7 +38,7 @@
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (declare (type (simple-array single-float (* *)) viterbi)
-             (type (simple-array t (* *)) pointer))
+             (type (simple-array boolean (* *)) pointer active-tags))
     (declare (type fixnum n nn l start-tag end-tag)
              (type single-float final))
     ;; LW6 can't handle enormous allocations on the stack
@@ -89,11 +89,9 @@
               do (setf touch t)
                  (setf (aref active-tags current time) t)
                  (loop
-                     for tag below n
-                     with stash
+                     for tag fixnum below n
                      when (aref active-tags tag previous-time)
-                     do (vector-push (encode-bigram tag current) next-possible)
-                        (push (encode-bigram tag current) stash))
+                     do (vector-push (encode-bigram tag current) next-possible))
                  (loop
                      ;;; the loop of death, we really don't want to go here if we can spare it
                    
