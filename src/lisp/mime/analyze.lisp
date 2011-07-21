@@ -286,3 +286,24 @@
                           collect (list tags (* 100 (float (/ correct count))) types (* 100(float (/ (- types unseen) types)))))
                 #'<
                 :key #'car))))
+
+(defun accuracy-pr-no-unks (fold)
+  (loop
+      with bins = (make-hash-table)
+      for result in (fold-results fold)
+      for no-unks = (result-no-unks result)
+      for correct = (result-correct result)
+      for length = (result-length result)
+      for bin = (mulm::get-or-add no-unks bins (list 0 0))
+      do (incf (first bin) length)
+         (incf (second bin) correct)
+      finally
+        (return
+          (sort
+           (loop
+               for no-unks being the hash-keys in bins
+               for (count correct) being the hash-values in bins
+               collect (list no-unks (* 100.0 (/ correct count))))
+           #'<
+           :key #'car))))
+                  
