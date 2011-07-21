@@ -21,26 +21,39 @@
 (defmacro encode-bigram (t1 t2 &optional (n 'n))
   `(the fixnum (+ (the fixnum (* ,t1 ,n)) ,t2)))
 
-(defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)
-  (declare (optimize (speed 3) (debug  1) (space 0)))
+
+(defvar *warn-if-long* nil)
+
+(defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)  
+  (declare (optimize (speed 3) (debug 1)))
   (let* ((input (encode-input hmm input))
          (n (hmm-n hmm))
          (nn (* n n))
          (l (length input))
-         (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
-         ;; TODO use more memory friendly type for backpointer table
-         (pointer (make-array (list nn l) :initial-element nil))
+         (pointer (if (< l 99)
+                      (first (hmm-caches hmm))
+                    (make-array (list nn l) :initial-element nil)))
+         (viterbi (if (< l 99)
+                      (second (hmm-caches hmm))
+                    (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float)))
          (active-tags (make-array (list n l) :initial-element nil))
          (final most-negative-single-float)
          (final-back nil)
          (end-tag (tag-to-code hmm "</s>"))
-         (start-tag (tag-to-code hmm "<s>")))
+         (start-tag (tag-to-code hmm "<s>"))
+         (previous-possible (third (hmm-caches hmm)))
+         (next-possible (fourth (hmm-caches hmm))))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (declare (type (simple-array single-float (* *)) viterbi)
-             (type (simple-array boolean (* *)) pointer active-tags))
+             (type (simple-array boolean (* *)) pointer active-tags)
+             (type (array fixnum (*)) previous-possible next-possible))
     (declare (type fixnum n nn l start-tag end-tag)
              (type single-float final))
+    (setf (fill-pointer previous-possible) 0
+          (fill-pointer next-possible) 0)
+    (when (and *warn-if-long* (> l 100))
+      (format t "~&Decoding a long sequence"))
     ;; LW6 can't handle enormous allocations on the stack
     (loop 
         with form = (first input)
@@ -58,10 +71,7 @@
                           (aref unk-emi tag)
                         (emission-probability hmm tag form)))))
         do (setf (aref pointer state 0) 0))
-    (loop
-        with previous-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
-        with next-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
-                                                        
+    (loop                                                        
         initially (loop 
                       for x fixnum below n
                       for state fixnum = (encode-bigram start-tag x)
@@ -93,12 +103,16 @@
                      when (aref active-tags tag previous-time)
                      do (vector-push (encode-bigram tag current) next-possible))
                  (loop
+                     for tag fixnum below n ;; blank out eventual old stuff in trellis
+                     do (setf (aref viterbi (encode-bigram tag current) time) most-negative-single-float))
+                 (loop
                      ;;; the loop of death, we really don't want to go here if we can spare it
                    
                      for previous fixnum across previous-possible ;;; for each possible previous tag
                      for prev-prob of-type single-float = (aref viterbi previous previous-time)
-                     with old of-type single-float = (aref viterbi current time)
-                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets
+                     with old of-type single-float = most-negative-single-float
+                                                     
+                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets                          
                      do (multiple-value-bind (t1 t2)
                             (truncate previous n)
                           (declare (type fixnum t1 t2))
@@ -118,25 +132,21 @@
                   (error "No tag generates current emission!"))))        
     (loop
         with end fixnum = (1- l)
-        with prev fixnum = (1- end)
-        for t2 fixnum below n
-        when (aref active-tags t2 end) ;; if t2 could generate the last word
+        for code fixnum across previous-possible                        
         do
-          (loop
-              for t1 fixnum below n
-              when (aref active-tags t1 prev)
-              do
-                (let* ((code (encode-bigram t1 t2))
-                       (prob (aref viterbi code end)))
-                  (declare (type fixnum code)
-                           (type single-float prob))
-                  (when (> prob final)
-                    (let ((new (+ prob
-                                  (tri-cached-transition hmm t1 t2 end-tag))))
-                      (declare (type single-float new))
-                      (when (> new final)
-                        (setf final new)
-                        (setf final-back code)))))))
+          (multiple-value-bind (t1 t2)
+              (truncate code n)
+            (declare (type fixnum t1 t2))
+            (let* ((prob (aref viterbi code end)))
+              (declare (type fixnum code)
+                       (type single-float prob))
+              (when (> prob final)
+                (let ((new (+ prob
+                              (tri-cached-transition hmm t1 t2 end-tag))))
+                  (declare (type single-float new))
+                  (when (> new final)
+                    (setf final new)
+                    (setf final-back code)))))))
     
     (loop with time = (1- l)
         with last = final-back

@@ -26,7 +26,8 @@
   trigram-d
   (suffix-tries (make-hash-table :test #'equal))
   theta
-  current-transition-table)
+  current-transition-table
+  caches)
 
 ;; WARNING: this may add unseen tags to the tags list with the result that these tags codes
 ;; are above the models tag set size. Using such codes will result in out-of-bounds array
@@ -177,7 +178,16 @@
     (setf (hmm-unigram-table hmm)
           (make-array n :initial-element nil))
     (loop for i from 0 to (- n 1)
-          do (setf (aref (hmm-emissions hmm) i) (make-hash-table))))
+        do (setf (aref (hmm-emissions hmm) i) (make-hash-table)))
+    (setf (hmm-caches hmm)
+      (list
+       (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
+       (make-array (list (* n n) 100) 
+                   :initial-element most-negative-single-float 
+                   :element-type 'single-float) ;; trellis
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)))) ;; second agenda
+       
   hmm)
 
 (defun setup-hmm-beam (hmm)
