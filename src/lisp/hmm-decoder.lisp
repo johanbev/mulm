@@ -23,7 +23,6 @@
 
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
-  (declare (:explain :calls :boxing))
   (let* ((input (encode-input hmm input))
          (n (hmm-n hmm))
          (nn (* n n))
