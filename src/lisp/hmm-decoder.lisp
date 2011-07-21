@@ -115,20 +115,29 @@
                        next-possible previous-possible)
                 (setf (fill-pointer next-possible) 0)
                 (unless touch
-                  (error "No tag generates current emission!"))))
+                  (error "No tag generates current emission!"))))        
     (loop
-        with time fixnum = (1- l)
-        for previous fixnum from 0 below nn
+        with end fixnum = (1- l)
+        with prev fixnum = (1- end)
+        for t2 fixnum below n
+        when (aref active-tags t2 end) ;; if t2 could generate the last word
         do
-          (multiple-value-bind (t1 t2)
-                             (truncate previous n)
-            (declare (type fixnum t1 t2))
-            (let ((new (+ (aref viterbi previous time)
-                          (tri-cached-transition hmm t1 t2 end-tag))))
-              (declare (type single-float new))
-              (when (> new final)
-                (setf final new)
-                (setf final-back previous)))))
+          (loop
+              for t1 fixnum below n
+              when (aref active-tags t1 prev)
+              do
+                (let* ((code (encode-bigram t1 t2))
+                       (prob (aref viterbi code end)))
+                  (declare (type fixnum code)
+                           (type single-float prob))
+                  (when (> prob final)
+                    (let ((new (+ prob
+                                  (tri-cached-transition hmm t1 t2 end-tag))))
+                      (declare (type single-float new))
+                      (when (> new final)
+                        (setf final new)
+                        (setf final-back code)))))))
+    
     (loop with time = (1- l)
         with last = final-back
         with result = (list (code-to-bigram hmm last))
