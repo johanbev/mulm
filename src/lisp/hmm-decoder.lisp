@@ -17,6 +17,10 @@
   (declare (ignore hmm))
   (and (listp token) (eql (first token) :unk)))
 
+
+(defmacro encode-bigram (t1 t2 &optional (n 'n))
+  `(the fixnum (+ (the fixnum (* ,t1 ,n) ) ,t2)))
+
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((input (encode-input hmm input))
@@ -26,6 +30,7 @@
          (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
          ;; TODO use more memory friendly type for backpointer table
          (pointer (make-array (list nn l) :initial-element nil))
+         (active-tags (make-array (list n l) :initial-element nil))
          (final most-negative-single-float)
          (final-back nil)
          (end-tag (tag-to-code hmm "</s>"))
@@ -45,20 +50,24 @@
         for state fixnum = (+ (the fixnum (* start-tag n)) tag)
         do (setf (aref viterbi state 0)
                  (+ (the single-float (if bigrams
-                                        (aref (the (simple-array single-float (* *)) bigrams) start-tag tag)
+                                          (aref (the (simple-array single-float (* *)) bigrams) start-tag tag)
                                         (transition-probability hmm start-tag tag
                                                                 :order 1 :smoothing :deleted-interpolation)))
                     (the single-float
-                         (if unk
-                           (aref unk-emi tag)
-                           (emission-probability hmm tag form)))))
+                      (if unk
+                          (aref unk-emi tag)
+                        (emission-probability hmm tag form)))))
         do (setf (aref pointer state 0) 0))
     (loop
         with previous-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
         with next-possible of-type (array fixnum (*)) = (make-array nn :fill-pointer 0 :element-type 'fixnum)
-        initially (loop for x below n
-                      for state fixnum = (+ (the fixnum (* start-tag n)) x)
-                      do (vector-push state previous-possible))
+                                                        
+        initially (loop 
+                      for x fixnum below n
+                      for state fixnum = (encode-bigram start-tag x)
+                      do (vector-push state previous-possible)
+                         (setf (aref active-tags x 0) t))
+                  
         for form in (rest input)
         for time fixnum from 1 to (- l 1)
         for previous-time fixnum = (1- time)
@@ -68,42 +77,47 @@
                                                                    
         do 
           (loop
-               with touch = nil
-               for current fixnum from 0 to (- n 1)
-               for emission of-type single-float = (if unk
-                                                     (aref unk-emi current)
+              with touch = nil
+              for current fixnum from 0 to (- n 1)
+              for emission of-type single-float = (if unk
+                                                       (aref unk-emi current)
                                                      (emission-probability hmm current form))
               when (or  (> emission -19.0)
                         (and unk (> emission -100.10)))
-
-               do (setf touch t)
-                  (loop
-                      for x fixnum below n
-                      do (vector-push (the fixnum (+ (the fixnum (* x n)) current))
-                                      next-possible)) ;; add all possible tags for next time-step
-                  (loop
-                    ;;; the loop of death, we really don't want to go here if we can spare it
-                      for previous fixnum across previous-possible ;;; for each possible tag
-                      for prev-prob of-type single-float = (aref viterbi previous previous-time)
-                      with old of-type single-float = (aref viterbi current time)
-                      when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets
-                      do (multiple-value-bind (t1 t2)
-                             (truncate previous n)
-                           (declare (type fixnum t1 t2))
-                           (let ((new (+ prev-prob
-                                         emission
-                                         (tri-cached-transition hmm t1 t2 current))))
-                             (declare (type single-float new))
-                             (when (> new old)
-                               (setf old new)
-                               (setf (aref viterbi (the fixnum (+ (the fixnum (* t2 n)) current)) time) new)
-                               (setf (aref pointer (the fixnum (+ (the fixnum (* t2 n)) current)) time) previous)))))
-               finally
+              
+              ;;; This tag can generate current emission:     
+              do (setf touch t)
+                 (setf (aref active-tags current time) t)
+                 (loop
+                     for tag below n
+                     with stash
+                     when (aref active-tags tag previous-time)
+                     do (vector-push (encode-bigram tag current) next-possible)
+                        (push (encode-bigram tag current) stash))
+                 (loop
+                     ;;; the loop of death, we really don't want to go here if we can spare it
+                   
+                     for previous fixnum across previous-possible ;;; for each possible previous tag
+                     for prev-prob of-type single-float = (aref viterbi previous previous-time)
+                     with old of-type single-float = (aref viterbi current time)
+                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets
+                     do (multiple-value-bind (t1 t2)
+                            (truncate previous n)
+                          (declare (type fixnum t1 t2))
+                          (let ((new (+ prev-prob
+                                        emission
+                                        (tri-cached-transition hmm t1 t2 current))))
+                            (declare (type single-float new))
+                            (when (> new old)
+                              (setf old new)
+                              (setf (aref viterbi (encode-bigram t2 current) time) new)
+                              (setf (aref pointer (encode-bigram t2 current) time) previous)))))
+              finally
                 (psetf previous-possible next-possible
                        next-possible previous-possible)
                 (setf (fill-pointer next-possible) 0)
-                 (unless touch
-                   (error "No tag generates current emission!"))))
+                (unless touch
+                  (error "No tag generates current emission!"))))
     (loop
         with time fixnum = (1- l)
         for previous fixnum from 0 below nn
