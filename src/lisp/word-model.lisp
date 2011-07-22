@@ -179,7 +179,6 @@
     dist))
 
 (defun query-suffix-trie (hmm word)
-  (declare (optimize (speed 3) (debug 1) (space 0)))
   (let* ((form word)
          (trie-key (capitalized-p form))
          (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries hmm)))
@@ -187,8 +186,6 @@
          (accu-weight 0.0)
          (prob (make-array (hmm-n hmm) :initial-element nil)))
     (declare (type (simple-array t (*)) prob))
-    ;; sbcl compiles with error with this declaration
-    #-sbcl (declare (dynamic-extent nodes))
     (loop
         for seq in (nreverse (loop for seq on nodes collect seq)) ;; Loop from small to big
         for i fixnum from 0
@@ -227,7 +224,7 @@
             (+ (gethash :unk (aref (hmm-emissions hmm) i) -145.0)
                -20.0))
         else do (setf (aref prob i) 
-             (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
-                (log tag-prob )))) ;; and convert to log prob
+                  (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
+                     (log tag-prob )))) ;; and convert to log prob
     prob))
 
