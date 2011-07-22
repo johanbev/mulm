@@ -67,8 +67,6 @@
 (defvar *wsj-train-corpus* nil)
 (defvar *wsj-test-corpus* nil)
 
-(defparameter *whitespace* '(#\Tab #\Space #\Newline))
-
 (defun normalize-token (token)
   (normalize token *normalizer*))
 

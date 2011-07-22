@@ -21,7 +21,6 @@
 (defmacro encode-bigram (t1 t2 &optional (n 'n))
   `(the fixnum (+ (the fixnum (* ,t1 ,n)) ,t2)))
 
-
 (defvar *warn-if-long* nil)
 
 (defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)  
@@ -39,14 +38,15 @@
          (active-tags (make-array (list n l) :initial-element nil))
          (final most-negative-single-float)
          (final-back nil)
-         (end-tag (tag-to-code hmm "</s>"))
-         (start-tag (tag-to-code hmm "<s>"))
+         (end-tag (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t))
+         (start-tag (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t))
          (previous-possible (third (hmm-caches hmm)))
          (next-possible (fourth (hmm-caches hmm))))
     ;;; Array initial element is not specified in standard, so we carefully
     ;;; specify what we want here. ACL and SBCL usually fills with nil and 0 respectively.
     (declare (type (simple-array single-float (* *)) viterbi)
-             (type (simple-array boolean (* *)) pointer active-tags)
+             ;; this type declaration fails on sbcl
+             ; (type (simple-array boolean (* *)) pointer active-tags)
              (type (array fixnum (*)) previous-possible next-possible))
     (declare (type fixnum n nn l start-tag end-tag)
              (type single-float final))
@@ -60,7 +60,7 @@
         with unk = (unknown-token-p hmm form)
         with unk-emi = (and unk (query-suffix-trie hmm (second form)))
         for tag fixnum from 0 to (- n 1)
-        for state fixnum = (+ (the fixnum (* start-tag n)) tag)
+        for state = (+ (* start-tag n) tag)
         do (setf (aref viterbi state 0)
                  (+ (the single-float (if bigrams
                                           (aref (the (simple-array single-float (* *)) bigrams) start-tag tag)
@@ -74,7 +74,7 @@
     (loop                                                        
         initially (loop 
                       for x fixnum below n
-                      for state fixnum = (encode-bigram start-tag x)
+                      for state = (encode-bigram start-tag x)
                       do (vector-push state previous-possible)
                          (setf (aref active-tags x 0) t))
                   
@@ -152,7 +152,7 @@
         with last = final-back
         with result = (list (code-to-bigram hmm last))
         for i fixnum from time downto 1
-        for state fixnum  = (aref pointer last i) then (aref pointer state i)
+        for state = (aref pointer last i) then (aref pointer state i)
         do (push (code-to-bigram hmm state) result)
         finally (return
                     (mapcar #'second result)))))
@@ -172,11 +172,13 @@
              (type (simple-array t (* *)) pointer))
     (loop
         with form = (first input)
-        for state of-type fixnum from 0 to (- n 1)
+        for state from 0 to (- n 1)
         with unk = (unknown-token-p hmm form)
         with unk-emi = (and unk (query-suffix-trie hmm (second form)))
         do (setf (aref viterbi state 0)
-                 (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
+                 (+ (bi-cached-transition hmm
+                                          (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t)
+                                          state)
                     (if unk
                       (aref unk-emi state)
                       (emission-probability hmm state form))))
@@ -226,7 +228,7 @@
               do (vector-push current indices)))
 
     (loop
-        with final = (tag-to-code hmm "</s>")
+        with final = (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)
         with time of-type fixnum = (- l 1)
         for previous of-type fixnum from 0 to (- n 1)
         for old of-type single-float = (aref viterbi final time)
@@ -235,18 +237,17 @@
         when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))
-    (if (null (aref pointer (tag-to-code hmm "</s>") (- l 1)))
+    (if (null (aref pointer (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t) (- l 1)))
         nil
       (loop
-          with final = (tag-to-code hmm "</s>")
+          with final = (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)
           with time = (- l 1)
           with last  = (aref pointer final time)
-          with tags = (hmm-tags hmm)
-          with result = (list (elt tags last))
+          with result = (list (code-to-token last (hmm-tag-lexicon hmm)))
           for i of-type fixnum from time downto 1
           for state = (aref pointer last i) then (aref pointer state i)
           never (null state)
-          do (push (elt tags state) result)
+          do (push (code-to-token state (hmm-tag-lexicon hmm)) result)
           finally (return result)))))
 
 (defstruct viterbi-decoder
@@ -271,10 +272,10 @@
   (let ((n (hmm-n hmm)))
     (loop
      with form = (first input)
-     for state of-type fixnum from 0 to (- n 1)
+     for state from 0 to (- n 1)
      when (or (null constraints) (member state constraints)) 
      do (setf (aref viterbi state 0)
-              (+ (bi-cached-transition hmm (tag-to-code hmm "<s>") state)
+              (+ (bi-cached-transition hmm (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t) state)
                  (emission-probability-slow decoder hmm state form)))
      and do (setf (aref pointer state 0) 0))))
 
@@ -313,7 +314,7 @@
 (defun decode-end (hmm viterbi pointer l)
   (let ((n (hmm-n hmm)))
     (loop
-     with final = (tag-to-code hmm "</s>")
+     with final = (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)
      with time of-type fixnum = (- l 1)
      for previous of-type fixnum from 0 to (- n 1)
      for old of-type single-float = (aref viterbi final time)
@@ -324,18 +325,17 @@
      (setf (aref pointer final time) previous))))
 
 (defun backtrack-slow (hmm pointer l)
-  (if (null (aref pointer (tag-to-code hmm "</s>") (- l 1)))
+  (if (null (aref pointer (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t) (- l 1)))
     nil
     (loop
-     with final = (tag-to-code hmm "</s>")
+     with final = (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)
      with time = (- l 1)
      with last  = (aref pointer final time)
-     with tags = (hmm-tags hmm)
-     with result = (list (elt tags last))
+     with result = (list (code-to-token last (hmm-tag-lexicon hmm)))
      for i of-type fixnum from time downto 1
      for state = (aref pointer last i) then (aref pointer state i)
      never (null state)
-     do (push (elt tags state) result)
+     do (push (code-to-token state (hmm-tag-lexicon hmm)) result)
      finally (return result))))
 
 (defun viterbi-bigram-slow (hmm input &key (beam-width 13.80) (decoder nil) (constraints nil))
@@ -347,7 +347,7 @@
          (l (length input))
          (constraints (loop for tags in constraints
                             collect (loop for tag in tags
-                                          collect (tag-to-code hmm tag))))
+                                          collect (token-to-code tag (hmm-tag-lexicon hmm) :rop t))))
          (viterbi (make-array (list n l)
                               :initial-element most-negative-single-float
                               :element-type 'single-float))

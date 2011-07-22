@@ -5,20 +5,23 @@
 (defparameter *estimation-cutoff* 0)
 
 (defstruct hmm
+  ; all unique tokens seen by the model with mapping to integer code
   (token-lexicon (make-lexicon))
+  ; all unique tags seen by the model with mapping to integer code
   (tag-lexicon (make-lexicon))
+  ; total amount of tokens in the training material seen by the model
   (token-count 0)
-  tag-array
-  beam-array
-  tags
   ; model tag set size
   (n 0)
+  
+  tag-array
+  beam-array
+
   transitions
   emissions
   trigram-table
   unigram-table
   tag-lm
-  ; the number of tokens in the training corpus used
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
@@ -29,22 +32,14 @@
   current-transition-table
   caches)
 
-;; WARNING: this may add unseen tags to the tags list with the result that these tags codes
-;; are above the models tag set size. Using such codes will result in out-of-bounds array
-;; indexing in viterbi decoders.
-(defun tag-to-code (hmm tag)
-  "Transforms tag string to integer code based on index in the tags field of the hmm structure.
-   If the tag is unseen it is added to the tags field and the resulting index returned."
-  (let ((code (position tag (hmm-tags hmm) :test #'string=)))
-    (unless code
-      (setf (hmm-tags hmm) (append (hmm-tags hmm) (list tag)))
-      (setf code (1- (length (hmm-tags hmm)))))
-    code))
-
 (defun bigram-to-code (hmm bigram)
   "Returns index of bigram data in "
-  (let ((c1 (tag-to-code hmm (first bigram)))
-        (c2 (tag-to-code hmm (second bigram))))
+  (let ((c1 (token-to-code (first bigram)
+                           (hmm-tag-lexicon hmm)
+                           :rop t))
+        (c2 (token-to-code (second bigram)
+                           (hmm-tag-lexicon hmm)
+                           :rop t)))
     (+ (* c1 (hmm-n hmm))
        c2)))
 
@@ -218,26 +213,26 @@
           do (incf (hmm-token-count hmm))
           do (incf (gethash code
                             (aref (hmm-emissions hmm)
-                                  (tag-to-code hmm tag))
+                                  (token-to-code tag (hmm-tag-lexicon hmm)))
                             0)))
 
     (loop for unigram in unigrams
-          for code = (tag-to-code hmm unigram)
+          for code = (token-to-code unigram (hmm-tag-lexicon hmm))
           do (if (aref (hmm-unigram-table hmm) code)
                (incf (aref (hmm-unigram-table hmm) code))
                (setf (aref (hmm-unigram-table hmm) code) 1)))
              
     (loop for bigram in bigrams
-          for previous = (tag-to-code hmm (first bigram))
-          for current = (tag-to-code hmm (second bigram))
+          for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
+          for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
           do (if (aref (hmm-transitions hmm) previous current)
                (incf (aref (hmm-transitions hmm) previous current))
                (setf (aref (hmm-transitions hmm) previous current) 1)))
 
     (loop for trigram in trigrams
-          do (let ((t1 (tag-to-code hmm (first trigram)))
-                   (t2 (tag-to-code hmm (second trigram)))
-                   (t3 (tag-to-code hmm (third trigram))))
+          do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
+                   (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
+                   (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
                (if (aref (hmm-trigram-table hmm) t1 t2 t3)
                  (incf (aref (hmm-trigram-table hmm) t1 t2 t3))
                  (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
@@ -266,9 +261,9 @@
     (calculate-theta hmm)
     (build-suffix-tries hmm)
     (setf (hmm-bigram-d hmm)
-      (float (estimate-bigram-d hmm)))
+          (estimate-bigram-d hmm))
     (setf (hmm-trigram-d hmm)
-      (float (estimate-trigram-d hmm)))
+          (estimate-trigram-d hmm))
 
     (let ((n (hmm-n hmm)))
       (loop
@@ -288,7 +283,7 @@
           
        (make-good-turing-estimate (aref (hmm-emissions hmm) i)
                                   (hash-table-sum (aref (hmm-emissions hmm) i))
-                                  (elt (hmm-tags hmm) i))
+                                  (code-to-token i (hmm-tag-lexicon hmm)))
        (loop
         with map = (aref (hmm-emissions hmm) i)
         for code being each hash-key in map
@@ -304,12 +299,13 @@
           with lm-root = (make-lm-tree-node)
           initially (build-model (mapcar (lambda (x)
                                            (append
-                                            (list (tag-to-code hmm "<s>"))
+                                            (list (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t))
                                             (mapcar (lambda (x)
-                                                      (tag-to-code hmm x))
+
+                                                      (token-to-code x (hmm-tag-lexicon hmm) :rop t))
                                                     x)
-                                            (list (tag-to-code hmm "</s>"))))
-                                         (ll-to-tag-list corpus))
+                                            (list (token-to-code  "</s>" (hmm-tag-lexicon hmm) :rop t))))
+                                 (ll-to-tag-list corpus))
                                  3
                                  lm-root)
           for t1 from 0 below n
@@ -422,7 +418,6 @@
 					   (1- uni-count))
 				      0)))
 			      (c3 (/ (1- uni-count)
-				     ; (1- (hmm-token-count hmm))
              (1- uni-total))))
 			 (cond ((and (>= c3 c2) (>= c3 c1))
 				(incf lambda-3 tri-count))
@@ -441,5 +436,7 @@
 
 
 (defun code-to-bigram (hmm bigram)
-  (list (elt (hmm-tags hmm) (floor (/ bigram (hmm-n hmm))))
-        (elt (hmm-tags hmm) (mod bigram (hmm-n hmm)))))
+  (list (code-to-token (floor (/ bigram (hmm-n hmm)))
+                       (hmm-tag-lexicon hmm))
+        (code-to-token (mod bigram (hmm-n hmm))
+                       (hmm-tag-lexicon hmm))))

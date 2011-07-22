@@ -11,10 +11,14 @@
                (:file "input" :depends-on ("lexicon"))
                (:file "stats" :depends-on ("mulm" "input" "utilities" "hmm-model"))
                (:file "lexicon" :depends-on ("mulm"))
-               (:file "hmm-model" :depends-on ("lexicon" "input" "trie" "utilities"))
+               (:file "hmm-model" :depends-on ("lexicon"
+                                               "input"
+                                               "trie"
+                                               "utilities"
+                                               "word-model"))
                (:file "hmm-decoder" :depends-on ("hmm-model"))
                (:file "heap" :depends-on ("mulm"))
-               (:file "kn" :depends-on ("utilities" "hmm-decoder" "count-tree"))
+               (:file "kn" :depends-on ("utilities" "count-tree"))
                (:file "word-model" :depends-on ("kn" "count-tree"))
                (:file "gt" :depends-on ("stats"))
                (:file "best-first-decode" :depends-on ("heap" "lexicon" "input" "hmm-model"))
