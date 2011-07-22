@@ -294,16 +294,48 @@
       for no-unks = (result-no-unks result)
       for correct = (result-correct result)
       for length = (result-length result)
-      for bin = (mulm::get-or-add no-unks bins (list 0 0))
+      for bin = (mulm::get-or-add no-unks bins (list 0 0 0))
       do (incf (first bin) length)
          (incf (second bin) correct)
+         (incf (third bin))
       finally
         (return
           (sort
            (loop
                for no-unks being the hash-keys in bins
-               for (count correct) being the hash-values in bins
-               collect (list no-unks (* 100.0 (/ correct count))))
+               for (count correct freq) being the hash-values in bins
+               collect (list no-unks (* 100.0 (/ correct count)) freq))
            #'<
            :key #'car))))
-                  
+
+(defun results-to-table (results)
+  (let* ((dim (list (length results)
+                    (1+ (loop
+                            for res in results
+                            maximizing (loop for (key) in res maximizing key)))))
+         (array (make-array dim :initial-element 0)))
+    (loop
+        for result in results
+        for i from 0
+        do
+          (loop
+              for (key . data) in result
+              do (setf (aref array i key) data)))
+    array))
+
+(defun print-acc-pr-no-unks (fold)
+  (format t "~{~{~1,4T~a~2,4T~,2f̃%~3,4T~a~}~^~%~}" fold))
+
+(defun print-res-table (table)
+  (let ((dim (array-dimensions table)))
+    (loop
+        for row from 0 below (first dim)
+        do (loop
+               for col from 0 below (second dim)
+               for i below 9
+               for data = (aref table row col)
+               if (listp data)
+               do (format t "~1,3T¦ ~{~,1f%  ~a~}" data)
+               else do
+                    (format t "~1,3T¦ --  --"))
+           (format t "~%"))))
