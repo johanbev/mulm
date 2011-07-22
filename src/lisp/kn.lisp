@@ -84,6 +84,7 @@
       finally (return trigram-probs)))
 
 
+
 (defun estimate-bigram-d (hmm)
   (loop
       with once = 0
@@ -95,9 +96,10 @@
              when (= count 1) do (incf once)
              when (= count 2) do (incf twice))
       finally (return
-                (if (or (= 0 once) (= 0 twice))
-                  1.107
-                  (/ once (+ once (* 2 twice)))))))
+                (float
+                 (if (or (= 0 once) (= 0 twice))
+                     1.107
+                     (/ once (+ once (* 2 twice))))))))
 
 (defun estimate-trigram-d (hmm)
   (loop
@@ -112,6 +114,7 @@
                     when (= count 1) do (incf once)
                     when (= count 2) do (incf twice)))
           finally (return
-                (if (or (= 0 once) (= 0 twice))
-                  1.107
-                  (/ once (+ once (* 2 twice)))))))
+                    (float
+                     (if (or (= 0 once) (= 0 twice))
+                         1.107
+                         (/ once (+ once (* 2 twice))))))))

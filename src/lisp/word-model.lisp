@@ -187,7 +187,8 @@
          (accu-weight 0.0)
          (prob (make-array (hmm-n hmm) :initial-element nil)))
     (declare (type (simple-array t (*)) prob))
-    (declare (dynamic-extent nodes))
+    ;; sbcl compiles with error with this declaration
+    #-sbcl (declare (dynamic-extent nodes))
     (loop
         for seq in (nreverse (loop for seq on nodes collect seq)) ;; Loop from small to big
         for i fixnum from 0
