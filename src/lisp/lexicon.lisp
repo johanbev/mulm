@@ -1,10 +1,5 @@
 (in-package :mulm)
 
-;; These tokens are added to every lexicon
-(defparameter *default-tokens*
-  ;; model internal sequence start/end tokens
-  '("<s>" "</s>"))
-
 ;; The lexicon holds the tokens of a corpora and their mapping
 ;; to internal codes
 (defstruct (lexicon
@@ -68,6 +63,10 @@
    returns the integer code or nil if the token is not present in the lexicon."
   (when (< code (lexicon-count lexicon))
     (aref (lexicon-backward lexicon) code)))
+
+(defun lexicon-tokens (lexicon)
+  "Returns an array with the tokens in the lexicon."
+  (lexicon-backward lexicon))
 
 (defun serialize-lexicon (lexicon s id)
   (format s "lexicon start")

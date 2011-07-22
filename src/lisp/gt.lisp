@@ -140,7 +140,7 @@
     (populate-counts corpus hmm)
     (loop
         for counts across (hmm-emissions hmm)
-        for tag in (hmm-tags hmm)
+        for tag across (lexicon-tokens (hmm-tag-lexicon hmm))
         do (tag-split tag counts hmm replacement-table))
     (values replacement-table hmm)))
 
@@ -152,7 +152,7 @@
                  collecting
                    (loop 
                        for (form tag) in sentence
-                       for code = (token-to-code form (hmm-token-lexicon hmm))
+                       for code = (token-to-code form (hmm-token-lexicon hmm) :rop t)
                        for replacement = (gethash (list code tag) replacement-table)
                        if replacement 
                        collect (list form replacement)

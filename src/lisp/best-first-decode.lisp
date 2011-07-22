@@ -78,7 +78,7 @@
 (defparameter num-nodes 0)
 
 (defun trellis-best-first (hmm input)
-  (declare (optimize (speed 3) (space 0) (debug 0)))
+  (declare (optimize (speed 3) (space 0) (debug 1)))
   (setf *emission-array* (make-emission-array input))
   (setf num-nodes 0)
   ;; First allocate the trellis and agenda
@@ -90,8 +90,8 @@
 	 (limit-array (make-array (list length tag-card)
 				  :element-type 'single-float :initial-element most-negative-single-float))
 	 (*heap* (make-heap))
-	 (start-node (make-node :time -1 :probability 0.0 :value (tag-to-code hmm "<s>")))
-	 (end-tag (tag-to-code hmm "</s>")))
+	 (start-node (make-node :time -1 :probability 0.0 :value (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t)))
+	 (end-tag (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)))
     (declare (dynamic-extent trellis *heap* generation-vector limit-array))
     ;; make transitions from the start node and enqueue
     (declare
@@ -162,7 +162,8 @@
       with path = nil
       with node = (node-backpointer node)
       while node
-      for value = (elt (hmm-tags hmm) (node-value node))
+      for value = (code-to-token (node-value node)
+                                 (hmm-tag-lexicon hmm))
       do (push value path)
 	 (setf node (node-backpointer node))
       finally (return (rest path))))
