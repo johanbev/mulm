@@ -31,6 +31,10 @@
          name
          &key
          corpora
+         train
+         test
+         (print t)
+         save
          (corpus-type :tt)
          (order 2)
          (tag-split nil)
@@ -66,35 +70,56 @@
   (setf *working-set* nil)
   (format t "reading in experiment file...~%")
   (with-experiment file
+    (declare (ignorable experiment))
     (format t "read experiment file...~%")
-    (let* ((corpus (prog1 (prepare-corpora corpora corpus-type file) (format t "read corpora...~%")))
-           (splits (prog1 (split-into-folds corpus folds) (format t "split into folds...~%"))))
-      (loop
-          for (train test) in splits
-          for i from 1
-          do (format t "~&Doing fold ~a~%" i)
-             (when tag-split
-               (let ((ts (mulm::tag-split-corpora train test)))
-                 (setf train (first ts)
-                       test (second ts))))
-             (format t "~&Training model....~%")
-             (let ((hmm (make-hmm train order smoothing)))
-               (format t "~&Model trained.")
-               (format t "~&Model has ~a states." (mulm::hmm-n hmm))
-               (format t "~&Decoding ~a sequences" (length test))
-               (let ((decoder (ecase order
-                                (1 #'mulm::viterbi-bigram)
-                                (2 #'mulm::viterbi-trigram))))
-                 (loop
-                     for forms in (mulm::ll-to-word-list test)
-                     for gold-tags in (mulm::ll-to-tag-list test)
-                     collect (list 
-                              forms
-                              gold-tags
-                              (funcall decoder hmm forms)) into res
-                     finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
-                                         res train)
-                                   *working-set*))))))))
-                       
-                                
-               
+    (if (and (or train test) corpora)
+        (error "Illegal experiment file: Cannot have both train and test set and folds!")
+      (progn
+        (let (corpus splits)
+          (if corpora
+              (setf 
+                corpus
+                (prepare-corpora corpora corpus-type file)
+                splits
+                (split-into-folds corpus folds))
+            (setf
+              splits
+              (list (list (prepare-corpora (list train) corpus-type file)
+                          (prepare-corpora (list test) corpus-type file)))))
+          (format t "read corpora...~%")
+          (loop
+              for (train test) in splits
+              for i from 1
+              do (format t "~&Doing fold ~a~%" i)
+                 (when tag-split
+                   (let ((ts (mulm::tag-split-corpora train test)))
+                     (setf train (first ts)
+                           test (second ts))))
+                 (format t "~&Training model....~%")
+                 (let ((hmm (make-hmm train order smoothing)))
+                   (format t "~&Model trained.")
+                   (format t "~&Model has ~a states." (mulm::hmm-n hmm))
+                   (format t "~&Decoding ~a sequences" (length test))
+                   (let ((decoder (ecase order
+                                    (1 #'mulm::viterbi-bigram)
+                                    (2 #'mulm::viterbi-trigram))))
+                     (loop
+                         for forms in (mulm::ll-to-word-list test)
+                         for gold-tags in (mulm::ll-to-tag-list test)
+                         collect (list 
+                                  forms
+                                  gold-tags
+                                  (funcall decoder hmm forms)) into res
+                         finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
+                                             res train)
+                                       *working-set*))))))))
+    ;; now register-profile and print it
+    (let ((profile (register-profile *working-set* name)))
+      (when print
+        (typecase print
+          (string (with-open-file (stream print :direction :output :if-exists :supersede)
+                    (print-profile profile stream)))
+          (t (print-profile profile print))))
+      (when save
+        (with-open-file (stream save :direction :output :if-exists :supersede)
+          (write profile stream))))))

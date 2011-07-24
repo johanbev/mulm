@@ -194,9 +194,10 @@
       for fold in (profile-folds profile)
       do (print-fold-simply fold stream))
   (format stream "~%")
-  (print-fold-header stream)
-  (print-profile-averages profile stream)
-  (print-profile-std-dev profile stream)
+  (when (> (length (profile-folds profile)) 1)
+    (print-fold-header stream)
+    (print-profile-averages profile stream)
+    (print-profile-std-dev profile stream))
   (format stream "~%")
   (loop
       for fold in (profile-folds profile)
