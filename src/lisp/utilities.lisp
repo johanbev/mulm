@@ -80,3 +80,14 @@
                    (return-from hash-table-diff t))))
            map2)
   nil)
+
+(defun list-to-plist (list)
+  "Turns a list into a valid plist if possible, ie. items on even indexes are
+   turned into keyword symbols.
+   Returns the a new list that can be treated as a plist.
+   Malformed input will most likely raise an error through intern()."
+  (loop for elt in list
+        for i from 1
+        collect (if (oddp i)
+                  (intern (string-upcase elt) :keyword)
+                  elt)))

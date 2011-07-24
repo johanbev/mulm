@@ -68,41 +68,69 @@
   "Returns an array with the tokens in the lexicon."
   (lexicon-backward lexicon))
 
+;; Serialization
+;;
+;; A lexicon is serialized into a header with an identifier symbol
+;; and the lexicon size, followed by the lexicon items line by line.
+;;
+;; A start and end marker line prepends and appends the lexicon data.
+;;
+;;
+;; Sample:
+;;
+;; lexicon start
+;; lexicon id TEST-LEXICON size 2
+;; ba 13
+;; foo 666
+;; lexicon end
+
+;; string constants used by the serialization format
+(defparameter *serialize-lexicon-start-marker* "lexicon start")
+(defparameter *serialize-lexicon-end-marker* "lexicon end")
+
+;; Serialization
 (defun serialize-lexicon (lexicon s id)
-  (format s "lexicon start")
+  "Serializes the lexicon to text on the passed stream.
+   lexicon - The lexicon instance to be serialized
+   s       - A valid stream to write to
+   id      - A symbol which will be embedded as a string in the serialization
+   Returns the passed stream"
+  (format s "~a~%" *serialize-lexicon-start-marker*)
   (format s "lexicon id ~a count ~a~%" id (lexicon-count lexicon))
 
   (loop for code from 0 below (lexicon-count lexicon)
-        do (format s "lexicon ~a ~a~%" (code-to-token code lexicon) code))
+        do (format s "~a ~a~%" (code-to-token code lexicon) code))
 
-  (format s "lexicon end~%")
+  (format s "~a~%" *serialize-lexicon-end-marker*)
 
   s)
 
-(defun list-to-plist (list)
-  (loop for elt in list
-        for i from 1
-        collect (if (oddp i)
-                  (intern (string-upcase elt) :keyword)
-                  elt)))
-
+;; Deserialization
 (defun lexicon-parse-header (header)
+  "Parses a lexicon header line and returns the data.
+   header - header as a string
+   Returns a list with the header information, ie. (id size)."
   (let ((tokens (cl-ppcre:all-matches-as-strings "\\S+" header)))
     (unless (equalp (first tokens) "lexicon")
       (error "Lexicon can not be deserialized"))
     (let* ((info (list-to-plist (rest tokens)))
-           (id (getf info :id))
+           (id (intern (getf info :id) :keyword))
            (count (parse-integer (getf info :count))))
       (list id count))))
 
 (defun lexicon-parse-line (line)
+  "Parses a lexicon data line with token and code separated by whitespace.
+   line - a string
+   Returns a list with the data, ie. (token code)."
   (let ((tokens (cl-ppcre:all-matches-as-strings "\\S+" line)))
-    (unless (equalp (first tokens) "lexicon")
-      (error "Lexicon can not be deserialized"))
-    (destructuring-bind (token code) (rest tokens)
+    (destructuring-bind (token code) tokens
       (list token  (parse-integer code)))))
 
 (defun lexicon-insert (lexicon line)
+  "Parses a lexicon line and inserts the data into the passed lexicon instance.
+   lexicon - instance to be modified
+   line    - string with data
+   Returns the passed lexicon"
   (destructuring-bind (token code) (lexicon-parse-line line)
     (setf (gethash token (lexicon-forward lexicon)) code)
     (setf (aref (lexicon-backward lexicon) code) token)
@@ -111,20 +139,25 @@
     lexicon))
 
 (defun deserialize-lexicon (s &optional id)
+  "Reads a lexicon from a stream.
+   s  - a valid stream
+   id - if passed the id read from the stream must correspond to this id
+   Returns a list of the lexicon id and the lexicon instance, ie. (id lexicon)."
   (declare (ignore id))
-
   (unless (equalp (read-line s nil nil)
-                  "lexicon start")
+                  *serialize-lexicon-start-marker*)
     (error "Lexicon can not be deserialized"))
 
   (let* ((header (read-line s nil nil))
          (info (lexicon-parse-header header)) ;; (id count)
-         (lexicon (make-lexicon :size (second info))))
+         (id (first info))
+         (size (second info))
+         (lexicon (make-lexicon :size size)))
     (loop for line = (read-line s nil nil)
-          until (equalp (string-trim *whitespace* line) "lexicon end")
+          until (equalp (string-trim *whitespace* line) *serialize-lexicon-end-marker*)
 
           when (null line)
           do (error "Premature end of file")
 
           do (lexicon-insert lexicon (string-trim *whitespace* line)))
-    lexicon))
+    (list id lexicon)))
