@@ -215,7 +215,8 @@
                  "Type Recall")
          (format t
                  "~&~{~{~2,9T~a~3,9T~,2f%~4,9T~a~5,9T~,2f%~}~^~%~}"
-                 (accuracy-ambiguity))))
+                 (accuracy-ambiguity)))
+  (format t "~%"))
                  ;;; FIXME do the averages!
                  
                  

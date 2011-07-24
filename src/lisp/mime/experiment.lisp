@@ -122,4 +122,4 @@
           (t (print-profile profile print))))
       (when save
         (with-open-file (stream save :direction :output :if-exists :supersede)
-          (write profile stream))))))
+          (write profile :stream stream))))))

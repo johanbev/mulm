@@ -4,8 +4,8 @@
   weight
   (adds 0)
   (total 0)
-  (emissions (make-hash-table :size 9))
-  (children (make-hash-table :size 9)))
+  (emissions (make-hash-table :size 3))
+  (children (make-hash-table :size 3)))
 
 (defmethod print-object ((object lm-tree-node) stream)
   (with-slots (total children) object
