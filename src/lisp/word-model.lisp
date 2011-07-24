@@ -190,44 +190,44 @@
     ;; sbcl compiles with error with this declaration
     #-sbcl (declare (dynamic-extent nodes))
     (loop
-        for seq in (nreverse (loop for seq on nodes collect seq)) ;; Loop from small to big
-        for i fixnum from 0
-        for (weight dist) = (weight-and-dist-of seq *suffix-trie-root*)	
-        for d-table = (and dist (lm-tree-node-emissions dist))
-        for total  = (and dist (hash-table-sum d-table)) ;; FIXME precompute
-        when (and weight total)
-        do 
-          (incf accu-weight weight)
-          (loop
-              with total of-type single-float = (float total)
-              for tag fixnum being the hash-keys in d-table
-              for count of-type single-float = (float (gethash tag d-table))
-              for p-t/s of-type single-float  = (/ count total)
-              for p-t = (aref (hmm-unigram-table hmm) tag)                      
-              when (null (aref prob tag)) do (setf (aref prob tag) p-t) ;; should be P(t) for all corp or P(t) for suffix?
-              do (setf (aref prob tag)
-                   (+ (* (the single-float weight) p-t/s)
-                      (the single-float (aref prob tag))))))
+     for seq in (nreverse (loop for seq on nodes collect seq)) ;; Loop from small to big
+     for i fixnum from 0
+     for (weight dist) = (weight-and-dist-of seq *suffix-trie-root*)	
+     for d-table = (and dist (lm-tree-node-emissions dist))
+     for total  = (and dist (hash-table-sum d-table)) ;; FIXME precompute
+     when (and weight total)
+     do 
+     (incf accu-weight weight)
+     (loop
+      with total of-type single-float = (float total)
+      for tag fixnum being the hash-keys in d-table
+      for count of-type single-float = (float (gethash tag d-table))
+      for p-t/s of-type single-float  = (/ count total)
+      for p-t = (aref (hmm-unigram-table hmm) tag)                      
+      when (null (aref prob tag)) do (setf (aref prob tag) p-t) ;; should be P(t) for all corp or P(t) for suffix?
+      do (setf (aref prob tag)
+               (+ (* (the single-float weight) p-t/s)
+                  (the single-float (aref prob tag))))))
     ;;; Bayesian inversion. P(A|B) =  P(B|A)*P(A) / P(B), a = tag, b = suffix
     ;;; Correct P(t) is the unigram prob for the whole model
     ;;; We skip P(B), since it is the same here.
     (loop
-        for tag-prob across prob
-        for i fixnum  from 0       
-        for p-t = (aref (hmm-unigram-table hmm) i)
-        when tag-prob do (setf (aref prob i)
-                           (/ tag-prob
-                              p-t))) 
+     for tag-prob across prob
+     for i fixnum  from 0       
+     for p-t = (aref (hmm-unigram-table hmm) i)
+     when tag-prob do (setf (aref prob i)
+                            (/ tag-prob
+                               p-t))) 
     ;;; Finally take unknown word probabilities into account:
     (loop
-        for i fixnum from 0
-        for tag-prob across prob
-        if (or (null tag-prob) (>= 0.0 tag-prob)) do
-          (setf (aref prob i)
-            (+ (gethash :unk (aref (hmm-emissions hmm) i) -145.0)
-               -20.0))
-        else do (setf (aref prob i) 
-             (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
-                (log tag-prob )))) ;; and convert to log prob
+     for i fixnum from 0
+     for tag-prob across prob
+     if (or (null tag-prob) (>= 0.0 tag-prob))
+     do (setf (aref prob i)
+              (+ (gethash :unk (aref (hmm-emissions hmm) i) -145.0)
+                 -20.0))
+     else do (setf (aref prob i) 
+                   (+ (gethash :unk (aref (hmm-emissions hmm) i) -5.7)
+                      (log tag-prob )))) ;; and convert to log prob
     prob))
 

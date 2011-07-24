@@ -132,10 +132,80 @@
       with vs = (make-vs :tag-card (hmm-n hmm))
       for seq in ll-tags
       for coded-seq = (mapcar (lambda (x) (tag-to-code hmm x)) seq)
-      for contexified = (contextify-tag-sequence coded-seq 4 4)
+      for contexified = (contextify-tag-sequence coded-seq 3 4)
       do (loop
              for (tag context) in contexified
              do (register-tag-sequence tag context vs))
-      finally (return vs)))
+      finally (normalize-vs vs) (return vs)))
 
 
+(defun make-vs-counts (ll-tags hmm vs)
+  (loop
+      with l1 = (hmm-lambda-1 *hmm*)
+      with l2 = (hmm-lambda-2 *hmm*)
+      with l3 = (hmm-lambda-3 *hmm*)
+      with tokens = (hmm-token-count hmm)
+      with unigrams = (make-array (hmm-n hmm) :initial-element 0.0)
+      with bigrams = (make-array (list (hmm-n hmm) (hmm-n hmm)) :initial-element 0.0)
+      with trigrams = (make-array (list (hmm-n hmm) (hmm-n hmm) (hmm-n hmm)) :initial-element 0.0)
+      for seq in ll-tags                 
+      do
+        (loop
+            for c1 in seq
+            for t1 = (tag-to-code hmm c1)
+            do (incf (aref unigrams t1)))
+        (loop 
+             for (c1 c2) in (partition seq 2)
+             for t1 = (tag-to-code hmm c1)
+             for t2 = (tag-to-code hmm c2)
+             do (incf (aref bigrams t1 t2)))                
+         (loop
+             for (c1 c2 c3) in (partition seq 3)
+             for t1 = (tag-to-code hmm c1)
+             for t2 = (tag-to-code hmm c2)
+             for t3 = (tag-to-code hmm c3)
+             do (incf (aref trigrams t1 t2 t3))
+                (loop
+                    for sister-tag below (hmm-n hmm)
+                    for sim = (symat-ref (vs-proximity-matrix vs) sister-tag t3)
+                    when (and (numberp sim) (> sim 0.0))
+                    do (incf (aref trigrams t1 t2 sister-tag) sim)
+                       (incf (aref bigrams t1 t2) sim)
+                       (incf (aref bigrams t2 sister-tag) sim)
+                       (incf (aref unigrams t1) sim)
+                       (incf (aref unigrams t2) sim)
+                       (incf (aref unigrams sister-tag) sim)
+                       (incf tokens (* 3 sim))))
+      finally
+        (format t "renormalizing")
+        (loop
+            for i fixnum below (hmm-n hmm)
+            do (loop 
+                   for j fixnum below (hmm-n hmm)
+                   for dem-tri = (aref bigrams i j)
+                   for dem-bi = (aref unigrams j)
+                   do (loop
+                          for k fixnum below (hmm-n hmm)
+                          for trigram of-type single-float = (aref trigrams i j k)
+                          for bigram of-type single-float = (aref bigrams j k)
+                          for unigram of-type single-float = (aref unigrams k)
+                          do
+                            (cond
+                             ((and (> trigram 1.0) (> dem-tri 1.0))
+                              (setf (aref trigrams i j k)
+                                (log (+ (* (/ unigram tokens) l1)
+                                        (* (/ bigram dem-bi) l2)
+                                        (* (/ trigram dem-tri) l3)))))
+                             ((and (> dem-bi 1.0) (> unigram 1.0))
+                              (setf (aref trigrams i j k)
+                                (log (+ (* (/ unigram tokens) l1)
+                                        (* (/ bigram dem-bi l2))))))
+                             ((> unigram 1.0)
+                              (setf (aref trigrams i j k)
+                                (log (* (/ unigram tokens) l1))))
+                             (t
+                              (setf (aref trigrams i j k)
+                                most-negative-single-float))))))
+
+              
+        (return trigrams)))
