@@ -440,3 +440,42 @@
                        (hmm-tag-lexicon hmm))
         (code-to-token (mod bigram (hmm-n hmm))
                        (hmm-tag-lexicon hmm))))
+
+;; Serialization
+(defun serialize-hmm-model-header (hmm s)
+  (format s "hmm header n ~a token-count ~a~%" (hmm-n hmm) (hmm-token-count hmm)))
+
+(defun serialize-hmm-model (hmm s)
+  (serialize-hmm-model-header hmm s)
+  (serialize-lexicon (hmm-tag-lexicon hmm) s :hmm-tag-lexicon)
+  (serialize-lexicon (hmm-token-lexicon hmm) s :hmm-token-lexicon))
+
+(defun serialize-hmm-model-to-file (hmm file &rest kwords &key &allow-other-keys)
+  (let ((s (apply #'open (append (list file :direction :output) kwords))))
+    (serialize-hmm-model hmm s)
+    (close s)))
+
+;; Deserialization
+(defun deserialize-hmm-header (hmm header)
+  (let ((tokens (cl-ppcre:all-matches-as-strings "\\S+" header)))
+    (unless (equalp (subseq tokens 0 2) '("hmm" "header"))
+      (error "HMM model can not be deserialized"))
+    (let* ((header (list-to-plist (rest (rest tokens))))
+           (n (parse-integer (getf header :n)))
+           (token-count (parse-integer (getf header :token-count))))
+      (setf (hmm-n hmm) n)
+      (setf (hmm-token-count hmm) token-count))
+    hmm))
+
+(defun deserialize-hmm-model (s)
+  (let ((hmm (make-hmm)))
+    (deserialize-hmm-header hmm (read-line s nil nil))
+    (setf (hmm-tag-lexicon hmm)
+          (second (deserialize-lexicon s :hmm-tag-lexicon)))
+    (setf (hmm-token-lexicon hmm)
+          (second (deserialize-lexicon s :hmm-token-lexicon)))
+    hmm))
+
+(defun deserialize-hmm-model-from-file (file)
+  (with-open-file (s file)
+    (deserialize-hmm-model s)))
