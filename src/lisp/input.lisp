@@ -58,6 +58,22 @@
     (make-instance 'cd-normalizer))
 
 
+(defvar *tag-map* nil)
+
+(defun read-tag-map (file)
+  (with-open-file (stream file :direction :input)
+    (loop 
+        with tag-map = (make-hash-table :test #'equal)
+        for line = (read-line stream nil)
+                     ;; split on any whitespace
+        for split = (position-if #'(lambda (c)
+                                     (member c *whitespace*)) line)
+        for from = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
+        for to = (if split (string-trim *whitespace* (subseq line (+ split 1))))
+        while line
+        do (setf (gethash from tag-map) to)
+        finally (return tag-map))))
+
 ; WSJ tagging evaluation corpus
 (defparameter *wsj-train-file*
   (merge-pathnames "wsj/wsj.tt" *eval-path*))
@@ -74,24 +90,27 @@
   (let ((tags (cl-ppcre:all-matches-as-strings "[^\|\\s]+" tag)))
     (list (first tags) (rest tags))))
 
-(defun read-tt-corpus (file &key lexicon (constrained nil))
+(defun read-tt-corpus (file &key lexicon (constrained nil) (tag-map nil))
   "Create a list of lists corpus from TT format file."
   (declare (ignore lexicon))
   (with-open-file (stream file :direction :input)
     (loop with forms
-          for line = (read-line stream nil)
-          ;; split on any whitespace
-          for split = (position-if #'(lambda (c)
-                                       (member c *whitespace*)) line)
-          for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
-          for tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
-          while line
-          when (and form tag (not (string= form "")))
-          do (if constrained
+        for line = (read-line stream nil)
+                   ;; split on any whitespace
+        for split = (position-if #'(lambda (c)
+                                     (member c *whitespace*)) line)
+        for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
+        for raw-tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
+        for tag = (if tag-map
+                      (gethash raw-tag tag-map raw-tag)
+                    raw-tag)                  
+        while line
+        when (and form tag (not (string= form "")))
+        do (if constrained
                (destructuring-bind (tag constraint) (split-tag-constraint tag)
                  (push (list form tag constraint) forms))
-               (push (list form tag) forms))
-          else collect (nreverse forms) and do (setf forms nil))))
+             (push (list form tag) forms))
+        else collect (nreverse forms) and do (setf forms nil))))
 
 (defun ll-to-word-list (ll)
   "Extract the sentences out of a list of lists corpus"
