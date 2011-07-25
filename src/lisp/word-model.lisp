@@ -21,14 +21,13 @@
 (defun add-word-to-trie (word tag count &optional (node *suffix-trie-root*))
   (declare (type lm-tree-node node)
            (fixnum count tag))
-  (with-slots (total children)
-      node
-    (incf total count)
+  (let ((children (lm-tree-node-children node)))
+    (incf (lm-tree-node-total node)  count)
     (let* ((rest (rest word))
            (first (first word))
            (child-node (get-or-add first children (make-lm-tree-node))))
       (if rest
-          (add-word-to-trie rest tag count (get-or-add first children (make-lm-tree-node)))
+          (add-word-to-trie rest tag count child-node)
         (progn
           (incf (lm-tree-node-total child-node) count)
           (incf (gethash tag (lm-tree-node-emissions child-node) 0) count))))))
@@ -72,11 +71,9 @@
 
 (defun compute-suffix-weights (node lambda)
   (funcall lambda node)
-  (maphash
-   (lambda (k v)
-     (declare (ignorable k))
-     (compute-suffix-weights v  lambda))
-   (lm-tree-node-children node)))
+  (loop
+      for v being the hash-values in (lm-tree-node-children node)
+      do (compute-suffix-weights v lambda)))
 
 (defun reweight-suffix-tries (hmm lambda)  
   (maphash (lambda (k v)

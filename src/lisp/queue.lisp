@@ -78,8 +78,8 @@
   (= (head-index queue) (tail-index queue)))
 
 (defmethod queue-full-p ((queue queue))
-  (= (mod (tail-index queue) (length (buffer queue)))
-     (mod (1+ (head-index queue)) (length (buffer queue)))))
+  (= (rem (tail-index queue) (length (buffer queue)))
+     (rem (1+ (head-index queue)) (length (buffer queue)))))
 
 (defmethod queue-count ((queue queue))
   (let ((head-index (head-index queue))
@@ -99,7 +99,7 @@
         (count (queue-count queue)))
     (when (zerop count)
       (error "Queue ~A is empty" queue))
-    (aref buffer (mod (+ tail-index (random count))
+    (aref buffer (rem (+ tail-index (random count))
                       (length buffer)))))
 
 (defmethod call-for-all-elements-with-index ((queue queue) callback)
@@ -147,7 +147,7 @@ will be called in the same order thah DEQUEUE would return them."
     queue))
 
 (defmacro incf-mod (place divisor)
-  `(setf ,place (mod (1+ ,place) ,divisor)))
+  `(setf ,place (rem (1+ ,place) ,divisor)))
 
 (defmethod move-tail ((queue queue))
   (incf-mod (tail-index queue) (length (buffer queue))))

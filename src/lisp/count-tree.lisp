@@ -12,8 +12,8 @@
     (format stream "#<LM-Node ~a decs, ~a total>" (hash-table-count children) total)))
 
 (defun add-sequence (seq lm-root)
-  (with-slots (total children) lm-root
-    (incf total)
+  (let ((children (lm-tree-node-children lm-root)))
+    (incf (lm-tree-node-total lm-root))
     (let ((child
            (get-or-add (first seq) children (make-lm-tree-node))))
       (if (rest seq)
@@ -21,11 +21,10 @@
         (incf (lm-tree-node-total child))))))
 
 (defun sentence-to-n-grams (sentence n lm-root)
-  (let ((buffer (make-instance 'lru-queue)))
-    (initialize-instance buffer :size n)
+  (let ((buffer (mk-queue n)))
     (loop
         for word in sentence
-        for seq = (queue->list (enqueue buffer word))
+        for seq = (fast-queue-to-list (fast-enqueue buffer word))
         do (add-sequence seq lm-root)
         finally (mapl #'(lambda (x)
                           (add-sequence x lm-root))

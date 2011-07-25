@@ -5,8 +5,9 @@
   :license "GPL"
   :components ((:file "mulm")
                (:file "utilities" :depends-on ("mulm"))
-               (:file "count-tree" :depends-on ("mulm" "queue" "utilities"))
+               (:file "count-tree" :depends-on ("mulm" "fast-queue" "utilities"))
                (:file "queue" :depends-on ("mulm"))
+               (:file "fast-queue" :depends-on ("mulm"))
                (:file "trie" :depends-on ("utilities"))
                (:file "input" :depends-on ("lexicon"))
                (:file "stats" :depends-on ("mulm" "input" "utilities" "hmm-model"))

@@ -175,14 +175,26 @@
     (loop for i from 0 to (- n 1)
         do (setf (aref (hmm-emissions hmm) i) (make-hash-table)))
     (setf (hmm-caches hmm)
-      (list
+      (list 
+       ;;; We try to prevent newspace expansion here: these caches
+       ;;; will live as long as the hmm-struct they belong to it is
+       ;;; therefore likely that they will eventually be tenured
+       ;;; anyway. it should be better to not have these clogging up
+       ;;; newspace and being scavenged around
+       #+:allegro (excl:tenuring
        (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
        (make-array (list (* n n) 100) 
                    :initial-element most-negative-single-float 
                    :element-type 'single-float) ;; trellis
        (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)))) ;; second agenda
-       
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)) ;; second agenda
+       #-:allegro
+       (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
+       (make-array (list (* n n) 100) 
+                   :initial-element most-negative-single-float 
+                   :element-type 'single-float) ;; trellis
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))))
   hmm)
 
 (defun setup-hmm-beam (hmm)
