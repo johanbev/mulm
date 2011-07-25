@@ -45,6 +45,7 @@
 
 (defun make-hmm (train order smoothing)
   (let* ((hmm (mulm::train train)))
+    (setf mulm::*bigrams* nil)
     (ecase smoothing
       (:deleted-interpolation
        (setf (mulm::hmm-current-transition-table hmm)
