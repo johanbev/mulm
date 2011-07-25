@@ -22,10 +22,15 @@
 
 (defun fast-queue-to-list (queue)
   (loop
+      with size fixnum = (fast-queue-size queue)
       repeat (min (fast-queue-size queue) (1+ (fast-queue-cursor queue)))
-      for r-idx from (fast-queue-i-h queue)
-      for idx = (rem r-idx (fast-queue-size queue))
+      for r-idx fixnum from (fast-queue-i-h queue)
+      for idx fixnum = (rem r-idx size)
       collect (aref (fast-queue-buffer queue) idx)))
+
+(defun zero-queue (queue)
+  (setf (fast-queue-i-h queue) 0)
+  (setf (fast-queue-cursor queue) -1))
     
 
 
