@@ -445,10 +445,19 @@
 (defun serialize-hmm-model-header (hmm s)
   (format s "hmm header n ~a token-count ~a~%" (hmm-n hmm) (hmm-token-count hmm)))
 
+(defun serialize-hmm-transitions (hmm s)
+  (format s "hmm transitions start~%")
+  (loop for i from 0 below (hmm-n hmm)
+        do (loop for j from 0 below (hmm-n hmm)
+                 do (format s "~a ~a ~a~%"
+                            i j (aref (hmm-transitions hmm) i j))))
+  (format s "hmm transitions end~%"))
+
 (defun serialize-hmm-model (hmm s)
   (serialize-hmm-model-header hmm s)
   (serialize-lexicon (hmm-tag-lexicon hmm) s :hmm-tag-lexicon)
-  (serialize-lexicon (hmm-token-lexicon hmm) s :hmm-token-lexicon))
+  (serialize-lexicon (hmm-token-lexicon hmm) s :hmm-token-lexicon)
+  (serialize-hmm-transitions hmm s))
 
 (defun serialize-hmm-model-to-file (hmm file &key (if-exists :supersede))
   (with-open-file (s file :direction :output :if-exists if-exists)
@@ -466,6 +475,25 @@
       (setf (hmm-token-count hmm) token-count))
     hmm))
 
+(defun deserialize-hmm-transitions (hmm s)
+  (let ((transitions (make-array (list (hmm-n hmm) (hmm-n hmm)) :initial-element nil)))
+    (unless (equalp (read-line s nil nil)
+                    "hmm transitions start")
+      (error "HMM model transition table can not be deserialized"))
+    (loop for line = (read-line s nil nil)
+          until (equalp (string-trim *whitespace* line) "hmm transitions end")
+
+          when (null line)
+          do (error "Premature end of file")
+
+          do (destructuring-bind (i j value)
+                 (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
+               (setf (aref transitions
+                           (parse-integer i)
+                           (parse-integer j))
+                     (read-from-string value))))
+    transitions))
+
 (defun deserialize-hmm-model (s)
   (let ((hmm (make-hmm)))
     (deserialize-hmm-header hmm (read-line s nil nil))
@@ -473,6 +501,9 @@
           (second (deserialize-lexicon s :hmm-tag-lexicon)))
     (setf (hmm-token-lexicon hmm)
           (second (deserialize-lexicon s :hmm-token-lexicon)))
+    (setf (hmm-transitions hmm)
+          (deserialize-hmm-transitions hmm s))
+    
     hmm))
 
 (defun deserialize-hmm-model-from-file (file)
