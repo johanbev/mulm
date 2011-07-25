@@ -450,10 +450,9 @@
   (serialize-lexicon (hmm-tag-lexicon hmm) s :hmm-tag-lexicon)
   (serialize-lexicon (hmm-token-lexicon hmm) s :hmm-token-lexicon))
 
-(defun serialize-hmm-model-to-file (hmm file &rest kwords &key &allow-other-keys)
-  (let ((s (apply #'open (append (list file :direction :output) kwords))))
-    (serialize-hmm-model hmm s)
-    (close s)))
+(defun serialize-hmm-model-to-file (hmm file &key (if-exists :supersede))
+  (with-open-file (s file :direction :output :if-exists if-exists)
+    (serialize-hmm-model hmm s)))
 
 ;; Deserialization
 (defun deserialize-hmm-header (hmm header)
