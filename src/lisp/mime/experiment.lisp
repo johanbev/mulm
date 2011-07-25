@@ -106,10 +106,12 @@
                      (loop
                          for forms in (mulm::ll-to-word-list test)
                          for gold-tags in (mulm::ll-to-tag-list test)
+                         if forms
                          collect (list 
                                   forms
                                   gold-tags
                                   (funcall decoder hmm forms)) into res
+                         else do (format t "~&WARN: Attempt to decode empty sequence, are corpora well formed?~%")
                          finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
                                              res train)
                                        *working-set*))))))))
