@@ -1,5 +1,9 @@
 (in-package :mime)
 
+(defparameter *word-types* (make-hash-table :test #'equal))
+(defparameter *lexicon*
+  (mulm::make-lexicon))
+
 (let ((id 0))
   (defun new-id ()
     (incf id))
@@ -226,10 +230,6 @@
   unseen
   tags
   (correct 0))
-
-(defparameter *word-types* (make-hash-table :test #'equal))
-(defparameter *lexicon*
-    (mulm::make-lexicon))
 
 (defun register-lexicon-from-train (fold)
   (loop
