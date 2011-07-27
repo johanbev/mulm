@@ -17,10 +17,17 @@
   tag-array
   beam-array
 
+  ;; 2D array containing transition probabilities, indexed on tag code
   transitions
+  ;; array indexed on tag codes containing maps with token codes as keys
+  ;; and log probs (??) as values
   emissions
+
+  ;; 3d array indexed on tag codes with probs
   trigram-table
+  ;; array indexed on tag codes with probs
   unigram-table
+  
   tag-lm
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
@@ -465,11 +472,40 @@
                             i j (aref (hmm-transitions hmm) i j))))
   (format s "hmm transitions end~%"))
 
+(defun serialize-hmm-emissions (hmm s)
+  (format s "hmm emissions start~%")
+  (loop for map across (hmm-emissions hmm)
+        for i from 0
+        do (loop for j being the hash-keys of map
+                   for val being the hash-values of map
+                   do (format s "~a ~a ~a~%" i j val)))
+  (format s "hmm emissions end~%"))
+
+(defun serialize-hmm-trigram-table (hmm s)
+  (format s "hmm trigram table start~%")
+  (loop for i from 0 below (hmm-n hmm)
+        do (loop for j from 0 below (hmm-n hmm)
+                 do (loop for k from 0 below (hmm-n hmm)
+                          do (format s "~a ~a ~a ~a~%"
+                                     i j k
+                                     (aref (hmm-trigram-table hmm) i j k)))))
+  (format s "hmm trigram table end~%"))
+
+(defun serialize-hmm-unigram-table (hmm s)
+  (format s "hmm unigram table start~%")
+  (loop for i from 0 below (hmm-n hmm)
+        do (format s "~a ~a~%"
+                   i (aref (hmm-unigram-table hmm) i)))
+  (format s "hmm unigram table end~%"))
+
 (defun serialize-hmm-model (hmm s)
   (serialize-hmm-model-header hmm s)
   (serialize-lexicon (hmm-tag-lexicon hmm) s :hmm-tag-lexicon)
   (serialize-lexicon (hmm-token-lexicon hmm) s :hmm-token-lexicon)
-  (serialize-hmm-transitions hmm s))
+  (serialize-hmm-transitions hmm s)
+  (serialize-hmm-emissions hmm s)
+  (serialize-hmm-trigram-table hmm s)
+  (serialize-hmm-unigram-table hmm s))
 
 (defun serialize-hmm-model-to-file (hmm file &key (if-exists :supersede))
   (with-open-file (s file :direction :output :if-exists if-exists)
@@ -506,6 +542,65 @@
                      (read-from-string value))))
     transitions))
 
+(defun deserialize-hmm-emissions (hmm s)
+  (let ((emissions (make-array (hmm-n hmm) :initial-element nil)))
+    (unless (equalp (read-line s nil nil)
+                    "hmm emissions start")
+      (error "HMM model emission table can not be deserialized"))
+    (loop for i from 0 to (- (hmm-n hmm) 1)
+          do (setf (aref emissions i) (make-hash-table)))
+    (loop for line = (read-line s nil nil)
+          until (equalp (string-trim *whitespace* line) "hmm emissions end")
+
+          when (null line)
+          do (error "Premature end of file")
+
+          do (destructuring-bind (i j value)
+                 (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
+               (let* ((i (parse-integer i))
+                      (j (read-from-string j)) ;; may be :unk
+                      (value (read-from-string value)))
+                 (setf (gethash j (aref emissions i)) value))))
+    emissions))
+
+(defun deserialize-hmm-trigram-table (hmm s)
+  (let ((trigram-table (make-array (list (hmm-n hmm) (hmm-n hmm) (hmm-n hmm)) :initial-element nil)))
+    (unless (equalp (read-line s nil nil)
+                    "hmm trigram table start")
+      (error "HMM model trigram table can not be deserialized"))
+    (loop for line = (read-line s nil nil)
+          until (equalp (string-trim *whitespace* line) "hmm trigram table end")
+
+          when (null line)
+          do (error "Premature end of file")
+
+          do (destructuring-bind (i j k value)
+                 (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
+               (setf (aref trigram-table
+                           (parse-integer i)
+                           (parse-integer j)
+                           (parse-integer k))
+                     (read-from-string value))))
+    trigram-table))
+
+(defun deserialize-hmm-unigram-table (hmm s)
+  (let ((unigram-table (make-array (hmm-n hmm) :initial-element nil)))
+    (unless (equalp (read-line s nil nil)
+                    "hmm unigram table start")
+      (error "HMM model unigram table can not be deserialized"))
+    (loop for line = (read-line s nil nil)
+          until (equalp (string-trim *whitespace* line) "hmm unigram table end")
+
+          when (null line)
+          do (error "Premature end of file")
+
+          do (destructuring-bind (i value)
+                 (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
+               (setf (aref unigram-table
+                           (parse-integer i))
+                     (read-from-string value))))
+    unigram-table))
+
 (defun deserialize-hmm-model (s)
   (let ((hmm (make-hmm)))
     (deserialize-hmm-header hmm (read-line s nil nil))
@@ -515,6 +610,12 @@
           (second (deserialize-lexicon s :hmm-token-lexicon)))
     (setf (hmm-transitions hmm)
           (deserialize-hmm-transitions hmm s))
+    (setf (hmm-emissions hmm)
+          (deserialize-hmm-emissions hmm s))
+    (setf (hmm-trigram-table hmm)
+          (deserialize-hmm-trigram-table hmm s))
+    (setf (hmm-unigram-table hmm)
+          (deserialize-hmm-unigram-table hmm s))
     
     hmm))
 
