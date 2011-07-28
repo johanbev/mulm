@@ -173,7 +173,7 @@
     (setf (hmm-unigram-table hmm)
           (make-array n :initial-element nil))
     (loop for i from 0 to (- n 1)
-        do (setf (aref (hmm-emissions hmm) i) (make-hash-table)))
+        do (setf (aref (hmm-emissions hmm) i) (make-hash-table :size 11)))
     (setf (hmm-caches hmm)
       (list 
        ;;; We try to prevent newspace expansion here: these caches
@@ -208,6 +208,10 @@
                       :initial-contents (loop for i from 0 to (1- n) collect i))))
   hmm)
 
+(defparameter *bigram-stream* (make-partition-stream nil 2))
+(defparameter *trigram-stream* (make-partition-stream nil 3))
+
+
 (defun add-sentence-to-hmm (hmm sentence)
   "Adds emission, tag unigram, bigram and trigram counts to the appropriate fields
    in the hmm struct.
@@ -217,37 +221,45 @@
   ;; Add start and end tags
   (let* ((unigrams (append '("<s>")
                            (mapcar #'second sentence)
-                           '("</s>")))
-         (bigrams (partition unigrams 2))
-         (trigrams (partition unigrams 3)))
+                           '("</s>"))))
+                                        ;(bigrams (partition unigrams 2)))
+                                        ;(trigrams (partition unigrams 3)))
+    (funcall *bigram-stream* :reset unigrams)
+    (funcall *trigram-stream* :reset unigrams)
     (loop for (token tag) in sentence
-          for code = (token-to-code token (hmm-token-lexicon hmm))
-          do (incf (hmm-token-count hmm))
-          do (incf (gethash code
-                            (aref (hmm-emissions hmm)
-                                  (token-to-code tag (hmm-tag-lexicon hmm)))
-                            0)))
+        for code = (token-to-code token (hmm-token-lexicon hmm))
+        do (incf (hmm-token-count hmm))
+        do (incf (gethash code
+                          (aref (hmm-emissions hmm)
+                                (token-to-code tag (hmm-tag-lexicon hmm)))
+                          0)))
 
     (loop for unigram in unigrams
-          for code = (token-to-code unigram (hmm-tag-lexicon hmm))
-          do (if (aref (hmm-unigram-table hmm) code)
+        for code = (token-to-code unigram (hmm-tag-lexicon hmm))
+        do (if (aref (hmm-unigram-table hmm) code)
                (incf (aref (hmm-unigram-table hmm) code))
-               (setf (aref (hmm-unigram-table hmm) code) 1)))
-             
-    (loop for bigram in bigrams
-          for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
-          for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
-          do (if (aref (hmm-transitions hmm) previous current)
+             (setf (aref (hmm-unigram-table hmm) code) 1)))
+    
+    (loop with stream = *bigram-stream*
+        for bigram = (funcall stream)
+        while bigram
+        for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
+        for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
+        do (if (aref (hmm-transitions hmm) previous current)
                (incf (aref (hmm-transitions hmm) previous current))
-               (setf (aref (hmm-transitions hmm) previous current) 1)))
+             (setf (aref (hmm-transitions hmm) previous current) 1)))
 
-    (loop for trigram in trigrams
-          do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
-                   (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
-                   (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
-               (if (aref (hmm-trigram-table hmm) t1 t2 t3)
+    (loop 
+        with stream = *trigram-stream*
+        for trigram = (funcall stream)
+        while trigram
+              
+        do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
+                 (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
+                 (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
+             (if (aref (hmm-trigram-table hmm) t1 t2 t3)
                  (incf (aref (hmm-trigram-table hmm) t1 t2 t3))
-                 (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
+               (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
     hmm))
 
 
@@ -279,10 +291,10 @@
 
     (let ((n (hmm-n hmm)))
       (loop
-       with transitions = (hmm-transitions hmm)
-       for i from 0 to (- n 1)
-       for total = (float (loop
-                           for j from 0 to (- n 1)
+       with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
+       for i  fixnum from 0 to (- n 1)
+       for total fixnum = (float (loop
+                           for j  fixnum from 0 to (- n 1)
                            for count = (aref transitions i j)
                            when (and count (> count *estimation-cutoff*))
                            sum count))
@@ -297,11 +309,11 @@
                                   (hash-table-sum (aref (hmm-emissions hmm) i))
                                   (code-to-token i (hmm-tag-lexicon hmm)))
        (loop
-        with map = (aref (hmm-emissions hmm) i)
-        for code being each hash-key in map
-        for count = (gethash code map)
-        when (and count (> count *estimation-cutoff*))
-        do (setf (gethash code map) (float (log (/ count total))))))
+           with map = (aref (hmm-emissions hmm) i)
+           for code being each hash-key in map
+           for count = (gethash code map)
+           when (and count (> count *estimation-cutoff*))
+           do (setf (gethash code map) (log (/ count total)))))
     
           
       ;;; this is quite hacky but count-trees will be abstracted nicely
@@ -320,16 +332,16 @@
                                  (ll-to-tag-list corpus))
                                  3
                                  lm-root)
-          for t1 from 0 below n
+          for t1 fixnum from 0 below n
           for t1-node = (gethash t1 (lm-tree-node-children lm-root))
           when t1-node do
             (loop 
-                for t2 from 0 below n 
+                for t2 fixnum from 0 below n 
                 for t2-node = (gethash t2 (lm-tree-node-children t1-node))
                 when t2-node do
                   (loop 
                       with total = (lm-tree-node-total t2-node)
-                      for t3 from 0 below n
+                      for t3 fixnum from 0 below n
                       for t3-node = (gethash t3 (lm-tree-node-children t2-node))
                       when t3-node do
                         (let ((prob (/ (lm-tree-node-total t3-node)
@@ -441,9 +453,9 @@
     ;; i have no idea why inverting these makes everyhing so much better
     ;; is there a bug somewhere?
     (let ((total (+ lambda-1 lambda-2 lambda-3)))
-      (setf (hmm-lambda-1 hmm) (float (/ lambda-1 total)))
+      (setf (hmm-lambda-3 hmm) (float (/ lambda-1 total)))
       (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
-      (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
+      (setf (hmm-lambda-1 hmm) (float (/ lambda-3 total)))
       hmm)))
 
 
