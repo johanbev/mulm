@@ -27,8 +27,10 @@
   trigram-table
   ;; array indexed on tag codes with probs
   unigram-table
-  
+
+  ;; only used during training
   tag-lm
+  
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
@@ -161,15 +163,18 @@
 
 ;; WARNING does not fully initialize the hmm data structure.
 ;; Do not use this function to reuse hmm structs.
-(defun setup-hmm (hmm n)
+(defun setup-hmm (hmm n &optional (partial nil))
   "Initializes the basic (but not all) hmm model data structures.
    hmm - Instantiated hmm struct.
    n   - Model tag set size.
    Returns the passed hmm struct."
   ;; add start and end tags to tag set size
   (let ((n (+ n 2)))
-    (setf (hmm-n hmm) n)
-    (setf (hmm-token-count hmm) 0)
+    ;; do not fill in these when deserializing
+    (when (not partial)
+      (setf (hmm-n hmm) n)
+      (setf (hmm-token-count hmm) 0))
+    
     ;; setup empty tables for probability estimates
     (setf (hmm-transitions hmm)
           (make-array (list n n) :initial-element nil))
@@ -203,6 +208,41 @@
        (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
        (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))))
   hmm)
+
+(defun calculate-tag-lm (hmm corpus)
+  (let ((lm-root (make-lm-tree-node))
+        (n (hmm-n hmm)))
+    ;;; this is quite hacky but count-trees will be abstracted nicely
+    ;;; in the near future, however, this should estimate correct
+    ;;; n-gram probabilities
+    (loop initially (build-model (mapcar (lambda (x)
+                                           (append
+                                            (list (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t))
+                                            (mapcar (lambda (x)
+
+                                                      (token-to-code x (hmm-tag-lexicon hmm) :rop t))
+                                                    x)
+                                            (list (token-to-code  "</s>" (hmm-tag-lexicon hmm) :rop t))))
+                                         (ll-to-tag-list corpus))
+                                 3
+                                 lm-root)
+          for t1 from 0 below n
+          for t1-node = (gethash t1 (lm-tree-node-children lm-root))
+          when t1-node do
+          (loop 
+           for t2 from 0 below n 
+           for t2-node = (gethash t2 (lm-tree-node-children t1-node))
+           when t2-node do
+           (loop 
+            with total = (lm-tree-node-total t2-node)
+            for t3 from 0 below n
+            for t3-node = (gethash t3 (lm-tree-node-children t2-node))
+            when t3-node do
+            (let ((prob (/ (lm-tree-node-total t3-node)
+                           total)))
+              (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                    prob)))))
+    lm-root))
 
 (defun setup-hmm-beam (hmm)
   "Initializes the hmm struct fields concerning the beam search.
@@ -257,8 +297,6 @@
                  (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
     hmm))
 
-
-
 (defun populate-counts (corpus hmm)
   (loop for sentence in corpus
       do (add-sentence-to-hmm hmm sentence)))
@@ -309,42 +347,8 @@
         for count = (gethash code map)
         when (and count (> count *estimation-cutoff*))
         do (setf (gethash code map) (float (log (/ count total))))))
-    
-          
-      ;;; this is quite hacky but count-trees will be abstracted nicely
-      ;;; in the near future, however, this should estimate correct
-      ;;; n-gram probabilities
-      (loop
-          with lm-root = (make-lm-tree-node)
-          initially (build-model (mapcar (lambda (x)
-                                           (append
-                                            (list (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t))
-                                            (mapcar (lambda (x)
 
-                                                      (token-to-code x (hmm-tag-lexicon hmm) :rop t))
-                                                    x)
-                                            (list (token-to-code  "</s>" (hmm-tag-lexicon hmm) :rop t))))
-                                 (ll-to-tag-list corpus))
-                                 3
-                                 lm-root)
-          for t1 from 0 below n
-          for t1-node = (gethash t1 (lm-tree-node-children lm-root))
-          when t1-node do
-            (loop 
-                for t2 from 0 below n 
-                for t2-node = (gethash t2 (lm-tree-node-children t1-node))
-                when t2-node do
-                  (loop 
-                      with total = (lm-tree-node-total t2-node)
-                      for t3 from 0 below n
-                      for t3-node = (gethash t3 (lm-tree-node-children t2-node))
-                      when t3-node do
-                        (let ((prob (/ (lm-tree-node-total t3-node)
-                                       total)))
-                          (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
-                            prob))))
-          finally (setf (hmm-tag-lm hmm) lm-root))
-      
+      (setf (hmm-tag-lm hmm) (calculate-tag-lm hmm corpus))
       
       (loop for i from 0 below n
           for count = (aref (hmm-unigram-table hmm) i)
@@ -460,6 +464,9 @@
         (code-to-token (mod bigram (hmm-n hmm))
                        (hmm-tag-lexicon hmm))))
 
+
+;; WARNING serialization and deserialization is currently inaccurate
+
 ;; Serialization
 (defun serialize-hmm-model-header (hmm s)
   (format s "hmm header n ~a token-count ~a~%" (hmm-n hmm) (hmm-token-count hmm)))
@@ -468,7 +475,7 @@
   (format s "hmm transitions start~%")
   (loop for i from 0 below (hmm-n hmm)
         do (loop for j from 0 below (hmm-n hmm)
-                 do (format s "~a ~a ~a~%"
+                 do (format s "~a ~a ~S~%"
                             i j (aref (hmm-transitions hmm) i j))))
   (format s "hmm transitions end~%"))
 
@@ -478,7 +485,7 @@
         for i from 0
         do (loop for j being the hash-keys of map
                    for val being the hash-values of map
-                   do (format s "~a ~a ~a~%" i j val)))
+                   do (format s "~a ~a ~S~%" i j val)))
   (format s "hmm emissions end~%"))
 
 (defun serialize-hmm-trigram-table (hmm s)
@@ -486,7 +493,8 @@
   (loop for i from 0 below (hmm-n hmm)
         do (loop for j from 0 below (hmm-n hmm)
                  do (loop for k from 0 below (hmm-n hmm)
-                          do (format s "~a ~a ~a ~a~%"
+                          when (aref (hmm-trigram-table hmm) i j k)
+                          do (format s "~a ~a ~a ~S~%"
                                      i j k
                                      (aref (hmm-trigram-table hmm) i j k)))))
   (format s "hmm trigram table end~%"))
@@ -494,9 +502,19 @@
 (defun serialize-hmm-unigram-table (hmm s)
   (format s "hmm unigram table start~%")
   (loop for i from 0 below (hmm-n hmm)
-        do (format s "~a ~a~%"
+        do (format s "~a ~S~%"
                    i (aref (hmm-unigram-table hmm) i)))
   (format s "hmm unigram table end~%"))
+
+(defun serialize-hmm-parameters (hmm s)
+  (format s "hmm parameters start~%")
+
+  (format s "lambda-1 ~S~%" (hmm-lambda-1 hmm))
+  (format s "lambda-2 ~S~%" (hmm-lambda-2 hmm))
+  (format s "lambda-3 ~S~%" (hmm-lambda-3 hmm))
+  (format s "theta ~S~%" (hmm-theta hmm))
+
+  (format s "hmm parameters end~%"))
 
 (defun serialize-hmm-model (hmm s)
   (serialize-hmm-model-header hmm s)
@@ -505,7 +523,8 @@
   (serialize-hmm-transitions hmm s)
   (serialize-hmm-emissions hmm s)
   (serialize-hmm-trigram-table hmm s)
-  (serialize-hmm-unigram-table hmm s))
+  (serialize-hmm-unigram-table hmm s)
+  (serialize-hmm-parameters hmm s))
 
 (defun serialize-hmm-model-to-file (hmm file &key (if-exists :supersede))
   (with-open-file (s file :direction :output :if-exists if-exists)
@@ -558,7 +577,9 @@
           do (destructuring-bind (i j value)
                  (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
                (let* ((i (parse-integer i))
-                      (j (read-from-string j)) ;; may be :unk
+                      (j (if (equalp j "unk") ;; may be :unk
+                           :unk
+                           (read-from-string j)))
                       (value (read-from-string value)))
                  (setf (gethash j (aref emissions i)) value))))
     emissions))
@@ -601,9 +622,25 @@
                      (read-from-string value))))
     unigram-table))
 
+(defun deserialize-hmm-parameters (s)
+  (unless (equalp (read-line s nil nil)
+                    "hmm parameters start")
+      (error "HMM model unigram table can not be deserialized"))
+  (loop for line = (read-line s nil nil)
+          until (equalp (string-trim *whitespace* line) "hmm parameters end")
+
+          when (null line)
+          do (error "Premature end of file")
+
+          collect (destructuring-bind (param value)
+                      (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
+                    (list (intern (string-upcase param) :keyword)
+                          (read-from-string value)))))
+
 (defun deserialize-hmm-model (s)
   (let ((hmm (make-hmm)))
     (deserialize-hmm-header hmm (read-line s nil nil))
+    (setup-hmm hmm (hmm-n hmm))
     (setf (hmm-tag-lexicon hmm)
           (second (deserialize-lexicon s :hmm-tag-lexicon)))
     (setf (hmm-token-lexicon hmm)
@@ -616,6 +653,21 @@
           (deserialize-hmm-trigram-table hmm s))
     (setf (hmm-unigram-table hmm)
           (deserialize-hmm-unigram-table hmm s))
+
+    (let ((param-alist (deserialize-hmm-parameters s)))
+      (loop for param in (mapcar #'first param-alist)
+            do (ecase param
+                 (:lambda-1 (setf (hmm-lambda-1 hmm)
+                                  (second (assoc :lambda-1 param-alist))))
+                 (:lambda-2 (setf (hmm-lambda-2 hmm)
+                                  (second (assoc :lambda-2 param-alist))))
+                 (:lambda-3 (setf (hmm-lambda-3 hmm)
+                                  (second (assoc :lambda-3 param-alist))))
+                 (:theta (setf (hmm-theta hmm)
+                                  (second (assoc :theta param-alist)))))))
+
+    (setup-hmm-beam hmm)
+    (build-suffix-tries hmm)
     
     hmm))
 
