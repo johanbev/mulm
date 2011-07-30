@@ -50,11 +50,11 @@
    ie. the values are counts C(X=x)"   
   (loop
       with sum of-type single-float = (float (hash-table-sum table))
-      for v being the hash-values in table
+      for v of-type number being the hash-values in table
       for div single-float = (/ v sum)
       when (= 1.0 sum) do (return 0.0)
       unless (zerop div)
-      summing (* -1 div (log div 2))))
+      summing (the single-float (* -1.0 div (log div 2)))))
 
 (defun weighted-average-of (table &key (key #'identity))
   "Computes the weighted-average of calling key using the counts in the
