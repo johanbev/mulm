@@ -194,12 +194,13 @@
        ;;; anyway. it should be better to not have these clogging up
        ;;; newspace and being scavenged around
        #+:allegro (excl:tenuring
-       (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
+       (make-array (list (* n n) 100) :initial-element nil :allocation :old) ;; backpointer table
        (make-array (list (* n n) 100) 
                    :initial-element most-negative-single-float 
-                   :element-type 'single-float) ;; trellis
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)) ;; second agenda
+                   :element-type 'single-float
+                   :allocation :old) ;; trellis
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum :allocation :old) ;; first agenda
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum :allocation :old)) ;; second agenda
        #-:allegro
        (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
        (make-array (list (* n n) 100) 
