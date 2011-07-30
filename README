@@ -17,3 +17,8 @@ Mulm is primarily developed by Johan Benum Evensberget
 Mulm includes Mime, a front-end for running experiments and analyzing
 results. Mime supports regular train and test separation of data and
 automatic n-way cross-validation. 
+
+Mulm requires ASDF, CL-PPCRE and Split-Sequence. To load Mulm or Mime
+for interactive use evaluate (asdf:oos 'asdf:load-op 'mulm) or 'mime
+at the top level. If you do not have these dependencies we recommend
+using quicklisp to download them.
