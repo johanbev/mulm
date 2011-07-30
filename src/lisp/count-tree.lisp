@@ -1,11 +1,12 @@
 (in-package :mulm)
 
-(defstruct lm-tree-node
-  weight
-  (adds 0)
-  (total 0)
-  (emissions (make-hash-table :size 3))
-  (children (make-hash-table :size 3)))
+(locally (declare (optimize (space 3)))
+  (defstruct lm-tree-node
+    weight
+    (adds 0)
+    (total 0)
+    (emissions (make-hash-table :size 3))
+    (children (make-hash-table :size 3))))
 
 (defmethod print-object ((object lm-tree-node) stream)
   (with-slots (total children) object
@@ -21,14 +22,17 @@
         (incf (lm-tree-node-total child))))))
 
 (defun sentence-to-n-grams (sentence n lm-root)
-  (let ((buffer (mk-queue n)))
+  (declare (type fixnum n))
+  (let ((buffer (make-fast-queue :size n :buffer (make-array n))))
+    (declare (type fast-queue buffer))
+    (declare (dynamic-extent buffer))
     (loop
-        for word in sentence
+        for word fixnum in sentence
         for seq = (fast-queue-to-list (fast-enqueue buffer word))
         do (add-sequence seq lm-root)
-        finally (mapl #'(lambda (x)
-                          (add-sequence x lm-root))
-                      (rest seq)))))
+        finally (loop 
+                    for x on (rest seq)
+                    do (add-sequence x lm-root)))))
 
 (defun build-model (sentences n lm-root)
   (loop 
