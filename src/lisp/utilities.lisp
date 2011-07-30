@@ -145,8 +145,8 @@
   (loop
       with sum of-type single-float = (float (hash-table-sum table))
       for v being the hash-values in table
-      for div single-float = (/ (the single-float (float v)) sum)
-      summing (* -1.0 div (log div 2))))
+      when (or (= 1.0 sum) (= 0.0 v)) do (return 0.0)
+      summing (* -1 (/ v sum) (log (/ v sum) 2))))
 
 (defun weighted-average-of (table &key (key #'identity))
   (loop
