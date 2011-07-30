@@ -1,1 +1,19 @@
-From mulm trees grow.
+Mulm is a state-of-the-art Hidden Markov Model toolkit, written in
+Common Lisp. We intend Mulm to be both a solid platform for experimentation
+and hacking on HMMs in general, and a fast and robust toolkit for PoS
+tagging.
+
+Currently Mulm can decode about as fast as other popular HMM toolkits
+such as TnT and Hunpos. Decoding speed is mostly dependent on average
+ambiguity and number of unknown observations. Parameter estimation is
+still a bit slow.
+
+Mulm is tested on LispWorks, Allegro and SBCL and should be reasonably
+cross-platform.
+
+Mulm is primarily developed by Johan Benum Evensberget
+(johan.benum upon gmail.com) and André Lynum (andrely upon idi.ntnu.no)
+
+Mulm includes Mime, a front-end for running experiments and analyzing
+results. Mime supports regular train and test separation of data and
+automatic n-way cross-validation. 
