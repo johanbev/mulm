@@ -35,7 +35,7 @@
          test
          (print t)
          save
-         (gc t)
+         (gc nil)
          (corpus-type :tt)
          (order 2)
          (tag-split nil)
