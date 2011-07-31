@@ -18,3 +18,6 @@
   (merge-pathnames "../../eval/" *package-path*))
 
 (defparameter *whitespace* '(#\Tab #\Space #\Newline))
+
+
+(defvar *hmm*)

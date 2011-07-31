@@ -1,6 +1,6 @@
 (in-package :mulm)
 
-(defvar *suffix-trie-root* nil)
+(defvar *suffix-trie-root*)
 
 (defparameter *suffix-cutoff* 10)
 

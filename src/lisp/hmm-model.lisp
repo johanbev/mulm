@@ -1,7 +1,5 @@
 (in-package :mulm)
 
-(defvar *hmm*)
-
 (defparameter *estimation-cutoff* 0)
 
 (defstruct hmm

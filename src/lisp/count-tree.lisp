@@ -1,5 +1,7 @@
 (in-package :mulm)
 
+(defvar *lm-root*)
+
 (locally (declare (optimize (space 3)))
   (defstruct lm-tree-node
     weight

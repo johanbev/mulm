@@ -1,7 +1,5 @@
 (in-package :mulm)
 
-(defparameter *lm-root* nil)
-
 (defun kn-unigrams ()
   (loop
       with unigram-prob = (make-array (hmm-n *hmm*))
