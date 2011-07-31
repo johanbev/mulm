@@ -2,23 +2,24 @@
 
 (defvar *lm-root*)
 
+
 (locally (declare (optimize (space 3)))
   (defstruct lm-tree-node
     weight
     (adds 0)
     (total 0)
-    (emissions (make-hash-table :size 3))
-    (children (make-hash-table :size 3))))
+    (emissions (make-lash))
+    (children (make-lash))))
 
 (defmethod print-object ((object lm-tree-node) stream)
   (with-slots (total children) object
-    (format stream "#<LM-Node ~a decs, ~a total>" (hash-table-count children) total)))
+    (format stream "#<LM-Node ~a decs, ~a total>" (lash-table-count children) total)))
 
 (defun add-sequence (seq lm-root)
   (let ((children (lm-tree-node-children lm-root)))
     (incf (lm-tree-node-total lm-root))
     (let ((child
-           (get-or-add (first seq) children (make-lm-tree-node))))
+           (get-or-add-lash (first seq) children (make-lm-tree-node))))
       (if (rest seq)
           (add-sequence (rest seq) child)
         (incf (lm-tree-node-total child))))))

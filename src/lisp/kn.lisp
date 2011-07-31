@@ -7,9 +7,9 @@
       for tag from 0 below (hmm-n *hmm*)
       for preceding = (loop
                           for prec from 0 below (hmm-n *hmm*)
-                          for node = (gethash prec (lm-tree-node-children *lm-root*))
+                          for node = (getlash prec (lm-tree-node-children *lm-root*))
                           when node
-                          summing (if (gethash tag (lm-tree-node-children node))
+                          summing (if (getlash tag (lm-tree-node-children node))
                                       1
                                     0))
       do (incf accu preceding)
@@ -28,12 +28,12 @@
                                       :element-type 'single-float
                                       :initial-element most-negative-single-float)
       for first from 0 below (hmm-n *hmm*)
-      for first-node = (gethash first (lm-tree-node-children *lm-root*))
-      for first-decs = (hash-table-count (lm-tree-node-children first-node))
+      for first-node = (getlash first (lm-tree-node-children *lm-root*))
+      for first-decs = (lash-table-count (lm-tree-node-children first-node))
       for first-count = (lm-tree-node-total first-node)
       do (loop
              for second from 0 below (hmm-n *hmm*)
-             for second-node = (gethash second (lm-tree-node-children first-node))
+             for second-node = (getlash second (lm-tree-node-children first-node))
              for second-count = (or (and second-node (lm-tree-node-total second-node)) 0)
              for adjusted-count = (max (- second-count kn-d) 0)
              for bigram-prob = (+ (/ adjusted-count first-count) ;; adjusted estimate
@@ -55,16 +55,16 @@
                             :element-type 'single-float
                             :initial-element most-negative-single-float)
       for first fixnum from 0 below (hmm-n *hmm*)                             
-      for first-node = (gethash first (lm-tree-node-children *lm-root*))
+      for first-node = (getlash first (lm-tree-node-children *lm-root*))
       do (loop
              for second fixnum from 0 below (hmm-n *hmm*)
-             for second-node = (gethash second (lm-tree-node-children first-node))
+             for second-node = (getlash second (lm-tree-node-children first-node))
              for second-count fixnum = (or (and second-node (lm-tree-node-total second-node)) 0)
-             for second-decs = (and second-node (hash-table-count (lm-tree-node-children second-node)))
+             for second-decs = (and second-node (lash-table-count (lm-tree-node-children second-node)))
              when second-node do
                (loop
                    for third fixnum from 0 below (hmm-n *hmm*)
-                   for third-node = (gethash third (lm-tree-node-children second-node))
+                   for third-node = (getlash third (lm-tree-node-children second-node))
                    for third-count fixnum  = (or (and third-node (lm-tree-node-total third-node)) 0)
                    for adjusted-count of-type single-float = (max (- third-count kn-d) 0.0)
                    for bigram of-type single-float = (aref (the (simple-array single-float (* *)) bigrams) second third)

@@ -117,7 +117,7 @@
                        (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
           table)))
      ((= order 2)
-      (setf (hmm-bigram-transition-table hmm)
+      (setf (hmm-trigram-transition-table hmm)
         (let* ((table (make-array (list tag-card tag-card tag-card) 
                                   :element-type 'single-float :initial-element most-negative-single-float)))
           
@@ -248,16 +248,16 @@
                                  3
                                  lm-root)
           for t1 from 0 below n
-          for t1-node = (gethash t1 (lm-tree-node-children lm-root))
+          for t1-node = (getlash t1 (lm-tree-node-children lm-root))
           when t1-node do
           (loop 
            for t2 from 0 below n 
-           for t2-node = (gethash t2 (lm-tree-node-children t1-node))
+           for t2-node = (getlash t2 (lm-tree-node-children t1-node))
            when t2-node do
            (loop 
             with total = (lm-tree-node-total t2-node)
             for t3 from 0 below n
-            for t3-node = (gethash t3 (lm-tree-node-children t2-node))
+            for t3-node = (getlash t3 (lm-tree-node-children t2-node))
             when t3-node do
             (let ((prob (/ (lm-tree-node-total t3-node)
                            total)))

@@ -22,7 +22,7 @@
 
 (defvar *warn-if-long* nil)
 
-(defun viterbi-trigram (hmm input)
+(defun viterbi-trigram (hmm input &key &allow-other-keys)
   (declare (optimize (speed 3) (debug 1)))
   (let* ((input (encode-input hmm input))
          (n (hmm-n hmm))
@@ -111,7 +111,7 @@
                      for prev-prob of-type single-float = (aref viterbi previous previous-time)
                      with old of-type single-float = most-negative-single-float
                                                      
-                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets                          
+                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets
                      do (multiple-value-bind (t1 t2)
                             (truncate previous n)
                           (declare (type fixnum t1 t2))
