@@ -45,11 +45,11 @@
       for val being the hash-values in table
       summing val))
 
-(defun hash-table-entropy (table)
+(defun hash-table-entropy (table &optional sum)
   "Computes the entropy of all the unnormalized values in a hash-table,
    ie. the values are counts C(X=x)"   
   (loop
-      with sum of-type single-float = (float (hash-table-sum table))
+      with sum of-type single-float = (float (or sum (hash-table-sum table)))
       for v of-type number being the hash-values in table
       for div single-float = (/ v sum)
       when (= 1.0 sum) do (return 0.0)
@@ -65,15 +65,15 @@
       for div single-float  = (/ v total)
       summing (abs (* div (funcall key div)))))
 
-(defun renyi-entropy (table alpha)
+(defun renyi-entropy (table alpha &optional sum)
   "Computes the renyi-entropy of all the unnormalized values in a hash-table,
    ie. the values are counts C(X=x)"
   (if (= 1 alpha)
-      (hash-table-entropy table)
+      (hash-table-entropy table sum)
     (* (/ 1 (- 1 alpha))
        (log
         (loop
-            with sum single-float = (float (hash-table-sum table))                                    
+            with sum single-float = (float (or sum (hash-table-sum table)))
             for v being the hash-values in table
             for div single-float = (/ v sum)
             summing  (expt div alpha))

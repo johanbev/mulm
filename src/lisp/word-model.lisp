@@ -84,9 +84,11 @@
 
 (defun diff-entropy-suffix-weighting (node root-entropy &key (alpha 1))
   (let ((sum (hash-table-sum (lm-tree-node-emissions node))))
+    (declare (type fixnum sum)
+             (type single-float root-entropy))
     (if (> sum 0)
         (setf (lm-tree-node-weight node) 
-          (max (- root-entropy (renyi-entropy (lm-tree-node-emissions node) alpha)) 0.0))
+          (max (- root-entropy (renyi-entropy (lm-tree-node-emissions node) alpha sum)) 0.0))
       (setf (lm-tree-node-weight node)
         nil))))
 
