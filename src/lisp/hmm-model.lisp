@@ -1,6 +1,6 @@
 (in-package :mulm)
 
-(defvar *hmm* nil)
+(defvar *hmm*)
 
 (defparameter *estimation-cutoff* 0)
 
@@ -20,7 +20,7 @@
   ;; 2D array containing transition probabilities, indexed on tag code
   transitions
   ;; array indexed on tag codes containing maps with token codes as keys
-  ;; and log probs (??) as values
+  ;; and log probs as values
   emissions
 
   ;; 3d array indexed on tag codes with probs
@@ -38,8 +38,11 @@
   trigram-d
   (suffix-tries (make-hash-table :test #'equal))
   theta
-  current-transition-table
-  caches)
+  
+  trigram-transition-table ;; actual trigram transitions with log-probs used by decoder
+  bigram-transition-table ;; actual bigram transitions with log-probs used by decoder
+  caches ;; transient caches for decoding
+  )
 
 (defun bigram-to-code (hmm bigram)
   "Returns index of bigram data in "
@@ -99,38 +102,39 @@
             (t (error "What!")))))))
 
 (defun make-transition-table (hmm order smoothing)
-  (setf (hmm-current-transition-table hmm)
-        (let ((tag-card (hmm-n hmm)))
-          (cond
-           ((= order 1)
-            (let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
-              (loop
-               for i from 0 below tag-card
-               do (loop
-                   for j below tag-card do
-                   (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
-              table))
-           ((= order 2)
-            (let* ((table (make-array (list tag-card tag-card tag-card) 
-                                      :element-type 'single-float :initial-element most-negative-single-float)))
-              (loop
-               for i from 0 below tag-card
-               do (loop 
-                   for j  from 0 below tag-card
-                   do (loop
-                       for k from 0 below tag-card do
-                       (setf (aref table i j k) 
-                             (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
-              table))))))
+  (let ((tag-card (hmm-n hmm)))
+    (cond
+     ((= order 1)
+      (setf (hmm-bigram-transition-table hmm)              
+        (let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
+          (loop
+              for i from 0 below tag-card
+              do (loop
+                     for j below tag-card do
+                       (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
+          table)))
+     ((= order 2)
+      (setf (hmm-bigram-transition-table hmm)
+        (let* ((table (make-array (list tag-card tag-card tag-card) 
+                                  :element-type 'single-float :initial-element most-negative-single-float)))
+          (loop
+              for i from 0 below tag-card
+              do (loop 
+                     for j  from 0 below tag-card
+                     do (loop
+                            for k from 0 below tag-card do
+                              (setf (aref table i j k) 
+                                (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
+          table))))))
 
 (defmacro bi-cached-transition (hmm from to)
   `(the single-float  
-     (aref (the (simple-array single-float (* *)) (hmm-current-transition-table ,hmm)) ,from ,to)))
+     (aref (the (simple-array single-float (* *)) (hmm-bigram-transition-table ,hmm)) ,from ,to)))
 
 (defmacro tri-cached-transition (hmm t1 t2 to)
   `(the single-float
      (max -19.0
-          (aref (the (simple-array single-float (* * *)) (hmm-current-transition-table ,hmm)) ,t1 ,t2 ,to))))
+          (aref (the (simple-array single-float (* * *)) (hmm-trigram-transition-table ,hmm)) ,t1 ,t2 ,to))))
 
 (defmacro emission-probability (hmm state form)
   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
