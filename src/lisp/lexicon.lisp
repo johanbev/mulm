@@ -161,3 +161,26 @@
 
           do (lexicon-insert lexicon (string-trim *whitespace* line)))
     (list id lexicon)))
+
+(defun lexicon-diff (lex1 lex2)
+  (when (not (eql (hash-table-test (lexicon-forward lex1))
+                  (hash-table-test (lexicon-forward lex2))))
+    (format t "Lexicon test diff~%"))
+  (when (/= (lexicon-size lex1) (lexicon-size lex2))
+    (format t "Lexicon size diff~%"))
+  (when (/= (lexicon-count lex1) (lexicon-count lex2))
+    (format t "Lexicon count diff~%"))
+  (loop for i from 0 below (min (lexicon-count lex1) (lexicon-count lex2))
+        do (when (not (equal (aref (lexicon-backward lex1) i)
+                             (aref (lexicon-backward lex2) i)))
+             (format t "Lexicon backward diff at ~a: ~a - ~a~%" i
+                     (aref (lexicon-backward lex1) i)
+                     (aref (lexicon-backward lex2) i))))
+  (let ((keys (union (loop for k being the hash-keys of (lexicon-forward lex1) collect k)
+                     (loop for k being the hash-keys of (lexicon-forward lex2) collect k))))
+    (loop for k in keys
+          do (when (/= (gethash k (lexicon-forward lex1))
+                       (gethash k (lexicon-forward lex2)))
+               (format t "Lexicon forward diff at ~a: ~a - ~a~%" k
+                       (gethash k (lexicon-forward lex1))
+                       (gethash k (lexicon-forward lex2)))))))
