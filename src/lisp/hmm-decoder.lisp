@@ -1,6 +1,5 @@
 (in-package :mulm)
 
-(defvar *bigrams* nil)
 
 ;; TODO maybe do the encoded forms as a struct for speed
 (defun encode-input (hmm input)
@@ -23,7 +22,7 @@
 
 (defvar *warn-if-long* nil)
 
-(defun viterbi-trigram (hmm input &key (bigrams *bigrams*)  &allow-other-keys)  
+(defun viterbi-trigram (hmm input &key &allow-other-keys)
   (declare (optimize (speed 3) (debug 1)))
   (let* ((input (encode-input hmm input))
          (n (hmm-n hmm))
@@ -62,8 +61,8 @@
         for tag fixnum from 0 to (- n 1)
         for state = (+ (* start-tag n) tag)
         do (setf (aref viterbi state 0)
-                 (+ (the single-float (if bigrams
-                                          (aref (the (simple-array single-float (* *)) bigrams) start-tag tag)
+                 (+ (the single-float (if (hmm-bigram-transition-table hmm)
+                                          (bi-cached-transition hmm start-tag tag)
                                         (transition-probability hmm start-tag tag
                                                                 :order 1 :smoothing :deleted-interpolation)))
                     (the single-float
@@ -112,7 +111,7 @@
                      for prev-prob of-type single-float = (aref viterbi previous previous-time)
                      with old of-type single-float = most-negative-single-float
                                                      
-                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets                          
+                     when (> prev-prob old) ;; this "stupid" litte optimization is important in big tagsets
                      do (multiple-value-bind (t1 t2)
                             (truncate previous n)
                           (declare (type fixnum t1 t2))

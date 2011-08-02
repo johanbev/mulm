@@ -1,7 +1,5 @@
 (in-package :mulm)
 
-(defvar *hmm* nil)
-
 (defparameter *estimation-cutoff* 0)
 
 (defstruct hmm
@@ -20,7 +18,7 @@
   ;; 2D array containing transition probabilities, indexed on tag code
   transitions
   ;; array indexed on tag codes containing maps with token codes as keys
-  ;; and log probs (??) as values
+  ;; and log probs as values
   emissions
 
   ;; 3d array indexed on tag codes with probs
@@ -31,15 +29,24 @@
   ;; only used during training
   tag-lm
   
+  
+  ;; deleted interpolation lambdas:
   (lambda-1 0.0 :type single-float)
   (lambda-2 0.0 :type single-float)
   (lambda-3 0.0 :type single-float)
+  ;; KN-d for bigrams
   bigram-d
+  ;; KN-d for trigrams
   trigram-d
+  ;; Sufffix tries for the word model
   (suffix-tries (make-hash-table :test #'equal))
+  ;; theta-parameter for TnT style word model
   theta
-  current-transition-table
-  caches)
+  
+  trigram-transition-table ;; actual trigram transitions with log-probs used by decoder
+  bigram-transition-table ;; actual bigram transitions with log-probs used by decoder
+  caches ;; transient caches for decoding
+  )
 
 (defun bigram-to-code (hmm bigram)
   "Returns index of bigram data in "
@@ -56,11 +63,9 @@
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
 (defun transition-probability (hmm previous current &key (order 1) (smoothing :constant))
+  "Calculates the transition-probability given previous states (atom if bigram, list of prev it trigram"
   (declare (type fixnum current order))
   (declare (type hmm hmm))
-  ;;
-  ;; give a tiny amount of probability to unseen transitions
-  ;;
   (the single-float
     (log
      (float
@@ -96,43 +101,58 @@
                    (or (aref (the (simple-array t (* * *)) (hmm-trigram-table hmm)) (first previous) (second previous)
                              current)
                        0.0))))
-            (t (error "What!")))))))
+            (t (error "Illegal type of transition, check parameters!")))))))
 
 (defun make-transition-table (hmm order smoothing)
-  (setf (hmm-current-transition-table hmm)
-        (let ((tag-card (hmm-n hmm)))
-          (cond
-           ((= order 1)
-            (let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
-              (loop
-               for i from 0 below tag-card
-               do (loop
-                   for j below tag-card do
-                   (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
-              table))
-           ((= order 2)
-            (let* ((table (make-array (list tag-card tag-card tag-card) 
-                                      :element-type 'single-float :initial-element most-negative-single-float)))
-              (loop
-               for i from 0 below tag-card
-               do (loop 
-                   for j  from 0 below tag-card
-                   do (loop
-                       for k from 0 below tag-card do
-                       (setf (aref table i j k) 
-                             (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
-              table))))))
+  "Creates a cached transition table by calling transition-probability"
+  (let ((tag-card (hmm-n hmm)))
+    (cond
+     ((= order 1)
+      (setf (hmm-bigram-transition-table hmm)              
+        (let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
+          (loop
+              for i from 0 below tag-card
+              do (loop
+                     for j below tag-card do
+                       (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
+          table)))
+     ((= order 2)
+      (setf (hmm-trigram-transition-table hmm)
+        (let* ((table (make-array (list tag-card tag-card tag-card) 
+                                  :element-type 'single-float :initial-element most-negative-single-float)))
+          
+          ;;; This loop is very expensive (often several times so than
+          ;;; decoding a fold) on hmms with large tag-sets perhaps a
+          ;;; memoization technique is better suited here
+          
+          (loop
+              for i from 0 below tag-card
+              do (loop 
+                     for j  from 0 below tag-card
+                                         
+                     ;;; We could perhaps skip this if C(i,j) = 0, then C(i,j,k) is also null
+                                         
+                     do (loop
+                            for k from 0 below tag-card do
+                              (setf (aref table i j k) 
+                                (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
+          table)))
+     (t (error "Illegal type of transition, check parameters!")))))
 
 (defmacro bi-cached-transition (hmm from to)
+  "Gets the cached transition probability from tag `from' to tag `to'
+   given `hmm'."
   `(the single-float  
-     (aref (the (simple-array single-float (* *)) (hmm-current-transition-table ,hmm)) ,from ,to)))
+     (aref (the (simple-array single-float (* *)) (hmm-bigram-transition-table ,hmm)) ,from ,to)))
 
 (defmacro tri-cached-transition (hmm t1 t2 to)
+  "Gets the cached transition probability P(to|t1,t2)"
   `(the single-float
      (max -19.0
-          (aref (the (simple-array single-float (* * *)) (hmm-current-transition-table ,hmm)) ,t1 ,t2 ,to))))
+          (aref (the (simple-array single-float (* * *)) (hmm-trigram-transition-table ,hmm)) ,t1 ,t2 ,to))))
 
 (defmacro emission-probability (hmm state form)
+  "Gets the probability P(e|t)"
   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
 
 (defun emission-probability-slow (decoder hmm state form)
@@ -185,7 +205,7 @@
     (setf (hmm-unigram-table hmm)
           (make-array n :initial-element nil))
     (loop for i from 0 to (- n 1)
-        do (setf (aref (hmm-emissions hmm) i) (make-hash-table)))
+        do (setf (aref (hmm-emissions hmm) i) (make-hash-table :size 11)))
     (setf (hmm-caches hmm)
       (list 
        ;;; We try to prevent newspace expansion here: these caches
@@ -194,12 +214,13 @@
        ;;; anyway. it should be better to not have these clogging up
        ;;; newspace and being scavenged around
        #+:allegro (excl:tenuring
-       (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
+       (make-array (list (* n n) 100) :initial-element nil :allocation :old) ;; backpointer table
        (make-array (list (* n n) 100) 
                    :initial-element most-negative-single-float 
-                   :element-type 'single-float) ;; trellis
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)) ;; second agenda
+                   :element-type 'single-float
+                   :allocation :old) ;; trellis
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum :allocation :old) ;; first agenda
+       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum :allocation :old)) ;; second agenda
        #-:allegro
        (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
        (make-array (list (* n n) 100) 
@@ -227,16 +248,16 @@
                                  3
                                  lm-root)
           for t1 from 0 below n
-          for t1-node = (gethash t1 (lm-tree-node-children lm-root))
+          for t1-node = (getlash t1 (lm-tree-node-children lm-root))
           when t1-node do
           (loop 
            for t2 from 0 below n 
-           for t2-node = (gethash t2 (lm-tree-node-children t1-node))
+           for t2-node = (getlash t2 (lm-tree-node-children t1-node))
            when t2-node do
            (loop 
             with total = (lm-tree-node-total t2-node)
             for t3 from 0 below n
-            for t3-node = (gethash t3 (lm-tree-node-children t2-node))
+            for t3-node = (getlash t3 (lm-tree-node-children t2-node))
             when t3-node do
             (let ((prob (/ (lm-tree-node-total t3-node)
                            total)))
@@ -255,6 +276,11 @@
                       :initial-contents (loop for i from 0 to (1- n) collect i))))
   hmm)
 
+
+;; prepare bigram and trigram generators.
+(defparameter *bigram-stream* (make-partition-stream nil 2))
+(defparameter *trigram-stream* (make-partition-stream nil 3))
+
 (defun add-sentence-to-hmm (hmm sentence)
   "Adds emission, tag unigram, bigram and trigram counts to the appropriate fields
    in the hmm struct.
@@ -264,40 +290,49 @@
   ;; Add start and end tags
   (let* ((unigrams (append '("<s>")
                            (mapcar #'second sentence)
-                           '("</s>")))
-         (bigrams (partition unigrams 2))
-         (trigrams (partition unigrams 3)))
+                           '("</s>"))))
+                                        ;(bigrams (partition unigrams 2)))
+                                        ;(trigrams (partition unigrams 3)))
+    (funcall *bigram-stream* :reset unigrams)
+    (funcall *trigram-stream* :reset unigrams)
     (loop for (token tag) in sentence
-          for code = (token-to-code token (hmm-token-lexicon hmm))
-          do (incf (hmm-token-count hmm))
-          do (incf (gethash code
-                            (aref (hmm-emissions hmm)
-                                  (token-to-code tag (hmm-tag-lexicon hmm)))
-                            0)))
+        for code = (token-to-code token (hmm-token-lexicon hmm))
+        do (incf (hmm-token-count hmm))
+        do (incf (gethash code
+                          (aref (hmm-emissions hmm)
+                                (token-to-code tag (hmm-tag-lexicon hmm)))
+                          0)))
 
     (loop for unigram in unigrams
-          for code = (token-to-code unigram (hmm-tag-lexicon hmm))
-          do (if (aref (hmm-unigram-table hmm) code)
+        for code = (token-to-code unigram (hmm-tag-lexicon hmm))
+        do (if (aref (hmm-unigram-table hmm) code)
                (incf (aref (hmm-unigram-table hmm) code))
-               (setf (aref (hmm-unigram-table hmm) code) 1)))
-             
-    (loop for bigram in bigrams
-          for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
-          for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
-          do (if (aref (hmm-transitions hmm) previous current)
+             (setf (aref (hmm-unigram-table hmm) code) 1)))
+    
+    (loop with stream = *bigram-stream*
+        for bigram = (funcall stream)
+        while bigram
+        for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
+        for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
+        do (if (aref (hmm-transitions hmm) previous current)
                (incf (aref (hmm-transitions hmm) previous current))
-               (setf (aref (hmm-transitions hmm) previous current) 1)))
+             (setf (aref (hmm-transitions hmm) previous current) 1)))
 
-    (loop for trigram in trigrams
-          do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
-                   (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
-                   (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
-               (if (aref (hmm-trigram-table hmm) t1 t2 t3)
+    (loop 
+        with stream = *trigram-stream*
+        for trigram = (funcall stream)
+        while trigram
+              
+        do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
+                 (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
+                 (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
+             (if (aref (hmm-trigram-table hmm) t1 t2 t3)
                  (incf (aref (hmm-trigram-table hmm) t1 t2 t3))
-                 (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
+               (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
     hmm))
 
 (defun populate-counts (corpus hmm)
+  "Add all the sentences in the corpus to the hmm"
   (loop for sentence in corpus
       do (add-sentence-to-hmm hmm sentence)))
 
@@ -320,45 +355,57 @@
     (setf (hmm-bigram-d hmm)
           (estimate-bigram-d hmm))
     (setf (hmm-trigram-d hmm)
-          (estimate-trigram-d hmm))
-
+      (estimate-trigram-d hmm))
+    
+    ;; Now we can prepare normalized probabilites:
+    
     (let ((n (hmm-n hmm)))
+      
       (loop
-       with transitions = (hmm-transitions hmm)
-       for i from 0 to (- n 1)
-       for total = (float (loop
-                           for j from 0 to (- n 1)
-                           for count = (aref transitions i j)
-                           when (and count (> count *estimation-cutoff*))
-                           sum count))
-       do
-       (loop
-        for j from 0 to (- n 1)
-        for count = (aref transitions i j)
-        when (and count (> count *estimation-cutoff*))
-        do (setf (aref transitions i j) (float (/ count total))))
-          
-       (make-good-turing-estimate (aref (hmm-emissions hmm) i)
-                                  (hash-table-sum (aref (hmm-emissions hmm) i))
-                                  (code-to-token i (hmm-tag-lexicon hmm)))
-       (loop
-        with map = (aref (hmm-emissions hmm) i)
-        for code being each hash-key in map
-        for count = (gethash code map)
-        when (and count (> count *estimation-cutoff*))
-        do (setf (gethash code map) (float (log (/ count total))))))
-
+          with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
+          for i  fixnum from 0 to (- n 1)
+          ;;; Get the total amount of this tag (isnt this in unigram-table?)
+          for total fixnum = (float (loop
+                                        for j  fixnum from 0 to (- n 1)
+                                        for count = (aref transitions i j)
+                                        when (and count (> count *estimation-cutoff*))
+                                        sum count))
+          do
+            ;;; Normalize bigrams
+            (loop
+                for j from 0 to (- n 1)
+                for count = (aref transitions i j)
+                when (and count (> count *estimation-cutoff*))
+                do (setf (aref transitions i j) (float (/ count total))))
+            
+            ;;; Adjust counts for emissions with Good-Turing
+            (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+                                       (hash-table-sum (aref (hmm-emissions hmm) i))
+                                       (code-to-token i (hmm-tag-lexicon hmm)))
+            
+            ;;; Normalize emissions
+            (loop
+                with map = (aref (hmm-emissions hmm) i)
+                for code being each hash-key in map
+                for count = (gethash code map)
+                when (and count (> count *estimation-cutoff*))
+                do (setf (gethash code map) (float (log (/ count total))))))
+      
+      
+      ;;; Normalize trigrams:
       (setf (hmm-tag-lm hmm) (calculate-tag-lm hmm corpus))
       
+      
+      ;;; Normalize unigrams:
       (loop for i from 0 below n
           for count = (aref (hmm-unigram-table hmm) i)
           with total = (loop for count across (hmm-unigram-table hmm)
-                     summing count)
-          ;; TODO discrepancy between token count and unigram count total
-          ; with total = (hmm-token-count hmm)
+                           summing count)
+                       ;; TODO discrepancy between token count and unigram count total
+                       ;; with total = (hmm-token-count hmm)
           do (setf (aref (hmm-unigram-table hmm) i)
                (float (/ count total)))))
-
+    
     hmm))
 
 (defun calculate-theta (hmm)
@@ -413,48 +460,49 @@
         (n (hmm-n hmm))
 
         (uni-total (loop for count across (hmm-unigram-table hmm)
-                         summing count)))
+                       summing count)))
     (loop 
-	for i from 0 below n
-	do 
-	  (loop 
-	      for j from 0 below n
-	      do (loop 
-		     for k from 0 below n
-		     for tri-count = (aref (hmm-trigram-table hmm) i j k)
-		     when tri-count
-		     do 
-		       (let* ((bi-count (aref (hmm-transitions hmm) j k))
-			      (uni-count (aref (hmm-unigram-table hmm) k))
-			      (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
-				    (if (and bi-count
-					     (> bi-count 1)
-					     (> bi-count *estimation-cutoff*))
-					(/ (1- tri-count)
-					   (1- bi-count))
-                                              0)))
-			      (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
-				    (if (and uni-count
-					     (> uni-count 1)
-					     (> uni-count *estimation-cutoff*))
-					(/ (1- bi-count)
-					   (1- uni-count))
-				      0)))
-			      (c3 (/ (1- uni-count)
-             (1- uni-total))))
-			 (cond ((and (>= c3 c2) (>= c3 c1))
-				(incf lambda-3 tri-count))
-			       ((and (>= c2 c3) (>= c2 c1))
-				(incf lambda-2 tri-count))
-			       ((and (>= c1 c3) (>= c1 c2))
-                                        (incf lambda-1 tri-count))
-			       (t (error "What!")))))))
+        for i from 0 below n
+        do 
+          (loop 
+              for j from 0 below n
+              do 
+                (loop 
+                    for k from 0 below n
+                    for tri-count = (aref (hmm-trigram-table hmm) i j k)
+                    when tri-count
+                    do 
+                      (let* ((bi-count (aref (hmm-transitions hmm) j k))
+                             (uni-count (aref (hmm-unigram-table hmm) k))
+                             (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
+                                   (if (and bi-count
+                                            (> bi-count 1)
+                                            (> bi-count *estimation-cutoff*))
+                                       (/ (1- tri-count)
+                                          (1- bi-count))
+                                     0)))
+                             (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
+                                   (if (and uni-count
+                                            (> uni-count 1)
+                                            (> uni-count *estimation-cutoff*))
+                                       (/ (1- bi-count)
+                                          (1- uni-count))
+                                     0)))
+                             (c3 (/ (1- uni-count)
+                                    (1- uni-total))))
+                        (cond ((and (>= c3 c2) (>= c3 c1))
+                               (incf lambda-3 tri-count))
+                              ((and (>= c2 c3) (>= c2 c1))
+                               (incf lambda-2 tri-count))
+                              ((and (>= c1 c3) (>= c1 c2))
+                               (incf lambda-1 tri-count))
+                              (t (error "Mysterious frequencies in DI-calculation.")))))))
     ;; i have no idea why inverting these makes everyhing so much better
     ;; is there a bug somewhere?
     (let ((total (+ lambda-1 lambda-2 lambda-3)))
-      (setf (hmm-lambda-1 hmm) (float (/ lambda-1 total)))
+      (setf (hmm-lambda-3 hmm) (float (/ lambda-1 total)))
       (setf (hmm-lambda-2 hmm) (float (/ lambda-2 total)))
-      (setf (hmm-lambda-3 hmm) (float (/ lambda-3 total)))
+      (setf (hmm-lambda-1 hmm) (float (/ lambda-3 total)))
       hmm)))
 
 

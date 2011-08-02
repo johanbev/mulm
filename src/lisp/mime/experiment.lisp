@@ -35,6 +35,7 @@
          test
          (print t)
          save
+         (gc nil)
          (corpus-type :tt)
          (order 2)
          (tag-split nil)
@@ -45,27 +46,45 @@
 
 (defun make-hmm (train order smoothing)
   (let* ((hmm (mulm::train train)))
-    (setf mulm::*bigrams* nil)
     (ecase smoothing
       (:deleted-interpolation
-       (setf (mulm::hmm-current-transition-table hmm)
-         (mulm::make-transition-table hmm order :deleted-interpolation)))
-      (:constant (setf (mulm::hmm-current-transition-table hmm)
-                   (mulm::make-transition-table hmm order :constant)))
+       (setf (mulm::hmm-bigram-transition-table hmm)
+         (mulm::make-transition-table hmm 1 :deleted-interpolation))
+       (setf (mulm::hmm-trigram-transition-table hmm)
+         (mulm::make-transition-table hmm 2 :deleted-interpolation)))
+      (:constant 
+       (setf (mulm::hmm-bigram-transition-table hmm)
+         (mulm::make-transition-table hmm 1 :constant))
+       (setf (mulm::hmm-trigram-transition-table hmm)
+         (mulm::make-transition-table hmm 2 :constant)))
       (:kn
        (let ((mulm::*lm-root*
               (mulm::hmm-tag-lm hmm))
              (mulm::*hmm* hmm))
          (ecase order
-           (1 (setf (mulm::hmm-current-transition-table hmm)
+           (1 (setf (mulm::hmm-bigram-transition-table hmm)
                 (mulm::kn-bigrams (mulm::kn-unigrams))))
-           (2 (setf (mulm::hmm-current-transition-table hmm)
+           (2 (setf (mulm::hmm-trigram-transition-table hmm)
                 (mulm::kn-trigrams (mulm::kn-bigrams (mulm::kn-unigrams))))
-              (setf mulm::*bigrams*
+              (setf (mulm::hmm-bigram-transition-table hmm)
                 (mulm::kn-bigrams (mulm::kn-unigrams))))))))
     hmm))
 
 (defparameter *working-set* nil)
+
+
+(defun do-gc (&key full verbose)
+  "Initiates a garbage collection."
+  (declare (ignorable verbose full))
+  #+(or cmu scl) (ext:gc :verbose verbose :full full)
+  #+sbcl (sb-ext:gc :full full)
+  #+allegro (excl:gc (not (null full)))
+  #+clisp (ext:gc)
+  #+ecl (si:gc t)
+  #+openmcl (ccl:gc)
+  #+corman (ccl:gc (if full 3 0))
+  #+lispworks (hcl:mark-and-sweep (if full 3 0)))
+
 
 (defun perform-experiment (file)
   (setf *working-set* nil)
@@ -115,7 +134,8 @@
                          else do (format t "~&WARN: Attempt to decode empty sequence, are corpora well formed?~%")
                          finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
                                              res train)
-                                       *working-set*))))))))
+                                       *working-set*)
+                                 (when gc (setf hmm nil) (do-gc :full t)))))))))
     ;; now register-profile and print it
     (let ((profile (register-profile *working-set* name)))
       (when print
@@ -125,4 +145,8 @@
           (t (print-profile profile print))))
       (when save
         (with-open-file (stream save :direction :output :if-exists :supersede)
-          (write profile :stream stream))))))
+          (write profile :stream stream))))
+    (when gc
+      (setf *working-set* nil)
+      (do-gc :full t)
+      (do-gc))))

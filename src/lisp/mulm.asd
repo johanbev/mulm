@@ -5,7 +5,8 @@
   :license "GPL"
   :components ((:file "mulm")
                (:file "utilities" :depends-on ("mulm"))
-               (:file "count-tree" :depends-on ("mulm" "fast-queue" "utilities"))
+               (:file "lash" :depends-on ("mulm"))
+               (:file "count-tree" :depends-on ("mulm" "fast-queue" "utilities" "lash"))
                (:file "queue" :depends-on ("mulm"))
                (:file "fast-queue" :depends-on ("mulm"))
                (:file "trie" :depends-on ("utilities"))

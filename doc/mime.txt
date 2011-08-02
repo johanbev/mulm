@@ -1,0 +1,124 @@
+The main entry point for Mime is the function perform-experiment().
+This function takes one argument which is a path to a mime experiment
+file. 
+
+Note that the experiment file must be a valid lisp s-exp.
+Mime expects its experiment files to be of the following format:
+
+All files must start with this header:
+
+(experiment "Experiment-name"
+
+followed by experiment parameters in any order.
+
+These parameters are
+
+    :corpora ("file1" "file2")     ; a proper list of paths
+ Reads in the files specified. Paths are relative from the directory
+ of the main experiment file. Using :corpora implies n-way cross
+ validation, and is mutually incompatible with :train and :test
+
+    :folds <integer> 10
+ Specifies how many folds Mime will do for cross validation. The
+ default value is 10. This parameter is ignored if :train and :test
+ are supplied.
+
+    :train "training-corpus" :test "testing-corpus"
+ Reads in the files specified. Paths are relative from the directory
+ of the main experiment file. Using :train and :test excludes n-way
+ cross validation.
+
+    :corpus-type :tt <default> | :brown
+ Specifies the format of all the corpora Mime will read. TT is the
+ default format.
+
+    :smoothing :di <default> | :kn | :constant
+ Specifies what smoothing Mulm will use in the transition matrix. :di
+ is short for deleted-interpolation and the default smoothing. :kn is
+ short for Kneser-Ney and :constant means no smoothing, ie. MLE.
+
+    :print t <default> | nil
+ Specifies whether Mime will print a report of the results from
+ tagging or not.
+
+    :order 2 <default> | 1
+ Specifies the order of the HMM. 2 means trigram and 1 means bigram.
+
+    :save nil <default> | "path"
+ If non-nil, Mime will save the results from the experiment to "path"
+
+    :gc nil <default> | t
+ If non-nil, Mime will perform a global garbage-collection after each
+ fold of the experiment has been completed. This may help reduce
+ memory consumption on some lisps but can slow down Mime
+ significantly.
+
+    :tag-split nil <default> | t
+ If non-nil, Mulm will heuristically lexicalize tags from closed-class
+ states. (EXPERIMENTAL)
+
+Here's an example of a Mime experiment file:
+
+(experiment "My favourite corpus"
+            :corpora ("1.tt" "2.tt" "3.tt")
+            :folds 5
+            :smoothing :constant
+            :order 1)
+
+If you want to run Mime will all settings set to default, the minimal
+experiment file is:
+
+(experiment "Minimal Experiment"
+            :corpora ("corpus.tt"))
+
+OR
+
+(experiment "Minimal Experiment wo. x-validation"
+            :train "train.tt"
+            :test "test.tt")
+
+Mime prints a break-down of experiment results in the following
+format:
+
+Profile My-Experiment with 2 folds
+  Total    Corr.    ACC%     UNK       UNK%     ACC-U%   ACC-K%
+----------------------------------------------------------------
+  15307    14280    93.29%   1289      8.42%    62.37%   96.13%
+  15481    14331    92.57%   1459      9.42%    58.40%   96.13%
+
+ Total    Corr.    ACC%     UNK       UNK%     ACC-U%   ACC-K%
+----------------------------------------------------------------
+  15517.7  14443.8  93.08%   1356.6    8.74%    60.24%   96.23%
+  170.28   156.94   0.24%    66.20     0.40%    1.71%    0.11%
+
+
+The column headers specify the following:
+  Total    total number of tokens in this fold
+  Corr.    The number of correctly assigned tags to tokens.
+  ACC%     The tagging accuracy in percent. ( correct / total).
+  UNK.     The number of unknown tokens in this fold.
+  UNK%     The percentage of unknown tokens ( unk / total).
+  ACC-U%   Tagging accuracy on unknown tokens.
+  ACC-K%   Tagging accuracy on known tokens.
+
+The first lines are the results for each fold. There will only be one
+fold if Mime is set up with train and test data-sets.
+
+The lines  after the repeated column header are the average of the
+values over each fold followed by the standard deviation of the
+averages.
+
+Average tags/token: 1.83 0.01
+  Ambiguity Accuracy  Types     Type Recall
+  1         92.91%    19514     92.65%
+  2         92.12%    1421      99.72%
+  3         94.57%    181       100.00%
+  4         89.97%    49        100.00%
+  5         91.20%    15        100.00%
+  6         92.31%    2         100.00%
+  9         95.71%    1         100.00%
+
+Finally Mime prints the average number of tags per token (averaged
+over all folds with standard deviation), and a breakdown on tagging
+accuracy versus ambiguity and lexical type recall, that is the
+percentage of known tokens grouped by ambiguity.
