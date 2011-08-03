@@ -83,6 +83,7 @@
            (hmm-suffix-tries hmm)))
 
 (defun diff-entropy-suffix-weighting (node root-entropy &key (alpha 1))
+  (declare (ignore alpha))
   (let ((sum (lash-table-sum (lm-tree-node-emissions node))))
     (declare (type fixnum sum)
              (type single-float root-entropy))

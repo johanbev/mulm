@@ -20,4 +20,4 @@
 (defparameter *whitespace* '(#\Tab #\Space #\Newline))
 
 
-(defvar *hmm*)
+(defvar *hmm* nil)

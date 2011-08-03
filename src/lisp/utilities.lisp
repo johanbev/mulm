@@ -51,7 +51,7 @@
   (loop
       with sum of-type single-float = (float (or sum (hash-table-sum table)))
       for v of-type number being the hash-values in table
-      for div single-float = (/ v sum)
+      for div of-type single-float = (/ v sum)
       when (= 1.0 sum) do (return 0.0)
       unless (zerop div)
       summing (the single-float (* -1.0 div (log div 2)))))
@@ -60,9 +60,9 @@
   "Computes the weighted-average of calling key using the counts in the
    table as weights"
   (loop
-      with total single-float = (float (hash-table-sum table))
+      with total of-type single-float = (float (hash-table-sum table))
       for v being the hash-values in table
-      for div single-float  = (/ v total)
+      for div of-type single-float  = (/ v total)
       summing (abs (* div (funcall key div)))))
 
 (defun renyi-entropy (table alpha &optional sum)
@@ -73,9 +73,9 @@
     (* (/ 1 (- 1 alpha))
        (log
         (loop
-            with sum single-float = (float (or sum (hash-table-sum table)))
+            with sum of-type single-float = (float (or sum (hash-table-sum table)))
             for v being the hash-values in table
-            for div single-float = (/ v sum)
+            for div of-type single-float = (/ v sum)
             summing  (expt div alpha))
         2))))
 
