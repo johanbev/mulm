@@ -36,10 +36,6 @@
              (setf (lash-table lash-table) tbl)))
          it)))
 
-(defmacro with-lash (lash &body body)
-  `(let ((lash (lash-table ,lash)))
-     ,@body))
-
 (defmacro get-or-add-lash (key lash add-form)
   `(or (getlash ,key ,lash)
        (set-lash ,key ,lash ,add-form)))
@@ -47,50 +43,53 @@
 (defsetf getlash set-lash)
 
 (defun maplash (fcn lash)
-  (when (and lash (lash-table lash))
-    (with-lash lash
-      (etypecase lash
-        (list
-         (loop for (key . value) in lash
+  (let ((lash-internal (lash-table lash)))
+    (etypecase lash-internal
+      (list
+       (loop for (key . value) in lash-internal
              do (funcall fcn key value)))
-        (hash-table
-         (maphash fcn lash))))))
+      (hash-table
+       (maphash fcn lash-internal)))))
   
 (defun lash-table-count (lash)
-  (with-lash lash
-    (etypecase lash
-      (list (length lash))
-      (hash-table (hash-table-count lash)))))
+  (let ((lash-internal (lash-table lash)))
+    (etypecase lash-internal
+      (list (length lash-internal))
+      (hash-table (hash-table-count lash-internal)))))
 
-(defun lash-table-sum (lash-table)
-  (with-lash lash-table
-    (if lash
-        (if (and (listp lash) (null (cdr lash)))
-            (cdar lash)
+(defun lash-table-sum (lash)
+  (let ((lash-internal (lash-table lash)))
+    (if lash-internal
+        (if (and (listp lash-internal) (null (cdr lash-internal)))
+            (cdar lash-internal)
           (let ((sum 0))
-            (declare (fixnum sum))
             (maplash (lambda (k v)
                        (declare (ignore k))
                        (incf sum (the fixnum v)))
-                     lash-table)
+                     lash)
             sum))
       0)))
 
-(defun lash-table-entropy (lash-table)
-  (with-lash lash-table
-    (etypecase lash
+(defun lash-table-entropy (lash)
+  (let ((lash-internal (lash-table lash)))
+    (etypecase lash-internal
       (list
-       (let* ((sum (float (lash-table-sum lash-table)))
+       (let* ((sum (float (lash-table-sum lash)))
               (accu 0.0))
          (declare (type single-float accu sum))
          (loop
-             for v in (lash-values lash-table)
-             for div of-type single-float = (/ v sum)
-                do
-               (incf accu (* -1.0 (the single-float div) (log div 2))))            
+          for v in (lash-values lash)
+          for div of-type single-float = (if (= sum 0.0) ;; division by zero guard
+                                           0.0
+                                           (/ v sum))
+          do
+          (incf accu (* -1.0 (the single-float div)
+                        (if (= div 0.0) ;; log of zero guard
+                          0
+                          (log div 2)))))            
          accu))
       (hash-table
-       (hash-table-entropy lash)))))
+       (hash-table-entropy lash-internal)))))
 
 (defun lash-keys (lash)
     (let (accu)
