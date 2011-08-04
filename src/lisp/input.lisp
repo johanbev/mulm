@@ -35,28 +35,25 @@
 (defmethod normalize  (token (normalizer id-normalizer))
   token)
 
+(defparameter *number-scanner*
+    (cl-ppcre:create-scanner "four|five|six|seven|eight|nine|ten|twenty|million|billion"))
+
+(defparameter *digit-scanner*
+    (cl-ppcre:create-scanner "^[$£€]?[0-9]+[0-9,:/]*([\\.,][0-9]+)?[$£€]?$"))
+
+(defun string-numberp (token)
+  (funcall *digit-scanner* token 0 (length token)))
+
+
 (defmethod normalize (token (normalizer cd-normalizer))
-  (let ((tok (remove-if (lambda (x) (find x *illegal-token-chars*))
-                        (string-downcase token))))
-    (if (string= tok "")
-      token
-      (if (or (member tok '("one" "two" "three" "four" "five" "six" "seven" "ten" "twenty") :test #'string=)
-              ;; the CL reader doesn't like these two characters which appear in the OBT corpora
-              (and (not (find-if #'(lambda (c)
-                                     (member c '(#\| #\")))
-                                 tok))
-                   ;; intern arbitrary strings into the keyword package
-                   (let ((*package* (find-package :keyword)))
-                     (numberp (read-from-string tok)))))
-        (prog1 
-            (if (eql #\. (aref token (1- (length token))))
-              "|cd|"
-              "|od|"))
-        token))))
+  (if (string-numberp token)
+      (if (eql #\. (aref token (1- (length token))))
+          "|od|"
+        "|cd|")
+    token))
 
 (defvar *normalizer*
     (make-instance 'cd-normalizer))
-
 
 (defvar *tag-map* nil)
 
@@ -202,3 +199,18 @@
 	       for (form tag) in sequence
 	       do (format stream "~a~c~a~%" form #\Tab tag))
 	   (format stream "~%"))))
+
+
+(defun check-cd-mapping (corpus &key (cd-tag "CD"))
+  (loop for sent in corpus
+      nconcing
+        (loop for (word tag) in sent
+            with it
+            do
+              (cond
+               ((and (string= tag cd-tag) (not (or (string= word "|cd|") (string= word "|od|"))))
+                (push (list word tag) it))
+               ((and (or (string= word "|cd|") (string= word "|od|"))
+                     (not (string= tag cd-tag)))
+                (push (list word tag) it)))
+            finally (return it))))
