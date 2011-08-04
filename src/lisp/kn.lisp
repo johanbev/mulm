@@ -90,7 +90,7 @@
       for i below (hmm-n hmm)
       do (loop 
              for j below (hmm-n hmm)
-             for count = (or (aref (hmm-transitions hmm) i j) -1)
+             for count = (or (aref (hmm-bigram-counts hmm) i j) -1)
              when (= count 1) do (incf once)
              when (= count 2) do (incf twice))
       finally (return
@@ -108,7 +108,7 @@
              for j below (hmm-n hmm)
              do (loop
                     for k below (hmm-n hmm)
-                    for count = (or (aref (hmm-trigram-table hmm) i j k) -1)
+                    for count = (or (aref (hmm-trigram-counts hmm) i j k) -1)
                     when (= count 1) do (incf once)
                     when (= count 2) do (incf twice)))
           finally (return

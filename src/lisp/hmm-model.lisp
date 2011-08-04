@@ -1,5 +1,7 @@
 (in-package :mulm)
 
+;; TODO lm-tag-tree and suffix-tree must be estimated from counts 
+
 (defparameter *estimation-cutoff* 0)
 
 (defstruct hmm
@@ -28,7 +30,11 @@
 
   ;; only used during training
   tag-lm
-  
+
+  ;; tag n-gram counts from the corpora
+  unigram-counts
+  bigram-counts
+  trigram-counts
   
   ;; deleted interpolation lambdas:
   (lambda-1 0.0 :type single-float)
@@ -194,6 +200,14 @@
     (when (not partial)
       (setf (hmm-n hmm) n)
       (setf (hmm-token-count hmm) 0))
+
+    ;; setup tables for tag n-gram counts
+    (setf (hmm-unigram-counts hmm)
+          (make-array n :initial-element 0 :element-type 'fixnum))
+    (setf (hmm-bigram-counts hmm)
+          (make-array (list n n) :initial-element 0 :element-type 'fixnum))
+    (setf (hmm-trigram-counts hmm)
+          (make-array (list n n n) :initial-element 0 :element-type 'fixnum))
     
     ;; setup empty tables for probability estimates
     (setf (hmm-transitions hmm)
@@ -305,18 +319,14 @@
 
     (loop for unigram in unigrams
         for code = (token-to-code unigram (hmm-tag-lexicon hmm))
-        do (if (aref (hmm-unigram-table hmm) code)
-               (incf (aref (hmm-unigram-table hmm) code))
-             (setf (aref (hmm-unigram-table hmm) code) 1)))
+        do (incf (aref (hmm-unigram-counts hmm) code)))
     
     (loop with stream = *bigram-stream*
         for bigram = (funcall stream)
         while bigram
         for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
         for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
-        do (if (aref (hmm-transitions hmm) previous current)
-               (incf (aref (hmm-transitions hmm) previous current))
-             (setf (aref (hmm-transitions hmm) previous current) 1)))
+        do (incf (aref (hmm-bigram-counts hmm) previous current)))
 
     (loop 
         with stream = *trigram-stream*
@@ -326,9 +336,7 @@
         do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
                  (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
                  (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
-             (if (aref (hmm-trigram-table hmm) t1 t2 t3)
-                 (incf (aref (hmm-trigram-table hmm) t1 t2 t3))
-               (setf (aref (hmm-trigram-table hmm) t1 t2 t3) 1))))
+             (incf (aref (hmm-trigram-counts hmm) t1 t2 t3))))
     hmm))
 
 (defun populate-counts (corpus hmm)
@@ -362,34 +370,35 @@
     (let ((n (hmm-n hmm)))
       
       (loop
-          with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
-          for i  fixnum from 0 to (- n 1)
-          ;;; Get the total amount of this tag (isnt this in unigram-table?)
-          for total fixnum = (float (loop
-                                        for j  fixnum from 0 to (- n 1)
-                                        for count = (aref transitions i j)
-                                        when (and count (> count *estimation-cutoff*))
-                                        sum count))
-          do
-            ;;; Normalize bigrams
-            (loop
-                for j from 0 to (- n 1)
-                for count = (aref transitions i j)
-                when (and count (> count *estimation-cutoff*))
-                do (setf (aref transitions i j) (float (/ count total))))
+       with bigram-counts = (hmm-bigram-counts hmm)
+       with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
+       for i fixnum from 0 to (- n 1)
+       ;;; Get the total amount of this tag (isnt this in unigram-table?)
+       for total fixnum = (float (loop
+                                  for j  fixnum from 0 to (- n 1)
+                                  for count = (aref bigram-counts i j)
+                                  when (and count (> count *estimation-cutoff*))
+                                  sum count))
+       do
+       ;;; Normalize bigrams
+       (loop
+        for j from 0 to (- n 1)
+        for count = (aref bigram-counts i j)
+        when (and count (> count *estimation-cutoff*))
+        do (setf (aref transitions i j) (float (/ count total))))
             
-            ;;; Adjust counts for emissions with Good-Turing
-            (make-good-turing-estimate (aref (hmm-emissions hmm) i)
-                                       (hash-table-sum (aref (hmm-emissions hmm) i))
-                                       (code-to-token i (hmm-tag-lexicon hmm)))
+       ;;; Adjust counts for emissions with Good-Turing
+       (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+                                  (hash-table-sum (aref (hmm-emissions hmm) i))
+                                  (code-to-token i (hmm-tag-lexicon hmm)))
             
-            ;;; Normalize emissions
-            (loop
-                with map = (aref (hmm-emissions hmm) i)
-                for code being each hash-key in map
-                for count = (gethash code map)
-                when (and count (> count *estimation-cutoff*))
-                do (setf (gethash code map) (float (log (/ count total))))))
+       ;;; Normalize emissions
+       (loop
+        with map = (aref (hmm-emissions hmm) i)
+        for code being each hash-key in map
+        for count = (gethash code map)
+        when (and count (> count *estimation-cutoff*))
+        do (setf (gethash code map) (float (log (/ count total))))))
       
       
       ;;; Normalize trigrams:
@@ -398,9 +407,9 @@
       
       ;;; Normalize unigrams:
       (loop for i from 0 below n
-          for count = (aref (hmm-unigram-table hmm) i)
-          with total = (loop for count across (hmm-unigram-table hmm)
-                           summing count)
+          for count = (aref (hmm-unigram-counts hmm) i)
+          with total = (loop for count across (hmm-unigram-counts hmm)
+                             summing count)
                        ;; TODO discrepancy between token count and unigram count total
                        ;; with total = (hmm-token-count hmm)
           do (setf (aref (hmm-unigram-table hmm) i)
@@ -409,18 +418,18 @@
     hmm))
 
 (defun calculate-theta (hmm)
-   (let* ((total (loop for count across (hmm-unigram-table hmm)
-                     summing count))
-          (probs (loop for count across (hmm-unigram-table hmm)
-                     collect (float (/ count total))))
+   (let* ((total (loop for count across (hmm-unigram-counts hmm)
+                       summing count))
+          (probs (loop for count across (hmm-unigram-counts hmm)
+                       collect (float (/ count total))))
           (mean (/ (loop for p in probs
-                       summing p)
+                         summing p)
                    (hmm-n hmm))))
      (setf (hmm-theta hmm)
-       (sqrt (float (* (/ 1.0 (1- (hmm-n hmm)))
-                 (loop 
-                     for p in probs
-                     summing (expt (- p mean) 2))))))))
+           (sqrt (float (* (/ 1.0 (1- (hmm-n hmm)))
+                           (loop 
+                            for p in probs
+                            summing (expt (- p mean) 2))))))))
 
 (defun add-to-suffix-tries (hmm word tag count)
   (let* ((form (code-to-token word (hmm-token-lexicon hmm)))
@@ -458,45 +467,38 @@
         (lambda-2 0)
         (lambda-3 0)
         (n (hmm-n hmm))
-
-        (uni-total (loop for count across (hmm-unigram-table hmm)
-                       summing count)))
-    (loop 
-        for i from 0 below n
-        do 
-          (loop 
-              for j from 0 below n
-              do 
-                (loop 
-                    for k from 0 below n
-                    for tri-count = (aref (hmm-trigram-table hmm) i j k)
-                    when tri-count
-                    do 
-                      (let* ((bi-count (aref (hmm-transitions hmm) j k))
-                             (uni-count (aref (hmm-unigram-table hmm) k))
-                             (c1 (let ((bi-count (aref (hmm-transitions hmm) i j)))
-                                   (if (and bi-count
-                                            (> bi-count 1)
-                                            (> bi-count *estimation-cutoff*))
-                                       (/ (1- tri-count)
-                                          (1- bi-count))
-                                     0)))
-                             (c2 (let ((uni-count (aref (hmm-unigram-table hmm) j)))
-                                   (if (and uni-count
-                                            (> uni-count 1)
-                                            (> uni-count *estimation-cutoff*))
-                                       (/ (1- bi-count)
-                                          (1- uni-count))
-                                     0)))
-                             (c3 (/ (1- uni-count)
-                                    (1- uni-total))))
-                        (cond ((and (>= c3 c2) (>= c3 c1))
-                               (incf lambda-3 tri-count))
-                              ((and (>= c2 c3) (>= c2 c1))
-                               (incf lambda-2 tri-count))
-                              ((and (>= c1 c3) (>= c1 c2))
-                               (incf lambda-1 tri-count))
-                              (t (error "Mysterious frequencies in DI-calculation.")))))))
+        (uni-total (loop for count across (hmm-unigram-counts hmm)
+                         summing count)))
+    (loop for i from 0 below n
+          do (loop for j from 0 below n
+                   do (loop for k from 0 below n
+                            for tri-count = (aref (hmm-trigram-counts hmm) i j k)
+                            when tri-count
+                            do (let* ((bi-count (aref (hmm-bigram-counts hmm) j k))
+                                      (uni-count (aref (hmm-unigram-counts hmm) k))
+                                      (c1 (let ((bi-count (aref (hmm-bigram-counts hmm) i j)))
+                                            (if (and bi-count
+                                                     (> bi-count 1)
+                                                     (> bi-count *estimation-cutoff*))
+                                              (/ (1- tri-count)
+                                                 (1- bi-count))
+                                              0)))
+                                      (c2 (let ((uni-count (aref (hmm-unigram-counts hmm) j)))
+                                            (if (and uni-count
+                                                     (> uni-count 1)
+                                                     (> uni-count *estimation-cutoff*))
+                                              (/ (1- bi-count)
+                                                 (1- uni-count))
+                                              0)))
+                                      (c3 (/ (1- uni-count)
+                                             (1- uni-total))))
+                                 (cond ((and (>= c3 c2) (>= c3 c1))
+                                        (incf lambda-3 tri-count))
+                                       ((and (>= c2 c3) (>= c2 c1))
+                                        (incf lambda-2 tri-count))
+                                       ((and (>= c1 c3) (>= c1 c2))
+                                        (incf lambda-1 tri-count))
+                                       (t (error "Mysterious frequencies in DI-calculation.")))))))
     ;; i have no idea why inverting these makes everyhing so much better
     ;; is there a bug somewhere?
     (let ((total (+ lambda-1 lambda-2 lambda-3)))
