@@ -63,7 +63,7 @@
         do (setf (aref viterbi state 0)
                  (+ (the single-float (if (hmm-bigram-transition-table hmm)
                                           (bi-cached-transition hmm start-tag tag)
-                                        (transition-probability hmm start-tag tag
+                                        (transition-probability hmm tag start-tag nil
                                                                 :order 1 :smoothing :deleted-interpolation)))
                     (the single-float
                       (if unk

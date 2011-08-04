@@ -62,50 +62,62 @@
 (defmethod print-object ((object hmm) stream)
   (format stream "<HMM with ~a states>" (hmm-n object)))
 
-(defun transition-probability (hmm previous current &key (order 1) (smoothing :constant))
+(defun transition-probability (hmm current previous &optional t2 &key (order 1) (smoothing :constant))
   "Calculates the transition-probability given previous states (atom if bigram, list of prev it trigram"
   (declare (type fixnum current order))
   (declare (type hmm hmm))
-  (the single-float
-    (log
-     (float
-      (cond ((and (eql order 1) (eql smoothing :constant))
-             (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) previous current) 0.000001))
-            ((and (= order 1) (eql smoothing :deleted-interpolation))
-             (+
-                  (* (the single-float (hmm-lambda-1 hmm))
-                       (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
-                           0.0))
-                (the single-float
-                  (* (hmm-lambda-2 hmm)
-                     (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) previous current)
-					     0.0)))))
-            ((and (= order 2) (eql smoothing :simple-back-off))
-               (or (aref (the (simple-array  t (* * *))
-                           (hmm-trigram-table hmm))
-                         (first previous) (second previous) current)
-                   (aref (the (simple-array t (* *)) (hmm-transitions hmm))
-                         (second previous) current)
-                   (aref (the (simple-array t (*))
-                           (hmm-unigram-table hmm))
-                         current)
-                   0.00000001))
-            ((and (= order 2) (eql smoothing :deleted-interpolation))
-             (+ (* (hmm-lambda-1 hmm)
-                   (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
-                       0.0))
-                (* (hmm-lambda-2 hmm)
-                   (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) (second previous) current)
-                       0.0))
-                (* (hmm-lambda-3 hmm)
-                   (or (aref (the (simple-array t (* * *)) (hmm-trigram-table hmm)) (first previous) (second previous)
-                             current)
-                       0.0))))
-            (t (error "Illegal type of transition, check parameters!")))))))
+  (when (keywordp t2)
+    (error "Illegal arglist"))
+  (log
+   (cond ((and (eql order 1) (eql smoothing :constant))
+          (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) previous current) 0.000001))
+         ((and (= order 1) (eql smoothing :deleted-interpolation))
+          (+
+           (* (the single-float (hmm-lambda-1 hmm))
+              (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
+                  0.0))
+           (the single-float
+             (* (hmm-lambda-2 hmm)
+                (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) previous current)
+                    0.0)))))
+         ((and (= order 2) (eql smoothing :simple-back-off))
+          (or (aref (the (simple-array  t (* * *))
+                      (hmm-trigram-table hmm))
+                    (first previous) (second previous) current)
+              (aref (the (simple-array t (* *)) (hmm-transitions hmm))
+                    (second previous) current)
+              (aref (the (simple-array t (*))
+                      (hmm-unigram-table hmm))
+                    current)
+              0.00000001))
+         ((and (= order 2) (eql smoothing :deleted-interpolation))
+          (let ((lambda-1 (hmm-lambda-1 hmm))
+                (lambda-2 (hmm-lambda-2 hmm))
+                (lambda-3 (hmm-lambda-3 hmm))
+                (t1 previous)
+                (t2 t2))
+            (declare (type fixnum t1 t2))
+            (declare (type single-float lambda-1 lambda-2 lambda-3))
+            (let* ((unigram (* lambda-1 
+                               (the single-float (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
+                                                     0.0))))
+                   (bigram (* lambda-2
+                              (the single-float (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) 
+                                                          t2 current)
+                                                    0.0))))
+                   (trigram (* lambda-3
+                               (the single-float (or (aref (the (simple-array t (* * *)) (hmm-trigram-table hmm)) 
+                                                           t1 t2 current)
+                                                     0.0)))))
+              (declare (type single-float unigram bigram trigram))
+              (+ unigram bigram trigram))))
+         
+         (t (error "Illegal type of transition, check parameters!")))))
 
 (defun make-transition-table (hmm order smoothing)
   "Creates a cached transition table by calling transition-probability"
   (let ((tag-card (hmm-n hmm)))
+    (declare (type fixnum tag-card))
     (cond
      ((= order 1)
       (setf (hmm-bigram-transition-table hmm)              
@@ -114,7 +126,7 @@
               for i from 0 below tag-card
               do (loop
                      for j below tag-card do
-                       (setf (aref table i j) (transition-probability hmm i j :order 1 :smoothing smoothing))))
+                       (setf (aref table i j) (transition-probability hmm j i nil :order 1 :smoothing smoothing))))
           table)))
      ((= order 2)
       (setf (hmm-trigram-transition-table hmm)
@@ -126,16 +138,13 @@
           ;;; memoization technique is better suited here
           
           (loop
-              for i from 0 below tag-card
+              for i fixnum from 0 below tag-card
               do (loop 
-                     for j  from 0 below tag-card
-                                         
-                     ;;; We could perhaps skip this if C(i,j) = 0, then C(i,j,k) is also null
-                                         
+                     for j fixnum from 0 below tag-card                                         
                      do (loop
-                            for k from 0 below tag-card do
-                              (setf (aref table i j k) 
-                                (transition-probability hmm (list i j) k :order 2 :smoothing smoothing)))))
+                            for k fixnum from 0 below tag-card do
+                              (setf (aref (the (simple-array single-float (* * *)) table) i j k) 
+                                (transition-probability hmm k i j :order 2 :smoothing smoothing)))))
           table)))
      (t (error "Illegal type of transition, check parameters!")))))
 
@@ -255,7 +264,7 @@
            for t2-node = (getlash t2 (lm-tree-node-children t1-node))
            when t2-node do
            (loop 
-            with total = (lm-tree-node-total t2-node)
+            with total = (float (lm-tree-node-total t2-node))
             for t3 from 0 below n
             for t3-node = (getlash t3 (lm-tree-node-children t2-node))
             when t3-node do
