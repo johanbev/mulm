@@ -34,7 +34,7 @@
 
 (defun confusion-matrix (blues golds &key (hmm *hmm*))
   (loop
-      with tagset-size = (hmm-n hmm)
+      with tagset-size = (hmm-tag-cardinality hmm)
       with matrix = (make-array (list tagset-size tagset-size) :initial-element 0)
       for blue in blues
       for gold in golds

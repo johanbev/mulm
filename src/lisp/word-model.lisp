@@ -139,11 +139,11 @@
 ;; current best performer
 (defun top-suff-word-model (hmm form)
   (let* ((form (code-to-token form (hmm-token-lexicon hmm)))
-         (dist (make-array (hmm-n hmm) :initial-element nil))
+         (dist (make-array (hmm-tag-cardinality hmm) :initial-element nil))
          (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
          (suffixes (nreverse (loop for seq on (get-suffix-seqs form *suffix-cutoff*)
                                    collect seq))))
-    (loop for i below (hmm-n hmm)
+    (loop for i below (hmm-tag-cardinality hmm)
           for prob = (first
                       (last
                        (loop for suffix in suffixes
@@ -158,11 +158,11 @@
 (defun tnt-word-model (hmm form &optional (theta-coeff 5))
   (let* ((form (code-to-token form (hmm-token-lexicon hmm)))
          (theta (hmm-theta hmm))
-         (dist (make-array (hmm-n hmm) :initial-element nil))
+         (dist (make-array (hmm-tag-cardinality hmm) :initial-element nil))
          (trie (gethash (capitalized-p form) (hmm-suffix-tries hmm)))
          (suffixes (nreverse (loop for seq on (get-suffix-seqs form *suffix-cutoff*)
                                    collect seq))))
-    (loop for i below (hmm-n hmm)
+    (loop for i below (hmm-tag-cardinality hmm)
           do (loop for suffix in suffixes
                    for suff-prob = (get-prob-at suffix i trie)
                    with prob = nil
@@ -185,7 +185,7 @@
          (*suffix-trie-root* (gethash trie-key (hmm-suffix-tries hmm)))
          (nodes (get-suffix-seqs form *suffix-cutoff*))
          (accu-weight 0.0)
-         (prob (make-array (hmm-n hmm) :initial-element nil)))
+         (prob (make-array (hmm-tag-cardinality hmm) :initial-element nil)))
     (declare (type (simple-array t (*)) prob))
     (loop
      for seq in (nreverse (loop for seq on nodes collect seq)) ;; Loop from small to big

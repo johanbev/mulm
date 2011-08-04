@@ -25,7 +25,7 @@
 (defun viterbi-trigram (hmm input &key &allow-other-keys)
   (declare (optimize (speed 3) (debug 1)))
   (let* ((input (encode-input hmm input))
-         (n (hmm-n hmm))
+         (n (hmm-tag-cardinality hmm))
          (nn (* n n))
          (l (length input))
          (pointer (if (< l 99)
@@ -160,7 +160,7 @@
 (defun viterbi-bigram (hmm input &key (beam-width 13.80) &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((input (encode-input hmm input))
-         (n (hmm-n hmm))
+         (n (hmm-tag-cardinality hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float :element-type 'single-float))
          (pointer (make-array (list n l) :initial-element nil)))
@@ -268,7 +268,7 @@
   decoder)
 
 (defun decode-start (decoder hmm input viterbi pointer &optional (constraints nil))
-  (let ((n (hmm-n hmm)))
+  (let ((n (hmm-tag-cardinality hmm)))
     (loop
      with form = (first input)
      for state from 0 to (- n 1)
@@ -280,7 +280,7 @@
 
 (defun decode-form (decoder hmm time form viterbi pointer indices trigger
                             beam-width best-hypothesis &optional (constraints nil))
-  (let ((n (hmm-n hmm)))
+  (let ((n (hmm-tag-cardinality hmm)))
     (loop
      for current of-type fixnum from 0 to (- n 1)
      do (loop
@@ -311,7 +311,7 @@
      do (vector-push current indices))))
 
 (defun decode-end (hmm viterbi pointer l)
-  (let ((n (hmm-n hmm)))
+  (let ((n (hmm-tag-cardinality hmm)))
     (loop
      with final = (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)
      with time of-type fixnum = (- l 1)
@@ -342,7 +342,7 @@
   ; (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((hmm (viterbi-decoder-model decoder))
          (input (encode-input hmm input))
-         (n (hmm-n hmm))
+         (n (hmm-tag-cardinality hmm))
          (l (length input))
          (constraints (loop for tags in constraints
                             collect (loop for tag in tags

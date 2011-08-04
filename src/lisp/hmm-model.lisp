@@ -11,7 +11,9 @@
   (tag-lexicon (make-lexicon))
   ; total amount of tokens in the training material seen by the model
   (token-count 0)
-  ; model tag set size
+  ; number of tags seen in the training data
+  ; NOTE see hmm-tag-cardinality() for number of tags used during training
+  ; and decoding
   (n 0)
   
   tag-array
@@ -54,6 +56,11 @@
   caches ;; transient caches for decoding
   )
 
+;; NOTE tag cardinality is the total number of tags used by the model, ie. start and end
+;; tags are added to the tag set. N is the number of tags seen in the training data.
+(defun hmm-tag-cardinality (hmm)
+  (+ (hmm-n hmm) 2))
+
 (defun bigram-to-code (hmm bigram)
   "Returns index of bigram data in "
   (let ((c1 (token-to-code (first bigram)
@@ -62,7 +69,7 @@
         (c2 (token-to-code (second bigram)
                            (hmm-tag-lexicon hmm)
                            :rop t)))
-    (+ (* c1 (hmm-n hmm))
+    (+ (* c1 (hmm-tag-cardinality hmm))
        c2)))
 
 (defmethod print-object ((object hmm) stream)
@@ -122,7 +129,7 @@
 
 (defun make-transition-table (hmm order smoothing)
   "Creates a cached transition table by calling transition-probability"
-  (let ((tag-card (hmm-n hmm)))
+  (let ((tag-card (hmm-tag-cardinality hmm)))
     (declare (type fixnum tag-card))
     (cond
      ((= order 1)
@@ -203,11 +210,12 @@
    hmm - Instantiated hmm struct.
    n   - Model tag set size.
    Returns the passed hmm struct."
+  (setf (hmm-n hmm) n)
+  
   ;; add start and end tags to tag set size
-  (let ((n (+ n 2)))
+  (let ((n (hmm-tag-cardinality hmm)))
     ;; do not fill in these when deserializing
     (when (not partial)
-      (setf (hmm-n hmm) n)
       (setf (hmm-token-count hmm) 0))
 
     ;; setup tables for tag n-gram counts
@@ -246,7 +254,7 @@
 
 (defun calculate-tag-lm (hmm corpus)
   (let ((lm-root (make-lm-tree-node))
-        (n (hmm-n hmm)))
+        (n (hmm-tag-cardinality hmm)))
     ;;; this is quite hacky but count-trees will be abstracted nicely
     ;;; in the near future, however, this should estimate correct
     ;;; n-gram probabilities
@@ -283,7 +291,7 @@
   "Initializes the hmm struct fields concerning the beam search.
    hmm - Instantiated hmm struct.
    Returns the passed hmm struct."
-  (let ((n (hmm-n hmm)))
+  (let ((n (hmm-tag-cardinality hmm)))
     (setf (hmm-beam-array hmm) (make-array n :fill-pointer t))
     (setf (hmm-tag-array hmm)
           (make-array n :element-type 'fixnum 
@@ -367,7 +375,7 @@
     
     ;; Now we can prepare normalized probabilites:
     
-    (let ((n (hmm-n hmm)))
+    (let ((n (hmm-tag-cardinality hmm)))
       
       (loop
        with bigram-counts = (hmm-bigram-counts hmm)
@@ -424,9 +432,9 @@
                        collect (float (/ count total))))
           (mean (/ (loop for p in probs
                          summing p)
-                   (hmm-n hmm))))
+                   (hmm-tag-cardinality hmm))))
      (setf (hmm-theta hmm)
-           (sqrt (float (* (/ 1.0 (1- (hmm-n hmm)))
+           (sqrt (float (* (/ 1.0 (1- (hmm-tag-cardinality hmm)))
                            (loop 
                             for p in probs
                             summing (expt (- p mean) 2))))))))
@@ -448,7 +456,7 @@
 
 (defun build-suffix-tries (hmm)
   (loop 
-      for state below (hmm-n hmm)
+      for state below (hmm-tag-cardinality hmm)
       for emission-map = (aref (hmm-emissions hmm) state)
        do
         (loop 
@@ -466,7 +474,7 @@
   (let ((lambda-1 0)
         (lambda-2 0)
         (lambda-3 0)
-        (n (hmm-n hmm))
+        (n (hmm-tag-cardinality hmm))
         (uni-total (loop for count across (hmm-unigram-counts hmm)
                          summing count)))
     (loop for i from 0 below n
@@ -509,9 +517,9 @@
 
 
 (defun code-to-bigram (hmm bigram)
-  (list (code-to-token (floor (/ bigram (hmm-n hmm)))
+  (list (code-to-token (floor (/ bigram (hmm-tag-cardinality hmm)))
                        (hmm-tag-lexicon hmm))
-        (code-to-token (mod bigram (hmm-n hmm))
+        (code-to-token (mod bigram (hmm-tag-cardinality hmm))
                        (hmm-tag-lexicon hmm))))
 
 
@@ -519,12 +527,12 @@
 
 ;; Serialization
 (defun serialize-hmm-model-header (hmm s)
-  (format s "hmm header n ~a token-count ~a~%" (hmm-n hmm) (hmm-token-count hmm)))
+  (format s "hmm header n ~a token-count ~a~%" (hmm-tag-cardinality hmm) (hmm-token-count hmm)))
 
 (defun serialize-hmm-transitions (hmm s)
   (format s "hmm transitions start~%")
-  (loop for i from 0 below (hmm-n hmm)
-        do (loop for j from 0 below (hmm-n hmm)
+  (loop for i from 0 below (hmm-tag-cardinality hmm)
+        do (loop for j from 0 below (hmm-tag-cardinality hmm)
                  do (format s "~a ~a ~S~%"
                             i j (aref (hmm-transitions hmm) i j))))
   (format s "hmm transitions end~%"))
@@ -540,9 +548,9 @@
 
 (defun serialize-hmm-trigram-table (hmm s)
   (format s "hmm trigram table start~%")
-  (loop for i from 0 below (hmm-n hmm)
-        do (loop for j from 0 below (hmm-n hmm)
-                 do (loop for k from 0 below (hmm-n hmm)
+  (loop for i from 0 below (hmm-tag-cardinality hmm)
+        do (loop for j from 0 below (hmm-tag-cardinality hmm)
+                 do (loop for k from 0 below (hmm-tag-cardinality hmm)
                           when (aref (hmm-trigram-table hmm) i j k)
                           do (format s "~a ~a ~a ~S~%"
                                      i j k
@@ -551,7 +559,7 @@
 
 (defun serialize-hmm-unigram-table (hmm s)
   (format s "hmm unigram table start~%")
-  (loop for i from 0 below (hmm-n hmm)
+  (loop for i from 0 below (hmm-tag-cardinality hmm)
         do (format s "~a ~S~%"
                    i (aref (hmm-unigram-table hmm) i)))
   (format s "hmm unigram table end~%"))
@@ -595,7 +603,7 @@
     hmm))
 
 (defun deserialize-hmm-transitions (hmm s)
-  (let ((transitions (make-array (list (hmm-n hmm) (hmm-n hmm)) :initial-element nil)))
+  (let ((transitions (make-array (list (hmm-tag-cardinality hmm) (hmm-tag-cardinality hmm)) :initial-element nil)))
     (unless (equalp (read-line s nil nil)
                     "hmm transitions start")
       (error "HMM model transition table can not be deserialized"))
@@ -614,11 +622,11 @@
     transitions))
 
 (defun deserialize-hmm-emissions (hmm s)
-  (let ((emissions (make-array (hmm-n hmm) :initial-element nil)))
+  (let ((emissions (make-array (hmm-tag-cardinality hmm) :initial-element nil)))
     (unless (equalp (read-line s nil nil)
                     "hmm emissions start")
       (error "HMM model emission table can not be deserialized"))
-    (loop for i from 0 to (- (hmm-n hmm) 1)
+    (loop for i from 0 to (- (hmm-tag-cardinality hmm) 1)
           do (setf (aref emissions i) (make-hash-table)))
     (loop for line = (read-line s nil nil)
           until (equalp (string-trim *whitespace* line) "hmm emissions end")
@@ -637,7 +645,10 @@
     emissions))
 
 (defun deserialize-hmm-trigram-table (hmm s)
-  (let ((trigram-table (make-array (list (hmm-n hmm) (hmm-n hmm) (hmm-n hmm)) :initial-element nil)))
+  (let ((trigram-table (make-array (list (hmm-tag-cardinality hmm)
+                                         (hmm-tag-cardinality hmm)
+                                         (hmm-tag-cardinality hmm))
+                                   :initial-element nil)))
     (unless (equalp (read-line s nil nil)
                     "hmm trigram table start")
       (error "HMM model trigram table can not be deserialized"))
@@ -657,7 +668,7 @@
     trigram-table))
 
 (defun deserialize-hmm-unigram-table (hmm s)
-  (let ((unigram-table (make-array (hmm-n hmm) :initial-element nil)))
+  (let ((unigram-table (make-array (hmm-tag-cardinality hmm) :initial-element nil)))
     (unless (equalp (read-line s nil nil)
                     "hmm unigram table start")
       (error "HMM model unigram table can not be deserialized"))
@@ -695,7 +706,7 @@
           (*read-eval* nil)
           (hmm (make-hmm)))
       (deserialize-hmm-header hmm (read-line s nil nil))
-      (setup-hmm hmm (- (hmm-n hmm) 2) t)
+      (setup-hmm hmm (hmm-n hmm) t)
       (setf (hmm-tag-lexicon hmm)
             (second (deserialize-lexicon s :hmm-tag-lexicon)))
       (setf (hmm-token-lexicon hmm)
@@ -747,9 +758,9 @@
   (when (/= (hmm-token-count hmm1) (hmm-token-count hmm2))
     (format t "Token count diff: ~a - ~a~%"
             (hmm-token-count hmm1) (hmm-token-count hmm2)))
-  (when (/= (hmm-n hmm1) (hmm-n hmm2))
+  (when (/= (hmm-tag-cardinality hmm1) (hmm-tag-cardinality hmm2))
     (format t "n diff: ~a - ~a~%"
-           (hmm-n hmm1) (hmm-n hmm2)))
+           (hmm-tag-cardinality hmm1) (hmm-tag-cardinality hmm2)))
   (when (/= (hmm-lambda-1 hmm1) (hmm-lambda-1 hmm2))
     (format t "Lambda-1 diff: ~a - ~a~%"
             (hmm-lambda-1 hmm1) (hmm-lambda-1 hmm2)))
@@ -772,8 +783,8 @@
   (lexicon-diff (hmm-tag-lexicon hmm1) (hmm-tag-lexicon hmm2))
   (lexicon-diff (hmm-token-lexicon hmm1) (hmm-token-lexicon hmm2))
 
-  (loop for i from 0 below (hmm-n hmm1)
-        do (loop for j below (hmm-n hmm1)
+  (loop for i from 0 below (hmm-tag-cardinality hmm1)
+        do (loop for j below (hmm-tag-cardinality hmm1)
                  for v1 = (aref (hmm-transitions hmm1) i j)
                  for v2 = (aref (hmm-transitions hmm2) i j)
                  when (and (not (and (null v1) (null v2)))
@@ -791,16 +802,16 @@
              (format t "Emissions diff hash table inconsistency at ~a~%" i))
         do (hash-table-diff-msg map1 map2 :msg (format nil "emissions diff for ~a" i)))
 
-  (loop for i from 0 below (hmm-n hmm1)
-        do (loop for j from 0 below (hmm-n hmm1)
-                 do (loop for k from 0 below (hmm-n hmm1)
+  (loop for i from 0 below (hmm-tag-cardinality hmm1)
+        do (loop for j from 0 below (hmm-tag-cardinality hmm1)
+                 do (loop for k from 0 below (hmm-tag-cardinality hmm1)
                           for v1 = (aref (hmm-trigram-table hmm1) i j k)
                           for v2 = (aref (hmm-trigram-table hmm2) i j k)
                           when (and (not (and (null v1) (null v2)))
                                     (/= v1 v2))
                           do (format t "Trigram table diff at ~a ~a ~a: ~a - ~a~%" i j k v1 v2))))
 
-  (loop for i from 0 below (hmm-n hmm1)
+  (loop for i from 0 below (hmm-tag-cardinality hmm1)
         for v1 = (aref (hmm-unigram-table hmm1) i)
         for v2 = (aref (hmm-unigram-table hmm2) i)
         when (and (not (and (null v1) (null v2)))

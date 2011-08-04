@@ -2,11 +2,11 @@
 
 (defun kn-unigrams ()
   (loop
-      with unigram-prob = (make-array (hmm-n *hmm*))
+      with unigram-prob = (make-array (hmm-tag-cardinality *hmm*))
       with accu = 0
-      for tag from 0 below (hmm-n *hmm*)
+      for tag from 0 below (hmm-tag-cardinality *hmm*)
       for preceding = (loop
-                          for prec from 0 below (hmm-n *hmm*)
+                          for prec from 0 below (hmm-tag-cardinality *hmm*)
                           for node = (getlash prec (lm-tree-node-children *lm-root*))
                           when node
                           summing (if (getlash tag (lm-tree-node-children node))
@@ -14,7 +14,7 @@
                                     0))
       do (incf accu preceding)
          (setf (aref unigram-prob tag) preceding)
-      finally (loop for i below (hmm-n *hmm*)
+      finally (loop for i below (hmm-tag-cardinality *hmm*)
                   do (setf (aref unigram-prob i)
                        (float (/ (aref unigram-prob i)
                                  accu))))
@@ -23,16 +23,16 @@
 (defun kn-bigrams (unigrams)
   (loop
       with kn-d = (hmm-bigram-d *hmm*)
-      with bigram-probs = (make-array (list (hmm-n *hmm*)
-                                            (hmm-n *hmm*))
+      with bigram-probs = (make-array (list (hmm-tag-cardinality *hmm*)
+                                            (hmm-tag-cardinality *hmm*))
                                       :element-type 'single-float
                                       :initial-element most-negative-single-float)
-      for first from 0 below (hmm-n *hmm*)
+      for first from 0 below (hmm-tag-cardinality *hmm*)
       for first-node = (getlash first (lm-tree-node-children *lm-root*))
       for first-decs = (lash-table-count (lm-tree-node-children first-node))
       for first-count = (lm-tree-node-total first-node)
       do (loop
-             for second from 0 below (hmm-n *hmm*)
+             for second from 0 below (hmm-tag-cardinality *hmm*)
              for second-node = (getlash second (lm-tree-node-children first-node))
              for second-count = (or (and second-node (lm-tree-node-total second-node)) 0)
              for adjusted-count = (max (- second-count kn-d) 0)
@@ -49,21 +49,21 @@
   (loop
       with kn-d of-type single-float = (hmm-trigram-d *hmm*)
       with trigram-probs = (make-array
-                            (list (hmm-n *hmm*)
-                                  (hmm-n *hmm*)
-                                  (hmm-n *hmm*))
+                            (list (hmm-tag-cardinality *hmm*)
+                                  (hmm-tag-cardinality *hmm*)
+                                  (hmm-tag-cardinality *hmm*))
                             :element-type 'single-float
                             :initial-element most-negative-single-float)
-      for first fixnum from 0 below (hmm-n *hmm*)                             
+      for first fixnum from 0 below (hmm-tag-cardinality *hmm*)                             
       for first-node = (getlash first (lm-tree-node-children *lm-root*))
       do (loop
-             for second fixnum from 0 below (hmm-n *hmm*)
+             for second fixnum from 0 below (hmm-tag-cardinality *hmm*)
              for second-node = (getlash second (lm-tree-node-children first-node))
              for second-count fixnum = (or (and second-node (lm-tree-node-total second-node)) 0)
              for second-decs = (and second-node (lash-table-count (lm-tree-node-children second-node)))
              when second-node do
                (loop
-                   for third fixnum from 0 below (hmm-n *hmm*)
+                   for third fixnum from 0 below (hmm-tag-cardinality *hmm*)
                    for third-node = (getlash third (lm-tree-node-children second-node))
                    for third-count fixnum  = (or (and third-node (lm-tree-node-total third-node)) 0)
                    for adjusted-count of-type single-float = (max (- third-count kn-d) 0.0)
@@ -87,9 +87,9 @@
   (loop
       with once = 0
       with twice = 0
-      for i below (hmm-n hmm)
+      for i below (hmm-tag-cardinality hmm)
       do (loop 
-             for j below (hmm-n hmm)
+             for j below (hmm-tag-cardinality hmm)
              for count = (or (aref (hmm-bigram-counts hmm) i j) -1)
              when (= count 1) do (incf once)
              when (= count 2) do (incf twice))
@@ -103,11 +103,11 @@
   (loop
       with once = 0
       with twice = 0
-      for i below (hmm-n hmm)
+      for i below (hmm-tag-cardinality hmm)
       do (loop 
-             for j below (hmm-n hmm)
+             for j below (hmm-tag-cardinality hmm)
              do (loop
-                    for k below (hmm-n hmm)
+                    for k below (hmm-tag-cardinality hmm)
                     for count = (or (aref (hmm-trigram-counts hmm) i j k) -1)
                     when (= count 1) do (incf once)
                     when (= count 2) do (incf twice)))

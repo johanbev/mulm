@@ -14,8 +14,8 @@
 
 (defun find-highest-transition (hmm)
   (loop
-      for i from 0 below (hmm-n hmm)
-      maximizing  (loop for j from 0 below (hmm-n hmm)
+      for i from 0 below (hmm-tag-cardinality hmm)
+      maximizing  (loop for j from 0 below (hmm-tag-cardinality hmm)
 		   maximizing (bi-cached-transition hmm i j))))
 
 (defun fill-max-emissions (hmm)
@@ -23,7 +23,7 @@
       with table = (make-hash-table)
       for i from 0 below (lexicon-count (hmm-token-lexicon hmm))
       for val = (loop 
-		    for j from 0 below (hmm-n hmm)
+		    for j from 0 below (hmm-tag-cardinality hmm)
 		    maximizing (emission-probability hmm j i))
       do (setf (gethash i table) val)
       finally (return table)))
@@ -62,7 +62,7 @@
   `(loop
        initially (Setf (fill-pointer generation-vector) 1)
        with time fixnum  = (1+  (node-time ,from))
-       for n fixnum from 0 below (hmm-n ,hmm)
+       for n fixnum from 0 below (hmm-tag-cardinality ,hmm)
        for prob of-type single-float = (+ (the single-float (node-probability ,from))
 					  (the single-float (bi-cached-transition ,hmm (node-value ,from)  n))
 					  (the single-float (emission-probability ,hmm n ,observation)))
@@ -84,7 +84,7 @@
   ;; First allocate the trellis and agenda
   (let* ((length (length  input))
 	 (input (apply #'vector input))
-	 (tag-card (hmm-n hmm))
+	 (tag-card (hmm-tag-cardinality hmm))
 	 (generation-vector (make-array (1+ tag-card) :fill-pointer t :initial-element nil))
 	 (trellis (make-array (list length tag-card) :initial-element nil))
 	 (limit-array (make-array (list length tag-card)
@@ -172,7 +172,7 @@
 (defmacro make-all-trigram-transitions (hmm from observation &key limit-array)
   `(loop
        with time fixnum = (1+  (node-time ,from))
-       for n fixnum from 0 below (hmm-n ,hmm)
+       for n fixnum from 0 below (hmm-tag-cardinality ,hmm)
        for prob of-type single-float = (+ (the single-float (node-probability ,from))
 					  (tri-cached-transition ,hmm 
 								 (node-value (node-backpointer ,from))

@@ -129,7 +129,7 @@
                             
 (defun make-vs-from-ll-corpus (ll-tags hmm)
   (loop
-      with vs = (make-vs :tag-card (hmm-n hmm))
+      with vs = (make-vs :tag-card (hmm-tag-cardinality hmm))
       for seq in ll-tags
       for coded-seq = (mapcar (lambda (x) (tag-to-code hmm x)) seq)
       for contexified = (contextify-tag-sequence coded-seq 3 4)
@@ -145,9 +145,9 @@
       with l2 = (hmm-lambda-2 *hmm*)
       with l3 = (hmm-lambda-3 *hmm*)
       with tokens = (hmm-token-count hmm)
-      with unigrams = (make-array (hmm-n hmm) :initial-element 0.0)
-      with bigrams = (make-array (list (hmm-n hmm) (hmm-n hmm)) :initial-element 0.0)
-      with trigrams = (make-array (list (hmm-n hmm) (hmm-n hmm) (hmm-n hmm)) :initial-element 0.0)
+      with unigrams = (make-array (hmm-tag-cardinality hmm) :initial-element 0.0)
+      with bigrams = (make-array (list (hmm-tag-cardinality hmm) (hmm-tag-cardinality hmm)) :initial-element 0.0)
+      with trigrams = (make-array (list (hmm-tag-cardinality hmm) (hmm-tag-cardinality hmm) (hmm-tag-cardinality hmm)) :initial-element 0.0)
       for seq in ll-tags                 
       do
         (loop
@@ -166,7 +166,7 @@
              for t3 = (tag-to-code hmm c3)
              do (incf (aref trigrams t1 t2 t3))
                 (loop
-                    for sister-tag below (hmm-n hmm)
+                    for sister-tag below (hmm-tag-cardinality hmm)
                     for sim = (symat-ref (vs-proximity-matrix vs) sister-tag t3)
                     when (and (numberp sim) (> sim 0.0))
                     do (incf (aref trigrams t1 t2 sister-tag) sim)
@@ -179,13 +179,13 @@
       finally
         (format t "renormalizing")
         (loop
-            for i fixnum below (hmm-n hmm)
+            for i fixnum below (hmm-tag-cardinality hmm)
             do (loop 
-                   for j fixnum below (hmm-n hmm)
+                   for j fixnum below (hmm-tag-cardinality hmm)
                    for dem-tri = (aref bigrams i j)
                    for dem-bi = (aref unigrams j)
                    do (loop
-                          for k fixnum below (hmm-n hmm)
+                          for k fixnum below (hmm-tag-cardinality hmm)
                           for trigram of-type single-float = (aref trigrams i j k)
                           for bigram of-type single-float = (aref bigrams j k)
                           for unigram of-type single-float = (aref unigrams k)
