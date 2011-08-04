@@ -222,15 +222,6 @@
        ;;; therefore likely that they will eventually be tenured
        ;;; anyway. it should be better to not have these clogging up
        ;;; newspace and being scavenged around
-       #+:allegro (excl:tenuring
-       (make-array (list (* n n) 100) :initial-element nil :allocation :old) ;; backpointer table
-       (make-array (list (* n n) 100) 
-                   :initial-element most-negative-single-float 
-                   :element-type 'single-float
-                   :allocation :old) ;; trellis
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum :allocation :old) ;; first agenda
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum :allocation :old)) ;; second agenda
-       #-:allegro
        (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
        (make-array (list (* n n) 100) 
                    :initial-element most-negative-single-float 
@@ -374,7 +365,7 @@
           with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
           for i  fixnum from 0 to (- n 1)
           ;;; Get the total amount of this tag (isnt this in unigram-table?)
-          for total fixnum = (float (loop
+          for total single-float = (float (loop
                                         for j  fixnum from 0 to (- n 1)
                                         for count = (aref transitions i j)
                                         when (and count (> count *estimation-cutoff*))
