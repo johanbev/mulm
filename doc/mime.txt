@@ -37,9 +37,11 @@ These parameters are
  is short for deleted-interpolation and the default smoothing. :kn is
  short for Kneser-Ney and :constant means no smoothing, ie. MLE.
 
-    :print t <default> | nil
+    :print t <default> | nil "path"
  Specifies whether Mime will print a report of the results from
- tagging or not.
+ tagging or not. If t Mime will print a report to stdout. If nil Mime
+ will not print anything. If a path is specified, Mime will print a report
+ to this path.
 
     :order 2 <default> | 1
  Specifies the order of the HMM. 2 means trigram and 1 means bigram.
@@ -56,6 +58,21 @@ These parameters are
     :tag-split nil <default> | t
  If non-nil, Mulm will heuristically lexicalize tags from closed-class
  states. (EXPERIMENTAL)
+
+    :suffix-cuttof <integer> 10
+ Decides how many characters Mulm will use in it's suffix model.
+
+    :suffix-freq <integer> 10
+ Decides the upper inclusive limit of the frequency of words
+ Mulm will create a suffix model from.
+
+    :freq-cutoff <integer> 0
+ Decides the lower bound for frequencies of events Mulm will estimate from
+ Ie. transitions and emissions with frequencies below this will be disregared.
+
+    :case-dependent-tries t <default> | nil
+ If true, Mulm will create two suffix models, one for capitalized word and one for
+ lowercase words. If nil, Mulm will only create one suffix model.
 
 Here's an example of a Mime experiment file:
 
