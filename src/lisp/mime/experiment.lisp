@@ -35,6 +35,10 @@
          test
          (print t)
          save
+         (suffix-cutoff mulm::*suffix-cutoff*)
+         (suffix-freq mulm::*suffix-frequency*)
+         (freq-cutoff mulm::*estimation-cutoff*)
+         (case-dependent-tries t)
          (gc nil)
          (corpus-type :tt)
          (order 2)
@@ -95,7 +99,11 @@
     (if (and (or train test) corpora)
         (error "Illegal experiment file: Cannot have both train and test set and folds!")
       (progn
-        (let (corpus splits)
+        (let (corpus splits
+              (mulm::*estimation-cutoff* freq-cutoff)
+              (mulm::*suffix-cutoff* suffix-cutoff)
+              (mulm::*suffix-frequency* suffix-freq)
+              (mulm::*split-tries* case-dependent-tries))
           (if corpora
               (setf 
                 corpus
@@ -106,7 +114,7 @@
               splits
               (list (list (prepare-corpora (list train) corpus-type file)
                           (prepare-corpora (list test) corpus-type file)))))
-          (format t "read corpora...~%")
+          (format t "read corpora...~%")          
           (loop
               for (train test) in splits
               for i from 1

@@ -3,6 +3,13 @@
 ;; TODO lm-tag-tree and suffix-tree must be estimated from counts 
 
 (defparameter *estimation-cutoff* 0)
+(defparameter *suffix-frequency* 10)
+(defparameter *split-tries* t)
+
+(defun get-trie-key (form)
+  (if *split-tries*
+      (capitalized-p form)
+    t))
 
 (defstruct hmm
   ; all unique tokens seen by the model with mapping to integer code
@@ -268,22 +275,22 @@
                                          (ll-to-tag-list corpus))
                                  3
                                  lm-root)
-          for t1 from 0 below n
-          for t1-node = (getlash t1 (lm-tree-node-children lm-root))
-          when t1-node do
+        for t1 from 0 below n
+        for t1-node = (getlash t1 (lm-tree-node-children lm-root))
+        when t1-node do
           (loop 
-           for t2 from 0 below n 
-           for t2-node = (getlash t2 (lm-tree-node-children t1-node))
-           when t2-node do
-           (loop 
-            with total = (float (lm-tree-node-total t2-node))
-            for t3 from 0 below n
-            for t3-node = (getlash t3 (lm-tree-node-children t2-node))
-            when t3-node do
-            (let ((prob (/ (lm-tree-node-total t3-node)
-                           total)))
-              (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
-                    prob)))))
+              for t2 from 0 below n 
+              for t2-node = (getlash t2 (lm-tree-node-children t1-node))
+              when t2-node do
+                (loop 
+                    with total = (float (lm-tree-node-total t2-node))
+                    for t3 from 0 below n
+                    for t3-node = (getlash t3 (lm-tree-node-children t2-node))
+                    when t3-node do
+                      (let ((prob (/ (lm-tree-node-total t3-node)
+                                     total)))
+                        (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                          prob)))))
     lm-root))
 
 (defun setup-hmm-beam (hmm)
@@ -440,7 +447,7 @@
 
 (defun add-to-suffix-tries (hmm word tag count)
   (let* ((form (code-to-token word (hmm-token-lexicon hmm)))
-         (trie-key (capitalized-p form))
+         (trie-key (get-trie-key form))
          (lookup (gethash trie-key (hmm-suffix-tries hmm))))
     (when (null lookup)
       (setf lookup (make-lm-tree-node))
@@ -461,7 +468,7 @@
         (loop 
             for word being the hash-keys in emission-map
             for count = (gethash word emission-map)
-            when (and (<= count 10) (<= (total-emissions word hmm) 10)
+            when (and (<= count *suffix-frequency*) (<= (total-emissions word hmm) *suffix-frequency*)
                       (not (eql word :unk)))                       
             do (add-to-suffix-tries hmm word state count)))
   (maphash (lambda (k v)
