@@ -10,24 +10,6 @@
 (defclass id-normalizer (normalizer) nil)
 (defclass cd-normalizer (normalizer) nil)
 
-;; Lispworks doesn't do unicode char names
-#-lispworks
-(defparameter *illegal-token-chars*
-    '(#\: #\, #\. #\- #\/ #\% #\\ #\#
-      #\CURRENCY_SIGN
-      #\$
-      #\POUND_SIGN
-      #\EURO_SIGN
-      #\' #\` #\( #\) #\;))
-
-#+lispworks
-(defparameter *illegal-token-chars*
-    '(#\: #\, #\. #\- #\/ #\% #\\ #\#
-      #\U+00A4 ;; CURRENCY SIGN
-      #\$
-      #\U+00A3 ;; POUND SIGN
-      #\U+29AC ;; EURO SIGN
-      #\' #\` #\( #\) #\;))
 
 (defmethod normalize (token (normalizer downcasing))
   (string-downcase token))

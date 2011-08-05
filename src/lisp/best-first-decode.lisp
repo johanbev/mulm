@@ -92,7 +92,6 @@
 	 (*heap* (make-heap))
 	 (start-node (make-node :time -1 :probability 0.0 :value (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t)))
 	 (end-tag (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)))
-    (declare (dynamic-extent trellis *heap* generation-vector limit-array))
     ;; make transitions from the start node and enqueue
     (declare
        ;; this declaration should be redundant
@@ -101,7 +100,7 @@
 	     (type (simple-array t (*)) input))
     (loop
        initially (make-all-transitions hmm start-node (elt input 0))
-       for node of-type node = (vector-pop generation-vector)
+       for node  = (vector-pop generation-vector)
        while node
        do (let ((time (node-time node))
 		(value (node-value node))

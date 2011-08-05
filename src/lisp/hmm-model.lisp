@@ -78,7 +78,6 @@
 (defun transition-probability (hmm current previous &optional t2 &key (order 1) (smoothing :constant))
   "Calculates the transition-probability given previous states (atom if bigram, list of prev it trigram"
   (declare (type fixnum current order))
-  (declare (type hmm hmm))
   (when (keywordp t2)
     (error "Illegal arglist"))
   (log
