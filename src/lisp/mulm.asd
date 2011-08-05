@@ -18,6 +18,8 @@
                                                "trie"
                                                "utilities"
                                                "word-model"))
+               (:file "hmm-model-serialization" :depends-on ("hmm-model"))
+               (:file "hmm-model-diff" :depends-on ("hmm-model"))
                (:file "hmm-decoder" :depends-on ("hmm-model"))
                (:file "heap" :depends-on ("mulm"))
                (:file "kn" :depends-on ("utilities" "count-tree"))
