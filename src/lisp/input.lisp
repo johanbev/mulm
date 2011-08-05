@@ -73,7 +73,9 @@
   "Create a list of lists corpus from TT format file."
   (declare (ignore lexicon))
   (with-open-file (stream file :direction :input)
-    (loop with forms
+    (loop 
+        with accu 
+        with forms
         for line = (read-line stream nil)
                    ;; split on any whitespace
         for split = (position-if #'(lambda (c)
@@ -84,12 +86,16 @@
                       (gethash raw-tag tag-map raw-tag)
                     raw-tag)                  
         while line
-        when (and form tag (not (string= form "")))
+        if (and form tag (not (string= form "")))
         do (if constrained
                (destructuring-bind (tag constraint) (split-tag-constraint tag)
                  (push (list form tag constraint) forms))
              (push (list form tag) forms))
-        else collect (nreverse forms) and do (setf forms nil))))
+        else 
+        do
+         (when forms (push (nreverse forms)  accu))
+         (setf forms nil)
+        finally (when forms (push (nreverse forms) accu)) (return (nreverse accu)))))
 
 (defun ll-to-word-list (ll)
   "Extract the sentences out of a list of lists corpus"
