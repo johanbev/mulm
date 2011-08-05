@@ -7,15 +7,11 @@
                (:file "utilities" :depends-on ("mulm"))
                (:file "lash" :depends-on ("mulm"))
                (:file "count-tree" :depends-on ("mulm" "fast-queue" "utilities" "lash"))
-               (:file "queue" :depends-on ("mulm"))
                (:file "fast-queue" :depends-on ("mulm"))
-               (:file "trie" :depends-on ("utilities"))
                (:file "input" :depends-on ("lexicon"))
-               (:file "stats" :depends-on ("mulm" "input" "utilities" "hmm-model"))
                (:file "lexicon" :depends-on ("mulm"))
                (:file "hmm-model" :depends-on ("lexicon"
                                                "input"
-                                               "trie"
                                                "utilities"
                                                "word-model"))
                (:file "hmm-model-serialization" :depends-on ("hmm-model"))
@@ -24,7 +20,7 @@
                (:file "heap" :depends-on ("mulm"))
                (:file "kn" :depends-on ("utilities" "count-tree"))
                (:file "word-model" :depends-on ("kn" "count-tree"))
-               (:file "gt" :depends-on ("stats"))
+               (:file "gt" :depends-on ("hmm-model"))
                (:file "best-first-decode" :depends-on ("heap" "lexicon" "input" "hmm-model"))
                (:file "evaluate" :depends-on ("hmm-decoder")))
-  :depends-on ("split-sequence" "cl-ppcre"))
+  :depends-on ("cl-ppcre" "split-sequence"))
