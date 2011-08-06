@@ -23,6 +23,34 @@
                   else do (push sequence rest)
                   finally (return (list rest held-out)))))
 
+(defvar *training-curve-steps*
+    '(0.01 0.05 0.10 0.20 0.30 0.40 0.50 0.7 1))
+
+
+;; We reuse the fold mechanism here for a quick preview of learning rates
+(defun split-into-training-curves (corpus &optional test)
+  ;; if test is not supplied split of one tenth for testing
+  (let ((working corpus) (held-out test))
+    (unless held-out
+      (setf working nil)
+      (loop
+          for sequence in corpus
+          for i from 1
+          if (= 0 (mod i 10))
+          do (push sequence held-out)
+          else do (push sequence working)))               
+    (loop
+        with length = (length corpus)
+        for threshold in *training-curve-steps*
+        for next-limit = (floor (* threshold length))
+        collect
+          (list
+           (loop
+               for seq in working
+               for i from 1 below next-limit
+               collect seq)
+           held-out))))
+
 (defmacro with-experiment (file &body body)
   `(with-open-file (stream ,file :direction :input)
     ;;; this is why we do this in lisp:
@@ -39,6 +67,7 @@
          (suffix-freq mulm::*suffix-frequency*)
          (freq-cutoff mulm::*estimation-cutoff*)
          (case-dependent-tries t)
+         training-curve
          (gc nil)
          (corpus-type :tt)
          (order 2)
@@ -104,16 +133,20 @@
               (mulm::*suffix-cutoff* suffix-cutoff)
               (mulm::*suffix-frequency* suffix-freq)
               (mulm::*split-tries* case-dependent-tries))
-          (if corpora
-              (setf 
+          (cond
+           (training-curve
+            (setf corpus (prepare-corpora corpora corpus-type file))
+            (setf splits (split-into-training-curves corpus)))
+           (corpora
+            (setf 
                 corpus
-                (prepare-corpora corpora corpus-type file)
-                splits
-                (split-into-folds corpus folds))
-            (setf
+              (prepare-corpora corpora corpus-type file)
               splits
-              (list (list (prepare-corpora (list train) corpus-type file)
-                          (prepare-corpora (list test) corpus-type file)))))
+              (split-into-folds corpus folds)))
+            (t (setf
+                   splits
+                 (list (list (prepare-corpora (list train) corpus-type file)
+                             (prepare-corpora (list test) corpus-type file))))))
           (format t "read corpora...~%")          
           (loop
               for (train test) in splits
