@@ -1,10 +1,8 @@
 (in-package :mulm)
 
-;; WARNING serialization and deserialization is currently inaccurate
-
 ;; Serialization
 (defun serialize-hmm-model-header (hmm s)
-  (format s "hmm header n ~a token-count ~a~%" (hmm-tag-cardinality hmm) (hmm-token-count hmm)))
+  (format s "hmm header n ~a token-count ~a~%" (hmm-n hmm) (hmm-token-count hmm)))
 
 (defun serialize-hmm-emissions (hmm s)
   (format s "hmm emissions start~%")
@@ -19,7 +17,7 @@
   (format s "hmm unigram counts start~%")
   (loop for i from 0 below (hmm-tag-cardinality hmm)
         do (format s "~a ~S~%"
-                   i (aref (hmm-unigram-table hmm) i)))
+                   i (aref (hmm-unigram-counts hmm) i)))
   (format s "hmm unigram counts end~%"))
 
 (defun serialize-hmm-bigram-counts (hmm s)
@@ -37,25 +35,11 @@
     (loop for i from 0 below c
           do (loop for j from 0 below c
                    do (loop for k from 0 below c
-                            when (aref (hmm-trigram-table hmm) i j k)
+                            when (aref (hmm-trigram-counts hmm) i j k)
                             do (format s "~a ~a ~a ~S~%"
                                        i j k
-                                       (aref (hmm-trigram-table hmm) i j k)))))
+                                       (aref (hmm-trigram-counts hmm) i j k)))))
     (format s "hmm trigram counts end~%")))
-
-#|
-(defun serialize-hmm-parameters (hmm s)
-  (format s "hmm parameters start~%")
-
-  (format s "lambda-1 ~S~%" (hmm-lambda-1 hmm))
-  (format s "lambda-2 ~S~%" (hmm-lambda-2 hmm))
-  (format s "lambda-3 ~S~%" (hmm-lambda-3 hmm))
-  (format s "theta ~S~%" (hmm-theta hmm))
-  (format s "bigram-d ~S~%" (hmm-bigram-d hmm))
-  (format s "trigram-d ~S~%" (hmm-trigram-d hmm))
-
-  (format s "hmm parameters end~%"))
-|#
 
 (defun serialize-hmm-model (hmm s)
   (serialize-hmm-model-header hmm s)
@@ -64,9 +48,7 @@
   (serialize-hmm-emissions hmm s)
   (serialize-hmm-unigram-counts hmm s)
   (serialize-hmm-bigram-counts hmm s)
-  (serialize-hmm-trigram-counts hmm s)
-  ; (serialize-hmm-parameters hmm s)
-  )
+  (serialize-hmm-trigram-counts hmm s))
 
 (defun serialize-hmm-model-to-file (hmm file &key (if-exists :supersede))
   (with-open-file (s file :direction :output :if-exists if-exists)
@@ -169,23 +151,6 @@
                      (parse-integer value))))
     trigram-counts))
 
-#|
-(defun deserialize-hmm-parameters (s)
-  (unless (equalp (read-line s nil nil)
-                    "hmm parameters start")
-      (error "HMM model unigram table can not be deserialized"))
-  (loop for line = (read-line s nil nil)
-          until (equalp (string-trim *whitespace* line) "hmm parameters end")
-
-          when (null line)
-          do (error "Premature end of file")
-
-          collect (destructuring-bind (param value)
-                      (cl-ppcre:all-matches-as-strings "\\S+" (string-trim *whitespace* line))
-                    (list (intern (string-upcase param) :keyword)
-                          (read-from-string value)))))
-|#
-
 (defun deserialize-hmm-model (s)
   (with-standard-io-syntax
     (let ((*package* (find-package :mulm))
@@ -206,32 +171,9 @@
       (setf (hmm-trigram-counts hmm)
             (deserialize-hmm-trigram-counts hmm s))
 
-;;;;       (let ((param-alist (deserialize-hmm-parameters s)))
-;;;;         (loop for param in (mapcar #'first param-alist)
-;;;;               do (ecase param
-;;;;                    (:lambda-1 (setf (hmm-lambda-1 hmm)
-;;;;                                     (second (assoc :lambda-1 param-alist))))
-;;;;                    (:lambda-2 (setf (hmm-lambda-2 hmm)
-;;;;                                     (second (assoc :lambda-2 param-alist))))
-;;;;                    (:lambda-3 (setf (hmm-lambda-3 hmm)
-;;;;                                     (second (assoc :lambda-3 param-alist))))
-;;;;                    (:theta (setf (hmm-theta hmm)
-;;;;                                  (second (assoc :theta param-alist))))
-;;;;                    (:bigram-d (setf (hmm-bigram-d hmm)
-;;;;                                     (second (assoc :bigram-d param-alist))))
-;;;;                    (:trigram-d (setf (hmm-trigram-d hmm)
-;;;;                                      (second (assoc :trigram-d param-alist)))))))
 
+      (calculate-parameters hmm)
       (setup-hmm-beam hmm)
-      (build-suffix-tries hmm)
-
-      (calculate-deleted-interpolation-weights hmm)
-      (calculate-theta hmm)
-      (build-suffix-tries hmm)
-      (setf (hmm-bigram-d hmm)
-            (estimate-bigram-d hmm))
-      (setf (hmm-trigram-d hmm)
-            (estimate-trigram-d hmm))
 
       hmm)))
 
