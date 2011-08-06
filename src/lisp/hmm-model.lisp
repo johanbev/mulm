@@ -258,23 +258,13 @@
        (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))))
   hmm)
 
-(defun calculate-tag-lm (hmm corpus)
+(defun calculate-tag-lm (hmm)
   (let ((lm-root (make-lm-tree-node))
         (n (hmm-tag-cardinality hmm)))
     ;;; this is quite hacky but count-trees will be abstracted nicely
     ;;; in the near future, however, this should estimate correct
     ;;; n-gram probabilities
-    (loop initially (build-model (mapcar (lambda (x)
-                                           (append
-                                            (list (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t))
-                                            (mapcar (lambda (x)
-
-                                                      (token-to-code x (hmm-tag-lexicon hmm) :rop t))
-                                                    x)
-                                            (list (token-to-code  "</s>" (hmm-tag-lexicon hmm) :rop t))))
-                                         (ll-to-tag-list corpus))
-                                 3
-                                 lm-root)
+    (loop initially (build-model hmm lm-root)
         for t1 from 0 below n
         for t1-node = (getlash t1 (lm-tree-node-children lm-root))
         when t1-node do
@@ -358,6 +348,64 @@
   (loop for sentence in corpus
       do (add-sentence-to-hmm hmm sentence)))
 
+(defun calculate-parameters (hmm)
+  (calculate-deleted-interpolation-weights hmm)
+  (calculate-theta hmm)
+  (build-suffix-tries hmm)
+  (setf (hmm-bigram-d hmm)
+        (estimate-bigram-d hmm))
+  (setf (hmm-trigram-d hmm)
+        (estimate-trigram-d hmm))
+    
+  ;; Now we can prepare normalized probabilites:
+    
+  (let ((n (hmm-tag-cardinality hmm)))
+      
+    (loop
+     with bigram-counts = (hmm-bigram-counts hmm)
+     with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
+     for i fixnum from 0 to (- n 1)
+     ;;; Get the total amount of this tag (isnt this in unigram-table?)
+     for total fixnum = (float (loop
+                                for j  fixnum from 0 to (- n 1)
+                                for count = (aref bigram-counts i j)
+                                when (and count (> count *estimation-cutoff*))
+                                sum count))
+     do
+     ;;; Normalize bigrams
+     (loop
+      for j from 0 to (- n 1)
+      for count = (aref bigram-counts i j)
+      when (and count (> count *estimation-cutoff*))
+      do (setf (aref transitions i j) (float (/ count total))))
+            
+     ;;; Adjust counts for emissions with Good-Turing
+     (make-good-turing-estimate (aref (hmm-emissions hmm) i)
+                                (hash-table-sum (aref (hmm-emissions hmm) i))
+                                (code-to-token i (hmm-tag-lexicon hmm)))
+            
+     ;;; Normalize emissions
+     (loop
+      with map = (aref (hmm-emissions hmm) i)
+      for code being each hash-key in map
+      for count = (gethash code map)
+      when (and count (> count *estimation-cutoff*))
+      do (setf (gethash code map) (float (log (/ count total))))))
+            
+    ;;; Normalize trigrams:
+    (setf (hmm-tag-lm hmm) (calculate-tag-lm hmm))
+            
+    ;;; Normalize unigrams:
+    (loop for i from 0 below n
+          for count = (aref (hmm-unigram-counts hmm) i)
+          with total = (loop for count across (hmm-unigram-counts hmm)
+                             summing count)
+          ;; TODO discrepancy between token count and unigram count total
+          ;; with total = (hmm-token-count hmm)
+          do (setf (aref (hmm-unigram-table hmm) i)
+                   (float (/ count total)))))
+  hmm)
+
 (defun train (corpus &optional (n nil))
   "Trains a HMM model from a corpus (a list of lists of word/tag pairs).
    Returns a fully trained hmm struct."
@@ -367,67 +415,9 @@
     ;; collect counts from setences in the corpus
     (populate-counts corpus hmm)
 
-    (setup-hmm-beam hmm)
+    (calculate-parameters hmm)
 
-    ;; These steps must be performed before counts are converted into
-    ;; probability estimates
-    (calculate-deleted-interpolation-weights hmm)
-    (calculate-theta hmm)
-    (build-suffix-tries hmm)
-    (setf (hmm-bigram-d hmm)
-          (estimate-bigram-d hmm))
-    (setf (hmm-trigram-d hmm)
-      (estimate-trigram-d hmm))
-    
-    ;; Now we can prepare normalized probabilites:
-    
-    (let ((n (hmm-tag-cardinality hmm)))
-      
-      (loop
-       with bigram-counts = (hmm-bigram-counts hmm)
-       with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
-       for i fixnum from 0 to (- n 1)
-       ;;; Get the total amount of this tag (isnt this in unigram-table?)
-       for total fixnum = (float (loop
-                                  for j  fixnum from 0 to (- n 1)
-                                  for count = (aref bigram-counts i j)
-                                  when (and count (> count *estimation-cutoff*))
-                                  sum count))
-       do
-       ;;; Normalize bigrams
-       (loop
-        for j from 0 to (- n 1)
-        for count = (aref bigram-counts i j)
-        when (and count (> count *estimation-cutoff*))
-        do (setf (aref transitions i j) (float (/ count total))))
-            
-       ;;; Adjust counts for emissions with Good-Turing
-       (make-good-turing-estimate (aref (hmm-emissions hmm) i)
-                                  (hash-table-sum (aref (hmm-emissions hmm) i))
-                                  (code-to-token i (hmm-tag-lexicon hmm)))
-            
-       ;;; Normalize emissions
-       (loop
-        with map = (aref (hmm-emissions hmm) i)
-        for code being each hash-key in map
-        for count = (gethash code map)
-        when (and count (> count *estimation-cutoff*))
-        do (setf (gethash code map) (float (log (/ count total))))))
-      
-      
-      ;;; Normalize trigrams:
-      (setf (hmm-tag-lm hmm) (calculate-tag-lm hmm corpus))
-      
-      
-      ;;; Normalize unigrams:
-      (loop for i from 0 below n
-          for count = (aref (hmm-unigram-counts hmm) i)
-          with total = (loop for count across (hmm-unigram-counts hmm)
-                             summing count)
-                       ;; TODO discrepancy between token count and unigram count total
-                       ;; with total = (hmm-token-count hmm)
-          do (setf (aref (hmm-unigram-table hmm) i)
-               (float (/ count total)))))
+    (setup-hmm-beam hmm)
     
     hmm))
 
