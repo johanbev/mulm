@@ -182,8 +182,12 @@
       (when print
         (typecase print
           (string (with-open-file (stream print :direction :output :if-exists :supersede)
-                    (print-profile profile stream)))
-          (t (print-profile profile print))))
+                    (if training-curve
+                        (print-lc (learning-curve profile) stream)
+                      (print-profile profile stream))))
+          (t (if training-curve
+                 (print-lc (learning-curve profile))
+               (print-profile profile t)))))
       (when save
         (with-open-file (stream save :direction :output :if-exists :supersede)
           (write profile :stream stream))))

@@ -40,6 +40,7 @@
   (sxhash (format nil "~a~a" name (get-internal-real-time))))   
   
 (defstruct profile
+  learning-rate
   name
   id
   folds)
@@ -222,8 +223,19 @@
                  (accuracy-ambiguity)))
   (format t "~%"))
                  ;;; FIXME do the averages!
-                 
-                 
+
+(defun learning-curve (profile)
+  (loop
+      for fold in (profile-folds profile)
+      for rat in *training-curve-steps*
+      collect (list rat (fold-token-acc fold))))
+
+(defun print-lc (curve &optional (path t))
+  (format path "~&~{~{~,2f ~,2f%~}~^~%~}~%" curve))
+
+(defun gnuplot-lc (curve path)
+  (with-open-file (stream path :direction :output :if-exists :supersede)
+    (format stream "~{~{~,2f  ~,2f~}~^~%~}~%" curve)))
 
 (defstruct word
   (count 0)
