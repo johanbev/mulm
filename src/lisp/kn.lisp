@@ -46,7 +46,6 @@
       finally (return bigram-probs)))
 
 (defun kn-trigrams (unigrams)
-  (declare (:explain :calls))
   (loop
       with n = (hmm-tag-cardinality *hmm*)
       with kn-d of-type single-float = (hmm-trigram-d *hmm*)
