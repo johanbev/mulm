@@ -98,7 +98,7 @@
            (1 (setf (mulm::hmm-bigram-transition-table hmm)
                 (mulm::kn-bigrams (mulm::kn-unigrams))))
            (2 (setf (mulm::hmm-trigram-transition-table hmm)
-                (mulm::kn-trigrams (mulm::kn-bigrams (mulm::kn-unigrams))))
+                (mulm::kn-trigrams  (mulm::kn-unigrams)))
               (setf (mulm::hmm-bigram-transition-table hmm)
                 (mulm::kn-bigrams (mulm::kn-unigrams))))))))
     hmm))
