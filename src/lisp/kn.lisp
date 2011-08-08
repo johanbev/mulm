@@ -47,7 +47,7 @@
 
 (defun kn-trigrams (unigrams)
   (loop
-      with n = (hmm-tag-cardinality *hmm*)
+      with n fixnum = (hmm-tag-cardinality *hmm*)
       with kn-d of-type single-float = (hmm-trigram-d *hmm*)
       with trigram-probs = (make-array
                             (list (hmm-tag-cardinality *hmm*)
@@ -67,38 +67,39 @@
                   for k fixnum below n
                   ;; first calculate lower order prob:
                   for right-drop = 0.0
-                  for right-card = (lash-table-count (lm-tree-node-children (getlash j top)))
-                  for left-card =                    
-                    (loop
-                        for left fixnum below n
-                        for left-node = (getlash left top)
-                        for t2-node = (getlash j (lm-tree-node-children left-node))
-                        for t2-dec fixnum = (or (and t2-node
-                                              (lash-table-count (lm-tree-node-children t2-node)))
-                                         0)
-                        when (and t2-node (getlash k (lm-tree-node-children t2-node)))
-                        do (incf right-drop)
-                        summing t2-dec)
+                  for right-card of-type single-float = (float (lash-table-count (lm-tree-node-children (getlash j top))))
+                  for left-card of-type single-float =
+                    (float
+                     (loop
+                         for left fixnum below n
+                         for left-node = (getlash left top)
+                         for t2-node = (getlash j (lm-tree-node-children left-node))
+                         for t2-dec fixnum = (or (and t2-node
+                                                      (lash-table-count (lm-tree-node-children t2-node)))
+                                                 0.0)
+                         when (and t2-node (getlash k (lm-tree-node-children t2-node)))
+                         do (incf right-drop)
+                         summing t2-dec))
                     ;;; if left card is 0 then we have either the start tag or end tag
-                  when (> left-card 0)
-                  do (let* ((alpha-1 (aref unigrams k))
-                            (gamma-1 (/ (* right-card (hmm-bigram-d *hmm*)) left-card))
-                            (alpha-2 (/ (max 0.0 (- right-drop (hmm-bigram-d *hmm*)))
+                  when (> left-card 0.0)
+                  do (let* ((alpha-1 (aref (the (simple-array single-float (*)) unigrams) k))
+                            (gamma-1 (/ (the single-float (* right-card (the single-float (hmm-bigram-d *hmm*)))) left-card))
+                            (alpha-2 (/ (the single-float (max 0.0 (- right-drop (the single-float (hmm-bigram-d *hmm*)))))
                                         left-card))
                             (gamma-2 (if t2-node
-                                         (/ (* (lash-table-count (lm-tree-node-children t2-node)) kn-d)
+                                         (/ (the single-float (* (lash-table-count (lm-tree-node-children t2-node)) kn-d))
                                             (lm-tree-node-total t2-node))
                                        1.0)) ;; I have no idea what this gamma should be really :-(
                             (alpha-3 (if (not t2-node)
                                          0.0
                                        (let ((t3-node (getlash k (lm-tree-node-children t2-node))))
                                          (if t3-node
-                                             (/ (max 0.0 (- (lm-tree-node-total t3-node) kn-d))
+                                             (/ (the single-float (max 0.0 (- (lm-tree-node-total t3-node) kn-d)))
                                                 (lm-tree-node-total t2-node))
                                            0.0))))
                             (prob (+ alpha-3
-                                     (* alpha-2 gamma-2)
-                                     (* alpha-1 gamma-1))))
+                                     (the single-float (* alpha-2 gamma-2))
+                                     (the single-float (* alpha-1 gamma-1)))))
                        (declare (type single-float alpha-1 gamma-1 alpha-2 gamma-2 alpha-3 prob))
                        (setf (aref trigram-probs i j k)
                          (if (> prob 0)
