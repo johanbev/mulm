@@ -176,7 +176,7 @@
 (defmacro tri-cached-transition (hmm t1 t2 to)
   "Gets the cached transition probability P(to|t1,t2)"
   `(the single-float
-     (max -19.0
+     (max -10000.0
           (aref (the (simple-array single-float (* * *)) (hmm-trigram-transition-table ,hmm)) ,t1 ,t2 ,to))))
 
 (defmacro emission-probability (hmm state form)
@@ -217,6 +217,9 @@
    n   - Model tag set size.
    Returns the passed hmm struct."
   (setf (hmm-n hmm) n)
+  
+  (token-to-code "<s>" (hmm-tag-lexicon hmm))
+  (token-to-code "</s>" (hmm-tag-lexicon hmm))
   
   ;; add start and end tags to tag set size
   (let ((n (hmm-tag-cardinality hmm)))

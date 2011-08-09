@@ -81,22 +81,22 @@
                         when (and t2-node (getlash k (lm-tree-node-children t2-node)))
                         do (incf (aref bigram-decs j k))
                         summing t2-dec into sum
-                        finally (setf (aref bigram-counts j k) (float sum)))))
-                      
+                        finally (setf (aref bigram-counts j k) (float sum)))))                      
       do 
         (loop
             for j fixnum below n            
             for t2-node = (getlash j (lm-tree-node-children t1-node))
-            for t2-decs of-type single-float = (if t2-node (float (lash-table-count (lm-tree-node-children t2-node))) 0.0)
-            for right-card of-type single-float = (float (lash-table-count (lm-tree-node-children (getlash j top))))
+            for t2-decs of-type single-float = (if t2-node (float (the fixnum (lash-table-count (lm-tree-node-children t2-node)))) 0.0)
+            for right-card of-type single-float = (float (the fixnum (lash-table-count (lm-tree-node-children (getlash j top)))))
+            for t2-total of-type single-float = (if t2-node (float (the fixnum (lm-tree-node-total t2-node))) 0.0)
             do
               (loop
                   for k fixnum below n
-                  ;; first calculate lower order prob:
+                  ;; get the bigram `counts'
                   for right-drop of-type single-float = (aref bigram-decs j k)
                   for left-card of-type single-float = (aref bigram-counts j k)
                     
-                    ;;; if left card is 0 then we have either the start tag or end tag
+                  ;;; if left card is 0 then we have either the start tag or end tag
                   when (> left-card 0.0)
                   do (let* ((alpha-1 (aref (the (simple-array single-float (*)) unigrams) k))
                             (gamma-1 (/ (* right-card bigram-d) left-card))
@@ -104,14 +104,14 @@
                                         left-card))
                             (gamma-2 (if t2-node
                                          (/ (* t2-decs kn-d)
-                                            (lm-tree-node-total t2-node))
+                                            t2-total)
                                        1.0)) ;; I have no idea what this gamma should be really :-(
                             (alpha-3 (if (not t2-node)
                                          0.0
                                        (let ((t3-node (getlash k (lm-tree-node-children t2-node))))
                                          (if t3-node
-                                             (/ (max 0.0 (- (lm-tree-node-total t3-node) kn-d))
-                                                (lm-tree-node-total t2-node))
+                                             (/ (max 0.0 (- (the single-float (float (the fixnum (lm-tree-node-total t3-node)))) kn-d))
+                                                t2-total)
                                            0.0))))
                             (prob (+ alpha-3
                                     (* alpha-2 gamma-2)
@@ -122,6 +122,32 @@
                              (log prob)
                            most-negative-single-float)))))
       finally (return trigram-probs)))
+
+(defun check-trigrams (trigrams)
+  (loop
+      with n = (hmm-tag-cardinality *hmm*)
+      for i from 0 below n
+      collect
+        (loop for j below n
+            collect
+              (loop
+                  for k below n
+                  for prob = (aref trigrams i j k)
+                  summing (if (> prob -1000)
+                              (exp prob)
+                            0.0)))))
+
+(defun check-bigrams (bigrams)
+  (loop
+      with n = (hmm-tag-cardinality *hmm*)
+      for j below n
+      collect
+        (loop
+            for k below n
+            for prob = (aref bigrams j k)
+            summing (if (> prob -1000)
+                        (exp prob)
+                      0.0))))
 
 (defun estimate-bigram-d (hmm)
   (loop
@@ -156,3 +182,5 @@
                      (if (or (= 0 once) (= 0 twice))
                          1.107
                          (/ once (+ once (* 2 twice))))))))
+
+
