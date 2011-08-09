@@ -49,60 +49,76 @@
   (loop
       with n fixnum = (hmm-tag-cardinality *hmm*)
       with kn-d of-type single-float = (hmm-trigram-d *hmm*)
+      with bigram-d of-type single-float = (hmm-bigram-d *hmm*)
       with trigram-probs = (make-array
-                            (list (hmm-tag-cardinality *hmm*)
-                                  (hmm-tag-cardinality *hmm*)
-                                  (hmm-tag-cardinality *hmm*))
+                            (list n n n)
                             :element-type 'single-float
                             :initial-element most-negative-single-float)
+      with bigram-counts = (make-array
+                            (list n n)
+                            :element-type 'single-float
+                            :initial-element 0.0)
+      with bigram-decs = (make-array 
+                          (list n n)
+                          :element-type 'single-float
+                          :initial-element 0.0)           
       with top = (lm-tree-node-children *lm-root*)
       for i fixnum below n
       for t1-node = (getlash i top)
+      ;; first initialize bigrams :
+      initially
+        (loop for j fixnum below n
+            do
+              (loop for k fixnum below n
+                  do
+                    (loop
+                        for left fixnum below n
+                        for left-node = (getlash left top)
+                        for t2-node = (getlash j (lm-tree-node-children left-node))
+                        for t2-dec fixnum = (or (and t2-node
+                                                     (lash-table-count (lm-tree-node-children t2-node)))
+                                                0)
+                        when (and t2-node (getlash k (lm-tree-node-children t2-node)))
+                        do (incf (aref bigram-decs j k))
+                        summing t2-dec into sum
+                        finally (setf (aref bigram-counts j k) (float sum)))))
+                      
       do 
         (loop
             for j fixnum below n            
             for t2-node = (getlash j (lm-tree-node-children t1-node))
+            for t2-decs of-type single-float = (if t2-node (float (lash-table-count (lm-tree-node-children t2-node))) 0.0)
+            for right-card of-type single-float = (float (lash-table-count (lm-tree-node-children (getlash j top))))
             do
               (loop
                   for k fixnum below n
                   ;; first calculate lower order prob:
-                  for right-drop = 0.0
-                  for right-card of-type single-float = (float (lash-table-count (lm-tree-node-children (getlash j top))))
-                  for left-card of-type single-float =
-                    (float
-                     (loop
-                         for left fixnum below n
-                         for left-node = (getlash left top)
-                         for t2-node = (getlash j (lm-tree-node-children left-node))
-                         for t2-dec fixnum = (or (and t2-node
-                                                      (lash-table-count (lm-tree-node-children t2-node)))
-                                                 0.0)
-                         when (and t2-node (getlash k (lm-tree-node-children t2-node)))
-                         do (incf right-drop)
-                         summing t2-dec))
+                  for right-drop of-type single-float = (aref bigram-decs j k)
+                  for left-card of-type single-float = (aref bigram-counts j k)
+                    
                     ;;; if left card is 0 then we have either the start tag or end tag
                   when (> left-card 0.0)
                   do (let* ((alpha-1 (aref (the (simple-array single-float (*)) unigrams) k))
-                            (gamma-1 (/ (the single-float (* right-card (the single-float (hmm-bigram-d *hmm*)))) left-card))
-                            (alpha-2 (/ (the single-float (max 0.0 (- right-drop (the single-float (hmm-bigram-d *hmm*)))))
+                            (gamma-1 (/ (* right-card bigram-d) left-card))
+                            (alpha-2 (/ (max 0.0 (- right-drop bigram-d))
                                         left-card))
                             (gamma-2 (if t2-node
-                                         (/ (the single-float (* (lash-table-count (lm-tree-node-children t2-node)) kn-d))
+                                         (/ (* t2-decs kn-d)
                                             (lm-tree-node-total t2-node))
                                        1.0)) ;; I have no idea what this gamma should be really :-(
                             (alpha-3 (if (not t2-node)
                                          0.0
                                        (let ((t3-node (getlash k (lm-tree-node-children t2-node))))
                                          (if t3-node
-                                             (/ (the single-float (max 0.0 (- (lm-tree-node-total t3-node) kn-d)))
+                                             (/ (max 0.0 (- (lm-tree-node-total t3-node) kn-d))
                                                 (lm-tree-node-total t2-node))
                                            0.0))))
                             (prob (+ alpha-3
-                                     (the single-float (* alpha-2 gamma-2))
-                                     (the single-float (* alpha-1 gamma-1)))))
+                                    (* alpha-2 gamma-2)
+                                    (* alpha-1 gamma-1))))
                        (declare (type single-float alpha-1 gamma-1 alpha-2 gamma-2 alpha-3 prob))
                        (setf (aref trigram-probs i j k)
-                         (if (> prob 0)
+                         (if (> prob 0.0)
                              (log prob)
                            most-negative-single-float)))))
       finally (return trigram-probs)))
