@@ -220,7 +220,13 @@
                  "Type Recall")
          (format t
                  "~&~{~{~2,9T~a~3,9T~,2f%~4,9T~a~5,9T~,2f%~}~^~%~}"
-                 (accuracy-ambiguity)))
+                 (accuracy-ambiguity))
+         (format t
+                 "~&Accuracy pr number of unknowns in sequence [0,8]~%")
+         (print-res-table (results-to-table
+                           (loop 
+                               for fold in (profile-folds profile)
+                               collect (accuracy-pr-no-unks fold)))))
   (format t "~%"))
                  ;;; FIXME do the averages!
 
@@ -308,9 +314,10 @@
       for no-unks = (result-no-unks result)
       for correct = (result-correct result)
       for length = (result-length result)
-      for bin = (mulm::get-or-add no-unks bins (list 0 0))
+      for bin = (mulm::get-or-add no-unks bins (list 0 0 0))
       do (incf (first bin) length)
          (incf (second bin) correct)
+         (incf (third bin))
       finally
         (return
           (sort

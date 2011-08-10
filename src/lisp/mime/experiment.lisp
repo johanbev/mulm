@@ -24,7 +24,7 @@
                   finally (return (list rest held-out)))))
 
 (defvar *training-curve-steps*
-    '(0.01 0.05 0.10 0.20 0.30 0.40 0.50 0.7 1))
+    '(0.01 0.02 0.05 0.10 0.15 0.20 0.30 0.40 0.50 0.7 1))
 
 
 ;; We reuse the fold mechanism here for a quick preview of learning rates
