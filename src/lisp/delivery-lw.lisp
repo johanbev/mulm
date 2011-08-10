@@ -11,9 +11,7 @@
 
 (asdf:operate 'asdf:load-op :mulm :force t)
 
-;; dummy main function giving the code a short workout
-(defun main ()
-  (mulm::do-evaluation))
+(load (compile-file "delivery-top-level.lisp"))
 
 (deliver 'main "mulm-lw-test" 2
          :console :input

@@ -6,7 +6,6 @@
         for j below (- (length list) (1- len))
       collect (subseq i 0 len)))
 
-
 (defun make-partition-stream (list &optional (len 2))
   "Create a generator yielding the partition of list into ordered sequences of
    len consecutive elements. The generator is reusable by funcalling it with
@@ -137,3 +136,22 @@
         collect (if (oddp i)
                   (intern (string-upcase elt) :keyword)
                   elt)))
+
+(defun get-command-line ()
+  (or 
+   #+sbcl sb-ext:*posix-argv*
+   #+lispworks system:*line-arguments-list*
+   nil))
+
+;; only tested on LW6
+(defun parse-command-line-arguments (args)
+  (let ((command (first args))
+        (args (rest args)))
+    (declare (ignore command))
+    (cond ((equal (first args) "train")
+           (list :train (second args)))
+          ((equal (first args) "tag")
+           (list :tag (second args) (third args)))
+          ((equal (first args) "help")
+           (list :help))
+          (t (list :unknown)))))

@@ -86,7 +86,7 @@
                       (gethash raw-tag tag-map raw-tag)
                     raw-tag)                  
         while line
-        if (and form tag (not (string= form "")))
+        if (and form (not (string= form "")))
         do (if constrained
                (destructuring-bind (tag constraint) (split-tag-constraint tag)
                  (push (list form tag constraint) forms))
