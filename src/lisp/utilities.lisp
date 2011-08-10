@@ -38,18 +38,20 @@
 (defun capitalized-p (string)
   (true-p (cl-ppcre:scan "^[A-Z]" string)))
 
-(defun hash-table-sum (table)
+(defun hash-table-sum (table &key (key #'identity))
   "Computes the sum of all the values in a hash-table"
   (loop
-      for val being the hash-values in table
+      for raw being the hash-values in table
+      for val = (funcall key raw)
       summing val))
 
-(defun hash-table-entropy (table &optional sum)
+(defun hash-table-entropy (table &key sum (key #'identity))
   "Computes the entropy of all the unnormalized values in a hash-table,
    ie. the values are counts C(X=x)"   
   (loop
-      with sum of-type single-float = (float (or sum (hash-table-sum table)))
-      for v of-type number being the hash-values in table
+      with sum of-type single-float = (float (or sum (hash-table-sum table :key key)))
+      for raw of-type number being the hash-values in table
+      for v of-type number = (funcall key raw)
       for div of-type single-float = (/ v sum)
       when (= 1.0 sum) do (return 0.0)
       unless (zerop div)

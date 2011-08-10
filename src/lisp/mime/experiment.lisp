@@ -90,6 +90,8 @@
          (mulm::make-transition-table hmm 1 :constant))
        (setf (mulm::hmm-trigram-transition-table hmm)
          (mulm::make-transition-table hmm 2 :constant)))
+      (:ig-interpolation
+       (mulm::make-ig-transition-table hmm))
       (:kn
        (let ((mulm::*lm-root*
               (mulm::hmm-tag-lm hmm))

@@ -98,7 +98,7 @@
                     
                   ;;; if left card is 0 then we have either the start tag or end tag
                   when (> left-card 0.0)
-                  do (let* ((alpha-1 (aref (the (simple-array single-float (*)) unigrams) k))
+                  do (let* ((alpha-1 (aref unigrams k))
                             (gamma-1 (/ (* right-card bigram-d) left-card))
                             (alpha-2 (/ (max 0.0 (- right-drop bigram-d))
                                         left-card))
