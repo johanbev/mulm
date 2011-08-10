@@ -32,7 +32,7 @@ These parameters are
  Specifies the format of all the corpora Mime will read. TT is the
  default format.
 
-    :smoothing :di <default> | :kn | :constant
+    :smoothing :deleted-interpolation <default> | :kn | :constant
  Specifies what smoothing Mulm will use in the transition matrix. :di
  is short for deleted-interpolation and the default smoothing. :kn is
  short for Kneser-Ney and :constant means no smoothing, ie. MLE.
@@ -137,5 +137,5 @@ Average tags/token: 1.83 0.01
 
 Finally Mime prints the average number of tags per token (averaged
 over all folds with standard deviation), and a breakdown on tagging
-accuracy versus ambiguity and lexical type recall, that is the
+accuracy versus ambiguity and lexical type recall, ie. the
 percentage of known tokens grouped by ambiguity.
