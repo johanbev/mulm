@@ -1,4 +1,4 @@
-r(in-package :mulm)
+(in-package :mulm)
 
 (defstruct lash
   table)
@@ -87,7 +87,7 @@ r(in-package :mulm)
                (incf accu (* -1.0 (the single-float div)
                              (if (= div 0.0) ;; log of zero guard
                                  0
-                               (log div 2)))))            
+                               (log div 2.0)))))            
          accu))
       (hash-table
        (hash-table-entropy lash-internal :key key)))))

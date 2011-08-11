@@ -55,7 +55,7 @@
       for div of-type single-float = (/ v sum)
       when (= 1.0 sum) do (return 0.0)
       unless (zerop div)
-      summing (the single-float (* -1.0 div (log div 2)))))
+      summing (the single-float (* -1.0 div (log div 2.0)))))
 
 (defun weighted-average-of (table &key (key #'identity))
   "Computes the weighted-average of calling key using the counts in the

@@ -22,7 +22,7 @@
 (defun unigram-entropy (hmm)
   (loop
       for prob across (hmm-unigram-table hmm)
-      summing (* -1.0 prob (log prob 2))))
+      summing (* -1.0 prob (log prob 2.0))))
 
 (defun bigram-information-gain (hmm t1 t2 unigram-entropy)
   (if  (aref (hmm-transitions hmm) t1 t2)
@@ -31,7 +31,7 @@
           with first-node = (getlash t1 (lm-tree-node-children root))
           with second-node = (getlash t2 (lm-tree-node-children first-node))
           with hx = unigram-entropy
-          with pe = (/ (aref (hmm-bigram-counts hmm) t1 t2) (* 2 (hmm-token-count hmm)))  ;; not correct.
+          with pe = (/ (aref (hmm-bigram-counts hmm) t1 t2)  (hmm-token-count hmm))  ;; not correct.
           with p-not-e = (- 1.0 pe)
           with he = (memoized-lash-entropy (lm-tree-node-children second-node) :key #'lm-tree-node-total)
           with positive-gain = (* -1.0 pe he)
@@ -47,7 +47,7 @@
                                (/ reduced-count reduced-total))
           summing (if (>= 0.0 reduced-prob)
                       0.0
-                    (* reduced-prob (log reduced-prob 2))) into accu
+                    (* reduced-prob (log reduced-prob 2.0))) into accu
           finally 
             (let ((ig (+ hx
                         positive-gain
@@ -78,7 +78,7 @@
                                (/ reduced-count reduced-total))
           summing (if (>= 0.0 reduced-prob)
                       0.0
-                    (* reduced-prob (log reduced-prob 2))) into accu
+                    (* reduced-prob (log reduced-prob 2.0))) into accu
           finally
             (return (values
                      (+ hx
