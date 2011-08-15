@@ -9,8 +9,7 @@
 
 (asdf:operate 'asdf:load-op :mulm :force t)
 
-;; dummy main function giving the code a short workout
-(defun main ()
-  (mulm::do-evaluation))
+(load (compile-file "delivery-top-level.lisp"))
 
+;; dummy main function giving the code a short workout
 (save-lisp-and-die #p"mulm-sbcl-test" :executable t :toplevel #'main)
