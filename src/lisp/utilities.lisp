@@ -70,7 +70,7 @@
   "Computes the renyi-entropy of all the unnormalized values in a hash-table,
    ie. the values are counts C(X=x)"
   (if (= 1 alpha)
-      (hash-table-entropy table sum)
+      (hash-table-entropy table :sum sum)
     (* (/ 1 (- 1 alpha))
        (log
         (loop

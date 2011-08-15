@@ -369,7 +369,7 @@
      with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
      for i fixnum from 0 to (- n 1)
      ;;; Get the total amount of this tag (isnt this in unigram-table?)
-     for total fixnum = (float (loop
+     for total = (float (loop
                                 for j  fixnum from 0 to (- n 1)
                                 for count = (aref bigram-counts i j)
                                 when (and count (> count *estimation-cutoff*))
