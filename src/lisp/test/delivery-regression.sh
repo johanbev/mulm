@@ -25,7 +25,7 @@ if [ -f "$LW6MAC_PATH" ]; then
 		echo "Training model"
 		./mulm-lw-test train ../../../eval/wsj/wsj.tt
 		echo "Tagging"
-		./mulm-lw-test tag ../../../eval/wsj/wsj.tt.mulm ../../../eval/wsj/test.in > test.out.lw
+		./mulm-lw-test tag -m ../../../eval/wsj/wsj.tt.mulm ../../../eval/wsj/test.in > test.out.lw
 
 		diff test.out.lw test.regression.target &> /dev/null
 
@@ -49,7 +49,7 @@ if [ -f "$SBCL_PATH" ]; then
 		echo "Training model"
 		./mulm-sbcl-test train ../../../eval/wsj/wsj.tt
 		echo "Tagging"
-		./mulm-sbcl-test tag ../../../eval/wsj/wsj.tt.mulm ../../../eval/wsj/test.in > test.out.sbcl
+		./mulm-sbcl-test tag -m ../../../eval/wsj/wsj.tt.mulm ../../../eval/wsj/test.in > test.out.sbcl
 
 		diff test.out.sbcl test.regression.target &> /dev/null
 

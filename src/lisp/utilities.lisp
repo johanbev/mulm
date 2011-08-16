@@ -145,15 +145,11 @@
    #+lispworks system:*line-arguments-list*
    nil))
 
-;; only tested on LW6
-(defun parse-command-line-arguments (args)
-  (let ((command (first args))
-        (args (rest args)))
-    (declare (ignore command))
-    (cond ((equal (first args) "train")
-           (list :train (second args)))
-          ((equal (first args) "tag")
-           (list :tag (second args) (third args)))
-          ((equal (first args) "help")
-           (list :help))
-          (t (list :unknown)))))
+(defun get-command-line-args ()
+  (or
+   ;; SBCL and LW includes command path
+   #+(or sbcl lispworks) (rest (get-command-line))
+   nil))
+
+(defun make-keyword (str)
+  (if str (intern (string-upcase str) :keyword)))

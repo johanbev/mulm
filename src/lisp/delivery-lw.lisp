@@ -10,6 +10,7 @@
 (push "../../../asdf-systems/" asdf:*central-registry*)
 
 (asdf:operate 'asdf:load-op :mulm :force t)
+(asdf:operate 'asdf:load-op :getopt :force t)
 
 (load (compile-file "delivery-top-level.lisp"))
 
