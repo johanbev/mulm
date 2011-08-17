@@ -42,7 +42,8 @@
     
     (loop for opt in opts
           do (cond ((equal "verbose" (first opt))
-                    (setf *verbose* t))
+                    (setf *verbose* t)
+                    (mulm::verbose-logging))
                    ((equal "model" (first opt))
                     (setf *model-file* (cdr opt)))))
 

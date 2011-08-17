@@ -4,6 +4,7 @@
   :author "Johan Benum Evensberget, Andre Lynum"
   :license "GPL"
   :components ((:file "mulm")
+               (:file "logging" :depends-on ("mulm"))
                (:file "utilities" :depends-on ("mulm"))
                (:file "lash" :depends-on ("mulm"))
                (:file "count-tree" :depends-on ("mulm" "fast-queue" "utilities" "lash"))
@@ -23,4 +24,4 @@
                (:file "gt" :depends-on ("hmm-model"))
                (:file "best-first-decode" :depends-on ("heap" "lexicon" "input" "hmm-model"))
                (:file "evaluate" :depends-on ("hmm-decoder")))
-  :depends-on ("cl-ppcre" "split-sequence"))
+  :depends-on ("cl-ppcre" "split-sequence" "log5"))
