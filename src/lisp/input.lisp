@@ -20,8 +20,16 @@
 (defparameter *number-scanner*
     (cl-ppcre:create-scanner "four|five|six|seven|eight|nine|ten|twenty|million|billion"))
 
+(defparameter *digit-scanner-string*
+  (format nil "^[$~a~a]?[0-9]+[0-9,:/]*([\\.,][0-9]+)?[$~a~a]?$"
+          (code-char #x20AC) ; euro sign
+          (code-char #x00A3) ; pound sign
+          (code-char #x20AC) ; euro sign
+          (code-char #x00A3) ; pound sign
+          ))
+
 (defparameter *digit-scanner*
-    (cl-ppcre:create-scanner "^[$£€]?[0-9]+[0-9,:/]*([\\.,][0-9]+)?[$£€]?$"))
+    (cl-ppcre:create-scanner *digit-scanner-string*))
 
 (defun string-numberp (token)
   (funcall *digit-scanner* token 0 (length token)))
