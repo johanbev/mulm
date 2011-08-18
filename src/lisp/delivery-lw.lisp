@@ -14,6 +14,6 @@
 
 (load (compile-file "delivery-top-level.lisp"))
 
-(deliver 'main "mulm-lw-test" 2
+(deliver 'main "mulm-lw-test" 1
          :console :input
          :interface nil)

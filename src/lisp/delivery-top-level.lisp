@@ -14,6 +14,7 @@
           do (format t "~%"))))
 
 (defun top-level-train (in-file)
+  (log5:log-for (log5:info) "Training HMM model")
   (let ((model (mulm::train (mulm::read-tt-corpus in-file))))
     (mulm::serialize-hmm-model-to-file model (concatenate 'string in-file ".mulm"))))
 
@@ -51,7 +52,10 @@
       (case action
         (:tag (top-level-tag *model-file* *input-file*))
         (:train (top-level-train *input-file*))
-        (:help (top-level-print-help))))))
+        (:help (top-level-print-help))))
+
+    (when *verbose*
+      (format *error-output* "~%"))))
 
 (defun main ()
   (handler-case (main-body)

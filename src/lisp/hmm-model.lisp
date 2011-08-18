@@ -352,9 +352,16 @@
       do (add-sentence-to-hmm hmm sentence)))
 
 (defun calculate-parameters (hmm)
+  (log5:log-for (log5:info) "Determining deleted interpolation weights")
   (calculate-deleted-interpolation-weights hmm)
+
+  (log5:log-for (log5:info) "Determining suffix model theta")
   (calculate-theta hmm)
+
+  (log5:log-for (log5:info) "Building suffix tries")
   (build-suffix-tries hmm)
+
+  (log5:log-for (log5:info) "Determining KN parameters")
   (setf (hmm-bigram-d hmm)
         (estimate-bigram-d hmm))
   (setf (hmm-trigram-d hmm)
@@ -363,7 +370,8 @@
   ;; Now we can prepare normalized probabilites:
     
   (let ((n (hmm-tag-cardinality hmm)))
-      
+
+    (log5:log-for (log5:info) "Determining tag bigram and emission probabilities")
     (loop
      with bigram-counts = (hmm-bigram-counts hmm)
      with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
@@ -386,7 +394,7 @@
      (make-good-turing-estimate (aref (hmm-emissions hmm) i)
                                 (hash-table-sum (aref (hmm-emissions hmm) i))
                                 (code-to-token i (hmm-tag-lexicon hmm)))
-            
+
      ;;; Normalize emissions
      (loop
       with map = (aref (hmm-emissions hmm) i)
@@ -394,11 +402,13 @@
       for count = (gethash code map)
       when (and count (> count *estimation-cutoff*))
       do (setf (gethash code map) (float (log (/ count total))))))
-            
+
     ;;; Normalize trigrams:
+    (log5:log-for (log5:info) "Determining tag trigram probabilities")
     (setf (hmm-tag-lm hmm) (calculate-tag-lm hmm))
             
     ;;; Normalize unigrams:
+    (log5:log-for (log5:info) "Determining tag unigram probabilities")
     (loop for i from 0 below n
           for count = (aref (hmm-unigram-counts hmm) i)
           with total = (loop for count across (hmm-unigram-counts hmm)
@@ -407,6 +417,9 @@
           ;; with total = (hmm-token-count hmm)
           do (setf (aref (hmm-unigram-table hmm) i)
                    (float (/ count total)))))
+  
+  (log5:log-for (log5:info) "HMM model training complete")
+
   hmm)
 
 (defun train (corpus &optional (n nil))
@@ -415,9 +428,13 @@
 
   ;; determine tagset size if not specified by the n parameter
   (let ((hmm (setup-hmm (make-hmm) (or n (corpus-tag-set-size corpus)))))
+    (log5:log-for (log5:info) "~a unique tags in training data" (hmm-n hmm))
+
     ;; collect counts from setences in the corpus
+    (log5:log-for (log5:info) "Collecting tag and token frequencies")
     (populate-counts corpus hmm)
 
+    
     (calculate-parameters hmm)
 
     (setup-hmm-beam hmm)
@@ -505,6 +522,7 @@
                                         (incf lambda-2 tri-count))
                                        ((and (>= c1 c3) (>= c1 c2))
                                         (incf lambda-1 tri-count))
+                                       ;; TODO better error handling
                                        (t (error "Mysterious frequencies in DI-calculation.")))))))
     ;; i have no idea why inverting these makes everyhing so much better
     ;; is there a bug somewhere?

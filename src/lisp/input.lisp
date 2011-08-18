@@ -80,30 +80,41 @@
 (defun read-tt-corpus (file &key lexicon (constrained nil) (tag-map nil))
   "Create a list of lists corpus from TT format file."
   (declare (ignore lexicon))
-  (with-open-file (stream file :direction :input)
-    (loop 
-        with accu 
-        with forms
-        for line = (read-line stream nil)
-                   ;; split on any whitespace
-        for split = (position-if #'(lambda (c)
-                                     (member c *whitespace*)) line)
-        for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
-        for raw-tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
-        for tag = (if tag-map
-                      (gethash raw-tag tag-map raw-tag)
-                    raw-tag)                  
-        while line
-        if (and form (not (string= form "")))
-        do (if constrained
-               (destructuring-bind (tag constraint) (split-tag-constraint tag)
-                 (push (list form tag constraint) forms))
-             (push (list form tag) forms))
-        else 
-        do
-         (when forms (push (nreverse forms)  accu))
-         (setf forms nil)
-        finally (when forms (push (nreverse forms) accu)) (return (nreverse accu)))))
+  (let ((result nil)
+        (token-count 0))
+
+    (log5:log-for (log5:info) "Reading training corpus from file ~a" file)
+  
+    (with-open-file (stream file :direction :input)
+      (loop 
+       with accu 
+       with forms
+       for line = (read-line stream nil)
+       ;; split on any whitespace
+       for split = (position-if #'(lambda (c)
+                                    (member c *whitespace*)) line)
+       for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
+       for raw-tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
+       for tag = (if tag-map
+                   (gethash raw-tag tag-map raw-tag)
+                   raw-tag)                  
+       while line
+       if (and form (not (string= form "")))
+       do (if constrained
+            (destructuring-bind (tag constraint) (split-tag-constraint tag)
+              (push (list form tag constraint) forms))
+            (push (list form tag) forms))
+       and do (incf token-count)
+       else do
+       (when forms
+         (push (nreverse forms)  accu))
+       (setf forms nil)
+       finally (when forms (push (nreverse forms) accu)) (setf result (nreverse accu))))
+
+    (log5:log-for (log5:info) "Read ~a tokens in training corpus" token-count)
+
+    result))
+
 
 (defun ll-to-word-list (ll)
   "Extract the sentences out of a list of lists corpus"
