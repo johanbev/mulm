@@ -178,5 +178,6 @@
       hmm)))
 
 (defun deserialize-hmm-model-from-file (file)
+  (log5:log-for (log5:info) "Reading HMM model from ~a" file)
   (with-open-file (s file)
     (deserialize-hmm-model s)))

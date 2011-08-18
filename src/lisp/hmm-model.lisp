@@ -135,6 +135,7 @@
 
 (defun make-transition-table (hmm order smoothing)
   "Creates a cached transition table by calling transition-probability"
+  (log5:log-for (log5:info) "Caching transition probabilities, order ~a, smoothing ~a" order smoothing)
   (let ((tag-card (hmm-tag-cardinality hmm)))
     (declare (type fixnum tag-card))
     (cond

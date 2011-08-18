@@ -5,13 +5,18 @@
   (let ((model (mulm::deserialize-hmm-model-from-file model-file))
         (input (mulm::read-tt-corpus in-file)))
     (mulm::make-transition-table model 2 :deleted-interpolation)
+
+    (log5:log-for (log5:info) "Started tagging corpus")
+    
     (loop for sentence in input
           for tokens = (mapcar #'first sentence)
           for result = (mulm::viterbi-trigram model tokens)
           do (loop for tok in tokens
                    for tag in result
                    do (format t "~a~C~a~%" tok #\Tab tag))
-          do (format t "~%"))))
+          do (format t "~%"))
+    
+    (log5:log-for (log5:info) "Completed tagging corpus")))
 
 (defun top-level-train (in-file)
   (log5:log-for (log5:info) "Training HMM model")

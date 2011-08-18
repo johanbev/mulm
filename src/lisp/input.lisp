@@ -83,7 +83,7 @@
   (let ((result nil)
         (token-count 0))
 
-    (log5:log-for (log5:info) "Reading training corpus from file ~a" file)
+    (log5:log-for (log5:info) "Reading corpus from file ~a" file)
   
     (with-open-file (stream file :direction :input)
       (loop 
