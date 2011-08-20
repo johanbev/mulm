@@ -23,5 +23,6 @@
                (:file "word-model" :depends-on ("kn" "count-tree"))
                (:file "gt" :depends-on ("hmm-model"))
                (:file "best-first-decode" :depends-on ("heap" "lexicon" "input" "hmm-model"))
-               (:file "evaluate" :depends-on ("hmm-decoder")))
+               (:file "evaluate" :depends-on ("hmm-decoder"))
+               (:file "ig-interpolation" :depends-on ("hmm-model" "lash")))
   :depends-on ("cl-ppcre" "split-sequence" "log5"))

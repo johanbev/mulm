@@ -5,5 +5,5 @@
   :license "GPL"
   :components ((:file "mime")
                (:file "experiment" :depends-on ("mime"))
-               (:file "analyze" :depends-on ("mime")))
+               (:file "analyze" :depends-on ("mime" "experiment")))
   :depends-on ("mulm"))

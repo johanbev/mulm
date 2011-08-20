@@ -14,16 +14,15 @@
     (flet ((forward ()
              (setf pos (cdr pos))
              (incf idx)))
-      (compile nil
       (lambda (&rest rest)
         (if (eq (first rest) :reset)
-            (setf pos (second rest)
-                  idx 0
-                  max (- (length pos) (1- len)))
+          (setf pos (second rest)
+                idx 0
+                max (- (length pos) (1- len)))
           (prog1 (if (< idx max)
-                     (subseq pos 0 len)
+                   (subseq pos 0 len)
                    nil)
-            (forward))))))))
+            (forward)))))))
 
 (defun collect-stream (stream)
   "Collects the values yielded by the generator until nil is yielded"
