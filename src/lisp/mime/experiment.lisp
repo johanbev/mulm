@@ -192,8 +192,14 @@
                (print-profile profile t)))))
       (when save
         (with-open-file (stream save :direction :output :if-exists :supersede)
-          (write profile :stream stream))))
-    (when gc
-      (setf *working-set* nil)
-      (do-gc :full t)
-      (do-gc))))
+          (write profile :stream stream)))
+      (when gc
+        (setf *working-set* nil)
+        (do-gc :full t)
+        (do-gc))
+
+      (loop for fold in (profile-folds profile)
+            do (setf (fold-train fold) nil)
+            do (setf (fold-results fold) nil))
+      
+      profile)))
