@@ -52,20 +52,18 @@
 
 (defun compute-suffix-trie-weights (trie)
   "Compute the weights in a trie"
-  ;;
   (case *default-suffix-weighting*
     (diff-entropy
-     (let* ((root-entropy (lash-table-entropy (lm-tree-node-emissions trie)))
-            (fcn (compile nil 
-                         (lambda (node)
-                           (diff-entropy-suffix-weighting node root-entropy)))))
-       (compute-suffix-weights trie fcn)))
+     (let* ((root-entropy (lash-table-entropy (lm-tree-node-emissions trie))))
+       (flet ((fcn (node)
+                (diff-entropy-suffix-weighting node root-entropy)))
+         (compute-suffix-weights trie #'fcn))))
+    
     (ig
-     (let* ((root-entropy (lash-table-entropy (lm-tree-node-emissions trie)))
-            (fcn (compile nil
-                          (lambda (node)
-                            (ig-suffix-weighting node trie root-entropy)))))
-       (compute-suffix-weights trie fcn)))
+     (let* ((root-entropy (lash-table-entropy (lm-tree-node-emissions trie))))
+       (flet ((fcn (node)
+                (ig-suffix-weighting node trie root-entropy)))
+         (compute-suffix-weights trie #'fcn))))
     (inv-ent
      (compute-suffix-weights trie (lambda (node)
                                     (inverse-entropy-suffix-weighting node))))))
