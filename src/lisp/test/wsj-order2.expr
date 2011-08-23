@@ -1,0 +1,3 @@
+(experiment "WSJ"
+            :corpora ("../../../eval/wsj/wsj.tt" "../../../eval/wsj/test.tt")
+            :order 2)

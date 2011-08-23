@@ -2,7 +2,7 @@
 
 
 (deftestsuite simple-model
-    () (hmm)
+    (all) (hmm)
     (:setup
      (setf hmm (mulm::train (mulm::read-tt-corpus (merge-pathnames "debug.tt" mulm::*eval-path*)))))
     (:tests
@@ -10,7 +10,7 @@
      (ensure-same (mulm::hmm-n hmm) 2)))
 
 (deftestsuite ensure-tag-lm-consistency
-    () (hmm stream)
+    (all) (hmm stream)
     (:test
      (ensure-same (with-output-to-string (stream)
                     (let ((*standard-output* stream))

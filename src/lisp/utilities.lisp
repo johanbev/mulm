@@ -152,3 +152,9 @@
 
 (defun make-keyword (str)
   (if str (intern (string-upcase str) :keyword)))
+
+(defun quit (&key (status 0))
+  #-sbcl
+  (lispworks:quit :status status)
+  #+sbcl
+  (sb-ext:quit :unix-status status))

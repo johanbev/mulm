@@ -6,4 +6,4 @@
   :components ((:file "mulm-test")
                (:file "regression" :depends-on ("mulm-test"))
                (:file "model" :depends-on ("mulm-test")))
-  :depends-on ("mulm" "lift"))
+  :depends-on ("mulm" "mime" "lift"))
