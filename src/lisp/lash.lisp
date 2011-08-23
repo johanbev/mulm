@@ -1,19 +1,22 @@
 (in-package :mulm)
 
 (defstruct lash
-  table)
+  table
+  (test #'eql :read-only t))
 
 (defun getlash (key lash-table &optional default)
-  (let ((lash-table (lash-table lash-table)))
+  (let ((test (lash-test lash-table))
+        (lash-table (lash-table lash-table)))
     (or
      (etypecase lash-table
-       (list (cdr (assoc key lash-table)))
+       (list (cdr (assoc key lash-table :test test)))
        (hash-table (gethash key lash-table)))
      default)))
 
 (defun set-lash (key lash-table &rest args)
   (progn
-    (let ((table (lash-table lash-table))
+    (let ((test (lash-test lash-table))
+          (table (lash-table lash-table))
           (it (case (length args)
                 (1 (first args))
                 (2 (second args)))))
@@ -30,7 +33,7 @@
            (hash-table
             (setf (gethash key table) it)))
          (when (and (listp table) (> (length (the cons table)) 24))
-           (let ((tbl (make-hash-table :size 24)))
+           (let ((tbl (make-hash-table :size 24 :test test)))
              (mapcar (lambda (x) (setf (gethash (car x) tbl) (cdr x)))
                      table)
              (setf (lash-table lash-table) tbl)))

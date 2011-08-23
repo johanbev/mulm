@@ -2,7 +2,7 @@
 
 (defvar *lm-root*)
 
-(locally (declare (optimize (space 3)))
+(locally (declare (optimize (space 2)))
   (defstruct lm-tree-node
     weight
     (adds 0)
