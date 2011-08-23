@@ -10,7 +10,7 @@
 
 (defun unigram-entropy (hmm)
   (loop
-      for prob across (hmm-unigram-table hmm)
+      for prob across (hmm-unigram-probs hmm)
       summing (* -1.0 prob (log prob 2.0))))
 
 
@@ -24,7 +24,7 @@
                  (exp (* -1.0 unigram-entropy)))))
     (/ (+ (* (or (aref (hmm-transitions hmm) t1 t2) 0.0)
              lt1)
-          (aref (hmm-unigram-table hmm) t2))
+          (aref (hmm-unigram-probs hmm) t2))
        (+ lt1 1))))
 
 (defun trigram-lsa (hmm t1 t2 t3 t3t2-lsa)
@@ -35,7 +35,7 @@
                 (* (sqrt 12)
                    (sqrt (lm-tree-node-total hmm))
                    (exp (* -1.0 (memoized-lash-entropy (lm-tree-node-children node) :key #'lm-tree-node-total)))))))
-    (/ (+ (* (or (aref (hmm-trigram-table hmm) t1 t2 t3) 0.0)
+    (/ (+ (* (or (aref (hmm-trigram-probs hmm) t1 t2 t3) 0.0)
              lt2)
           t3t2-lsa)
        (+ lt2 1))))

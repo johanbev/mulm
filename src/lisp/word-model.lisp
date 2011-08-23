@@ -168,7 +168,7 @@
                    do (setf prob
                             (/ (+ (if prob
                                     prob
-                                    (aref (hmm-unigram-table hmm) i))
+                                    (aref (hmm-unigram-probs hmm) i))
                                   (* theta
                                      suff-prob))
                                (1+ theta)))
@@ -199,7 +199,7 @@
       for tag fixnum  in (lash-keys d-table)
       for count of-type single-float = (float (getlash tag d-table))
       for p-t/s of-type single-float  = (/ count total)
-      for p-t = (aref (hmm-unigram-table hmm) tag)                      
+      for p-t = (aref (hmm-unigram-probs hmm) tag)                      
       when (null (aref prob tag)) do (setf (aref prob tag) p-t) ;; should be P(t) for all corp or P(t) for suffix?
       do (setf (aref prob tag)
                (+ (* (the single-float weight) p-t/s)
@@ -210,7 +210,7 @@
     (loop
      for tag-prob across prob
      for i fixnum  from 0       
-     for p-t = (aref (hmm-unigram-table hmm) i)
+     for p-t = (aref (hmm-unigram-probs hmm) i)
      when tag-prob do (setf (aref prob i)
                             (/ tag-prob
                                p-t))) 

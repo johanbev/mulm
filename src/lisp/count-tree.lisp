@@ -79,7 +79,7 @@
                         and do
                             (let ((prob (/ (lm-tree-node-total t3-node)
                                            total)))
-                              (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                              (setf (aref (hmm-trigram-probs hmm) t1 t2 t3)
                                 prob)))))))
 
 (defun build-model (hmm lm-root)

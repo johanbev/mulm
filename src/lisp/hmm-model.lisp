@@ -26,16 +26,16 @@
   tag-array
   beam-array
 
-  ;; 2D array containing transition probabilities, indexed on tag code
-  transitions
   ;; array indexed on tag codes containing maps with token codes as keys
   ;; and log probs as values
   emissions
 
   ;; 3d array indexed on tag codes with probs
-  trigram-table
+  trigram-probs
+  ;; 2D array containing transition probabilities, indexed on tag code
+  transitions
   ;; array indexed on tag codes with probs
-  unigram-table
+  unigram-probs
 
   ;; only used during training
   tag-lm
@@ -93,7 +93,7 @@
          ((and (= order 1) (eql smoothing :deleted-interpolation))
           (+
            (* (the single-float (hmm-lambda-1 hmm))
-              (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
+              (or (aref (the (simple-array t (*)) (hmm-unigram-probs hmm)) current)
                   0.0))
            (the single-float
              (* (hmm-lambda-2 hmm)
@@ -101,12 +101,12 @@
                     0.0)))))
          ((and (= order 2) (eql smoothing :simple-back-off))
           (or (aref (the (simple-array  t (* * *))
-                      (hmm-trigram-table hmm))
+                      (hmm-trigram-probs hmm))
                     (first previous) (second previous) current)
               (aref (the (simple-array t (* *)) (hmm-transitions hmm))
                     (second previous) current)
               (aref (the (simple-array t (*))
-                      (hmm-unigram-table hmm))
+                      (hmm-unigram-probs hmm))
                     current)
               0.00000001))
          ((and (= order 2) (eql smoothing :deleted-interpolation))
@@ -118,14 +118,15 @@
             (declare (type fixnum t1 t2))
             (declare (type single-float lambda-1 lambda-2 lambda-3))
             (let* ((unigram (* lambda-1 
-                               (the single-float (or (aref (the (simple-array t (*)) (hmm-unigram-table hmm)) current)
+                               (the single-float (or (aref (the (simple-array t (*))
+                                                                (hmm-unigram-probs hmm)) current)
                                                      0.0))))
                    (bigram (* lambda-2
                               (the single-float (or (aref (the (simple-array t (* *)) (hmm-transitions hmm)) 
                                                           t2 current)
                                                     0.0))))
                    (trigram (* lambda-3
-                               (the single-float (or (aref (the (simple-array t (* * *)) (hmm-trigram-table hmm)) 
+                               (the single-float (or (aref (the (simple-array t (* * *)) (hmm-trigram-probs hmm)) 
                                                            t1 t2 current)
                                                      0.0)))))
               (declare (type single-float unigram bigram trigram))
@@ -241,9 +242,9 @@
           (make-array (list n n) :initial-element nil))
     (setf (hmm-emissions hmm)
           (make-array n :initial-element nil))
-    (setf (hmm-trigram-table hmm)
+    (setf (hmm-trigram-probs hmm)
           (make-array (list n n n) :initial-element nil))
-    (setf (hmm-unigram-table hmm)
+    (setf (hmm-unigram-probs hmm)
           (make-array n :initial-element nil))
     (loop for i from 0 to (- n 1)
         do (setf (aref (hmm-emissions hmm) i) (make-hash-table :size 11)))
@@ -283,7 +284,7 @@
                     when t3-node do
                       (let ((prob (/ (lm-tree-node-total t3-node)
                                      total)))
-                        (setf (aref (hmm-trigram-table hmm) t1 t2 t3)
+                        (setf (aref (hmm-trigram-probs hmm) t1 t2 t3)
                           prob)))))
     lm-root))
 
@@ -377,7 +378,7 @@
      with bigram-counts = (hmm-bigram-counts hmm)
      with transitions of-type (simple-array t (* *))  = (hmm-transitions hmm)
      for i fixnum from 0 to (- n 1)
-     ;;; Get the total amount of this tag (isnt this in unigram-table?)
+     ;;; Get the total amount of this tag (isnt this in unigram-probs?)
      for total = (float (loop
                                 for j  fixnum from 0 to (- n 1)
                                 for count = (aref bigram-counts i j)
@@ -416,7 +417,7 @@
                              summing count)
           ;; TODO discrepancy between token count and unigram count total
           ;; with total = (hmm-token-count hmm)
-          do (setf (aref (hmm-unigram-table hmm) i)
+          do (setf (aref (hmm-unigram-probs hmm) i)
                    (float (/ count total)))))
   
   (log5:log-for (log5:info) "HMM model training complete")

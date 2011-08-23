@@ -21,7 +21,7 @@
 
 (defun unigram-entropy (hmm)
   (loop
-      for prob across (hmm-unigram-table hmm)
+      for prob across (hmm-unigram-probs hmm)
       summing (* -1.0 prob (log prob 2.0))))
 
 (defun bigram-information-gain (hmm t1 t2 unigram-entropy)
@@ -58,12 +58,12 @@
     0.0))
 
 (defun direct-unigram-information-gain (hmm t1 unigram-entropy)
-  (if (aref (hmm-unigram-table hmm) t1)
+  (if (aref (hmm-unigram-probs hmm) t1)
       (loop
           with root = (hmm-tag-lm hmm)
           with first-node = (getlash t1 (lm-tree-node-children root))
           with hx = unigram-entropy
-          with pe = (aref (hmm-unigram-table hmm) t1)
+          with pe = (aref (hmm-unigram-probs hmm) t1)
           with p-not-e = (- 1.0 pe)
           with he = (memoized-lash-entropy (lm-tree-node-children first-node) :key #'lm-tree-node-total)
           with positive-gain = (* -1.0 pe he)
@@ -96,9 +96,9 @@
          (lambda1 (/ 1.0 (hmm-tag-cardinality hmm)))
          (ig-lambda-z (+ lambda2 lambda3 lambda1))
          (scaling-z 1)
-         (unigram (or (aref (hmm-unigram-table hmm) t3) 0.0))
+         (unigram (or (aref (hmm-unigram-probs hmm) t3) 0.0))
          (bigram (or (aref (hmm-transitions hmm) t2 t3) 0.0))
-         (trigram (or (aref (hmm-trigram-table hmm) t1 t2 t3) 0.0)))
+         (trigram (or (aref (hmm-trigram-probs hmm) t1 t2 t3) 0.0)))
     (let ((prob (log (+ (* (/ lambda1 ig-lambda-z) unigram)
                         (* scaling-z (/ lambda2 ig-lambda-z) bigram)
                         (* scaling-z (/ lambda3 ig-lambda-z) trigram)))))
@@ -110,7 +110,7 @@
   (let* ((lambda2 (memoized-uni-gain hmm t2 entropy))
          (lambda1 (/ 1.0 (hmm-tag-cardinality hmm)))
          (ig-lambda-z (+ lambda2 lambda1))
-         (unigram (or (aref (hmm-unigram-table hmm) t2) 0.0))
+         (unigram (or (aref (hmm-unigram-probs hmm) t2) 0.0))
          (bigram (or (aref (hmm-transitions hmm) t1 t2) 0.0)))
     (values (log (+ (* (/ lambda2 ig-lambda-z) bigram)
                     (* (/ lambda1 ig-lambda-z) unigram))))))
