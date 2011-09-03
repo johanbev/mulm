@@ -4,7 +4,8 @@
 (defun top-level-tag (model-file in-file)
   (let ((model (mulm::deserialize-hmm-model-from-file model-file))
         (input (mulm::read-tt-corpus in-file)))
-    (mulm::make-transition-table model 2 :deleted-interpolation)
+    (mulm::add-transition-table model (mulm::make-description :order 2
+                                                              :smoothing :deleted-interpolation))
 
     (log5:log-for (log5:info) "Started tagging corpus")
     

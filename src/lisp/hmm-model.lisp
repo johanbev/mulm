@@ -11,6 +11,20 @@
       (capitalized-p form)
     t))
 
+;; Holds the options for constructing transition probabilities
+(defclass hmm-model-description ()
+  ((order     :initform 2 :initarg :order :accessor order)
+   (smoothing :initform :deleted-interpolation
+              :initarg :smoothing :accessor smoothing)))
+
+;; Dispatch key for make-transition-table
+(defun make-model-key (description)
+  (with-slots (order smoothing) description
+    (make-keyword (format nil "~a-~a" order smoothing))))
+
+(defun make-description (&key (order 1) (smoothing :constant))
+  (make-instance 'hmm-model-description :order order :smoothing smoothing))
+
 (defstruct hmm
   ; all unique tokens seen by the model with mapping to integer code
   (token-lexicon (make-lexicon))
@@ -57,9 +71,14 @@
   (suffix-tries (make-hash-table :test #'equal))
   ;; theta-parameter for TnT style word model
   theta
-  
+
+  ;; WARNING These will be removed soon
   trigram-transition-table ;; actual trigram transitions with log-probs used by decoder
   bigram-transition-table ;; actual bigram transitions with log-probs used by decoder
+
+  ;; WARNING not used directly by the decoder yet but will replace the two slots above
+  transition-tables
+  
   caches ;; transient caches for decoding
   )
 
@@ -134,40 +153,99 @@
          
          (t (error "Illegal type of transition, check parameters!")))))
 
-(defun make-transition-table (hmm order smoothing)
-  "Creates a cached transition table by calling transition-probability"
-  (log5:log-for (log5:info) "Caching transition probabilities, order ~a, smoothing ~a" order smoothing)
-  (let ((tag-card (hmm-tag-cardinality hmm)))
-    (declare (type fixnum tag-card))
-    (cond
-     ((= order 1)
-      (setf (hmm-bigram-transition-table hmm)              
-        (let* ((table (make-array (list tag-card tag-card) :element-type 'single-float :initial-element 0.0)))
-          (loop
-              for i from 0 below tag-card
-              do (loop
-                     for j below tag-card do
-                       (setf (aref table i j) (transition-probability hmm j i nil :order 1 :smoothing smoothing))))
-          table)))
-     ((= order 2)
+;; Generics for dispatching on different transition probabilities
+(defgeneric make-transition-table (hmm description &key))
+(defgeneric add-transition-table (hmm description &key))
+
+;; Adds or fetches a transition probability table from those stored in the model
+;; and makes them available for the model
+(defmethod add-transition-table (hmm description &key (regenerate nil))
+  (let* ((key (make-model-key description))
+         (lookup (getlash key (hmm-transition-tables hmm)))
+         (table (if (and lookup (not regenerate))
+                  lookup
+                  (setf (getlash key (hmm-transition-tables hmm))
+                        (make-transition-table hmm key)))))
+    
+    (if (= (order description) 1)
+      (setf (hmm-bigram-transition-table hmm)
+            table)
       (setf (hmm-trigram-transition-table hmm)
-        (let* ((table (make-array (list tag-card tag-card tag-card) 
-                                  :element-type 'single-float :initial-element most-negative-single-float)))
-          
-          ;;; This loop is very expensive (often several times so than
-          ;;; decoding a fold) on hmms with large tag-sets perhaps a
-          ;;; memoization technique is better suited here
-          
-          (loop
-              for i fixnum from 0 below tag-card
-              do (loop 
-                     for j fixnum from 0 below tag-card                                         
-                     do (loop
-                            for k fixnum from 0 below tag-card do
-                              (setf (aref (the (simple-array single-float (* * *)) table) i j k) 
-                                (transition-probability hmm k i j :order 2 :smoothing smoothing)))))
-          table)))
-     (t (error "Illegal type of transition, check parameters!")))))
+            table))))
+
+;; Decodes the description and redispatches on the description key
+(defmethod make-transition-table (hmm (description hmm-model-description) &key)
+  (make-transition-table hmm (make-model-key description)))
+
+;; Helper macro for constructing make-transition-table() methods.
+;; Automatically encodes dispatching on the description key and
+;; adds some boilerplate.
+(defmacro make-transition-table-handler (description &body body)
+  (let ((descr-sym (gensym))
+        (key-sym (gensym)))
+    `(let* ((,descr-sym ,description)
+            (,key-sym (make-model-key ,descr-sym)))
+       (defmethod make-transition-table (hmm (description (eql ,key-sym)) &key)
+         (log5:log-for (log5:info) "Caching transition probabilities, order ~a, smoothing ~a"
+                       (order ,descr-sym) (smoothing ,descr-sym))
+         ,@body))))
+
+;; Current standard transition probability table generators
+(make-transition-table-handler (make-description :order 1 :smoothing :constant)
+  (let* ((tag-card (hmm-tag-cardinality hmm))
+         (table (make-array (list tag-card tag-card)
+                            :element-type 'single-float
+                            :initial-element most-negative-single-float)))
+    (loop for i from 0 below tag-card
+          do (loop
+              for j below tag-card
+              do (setf (aref table i j)
+                       (transition-probability hmm j i nil :order 1 :smoothing :constant))))
+    table))
+
+(make-transition-table-handler (make-description :order 1 :smoothing :deleted-interpolation)
+  (let* ((tag-card (hmm-tag-cardinality hmm))
+         (table (make-array (list tag-card tag-card)
+                            :element-type 'single-float
+                            :initial-element most-negative-single-float)))
+    (loop for i from 0 below tag-card
+          do (loop
+              for j below tag-card
+              do (setf (aref table i j)
+                       (transition-probability hmm j i nil :order 1 :smoothing :deleted-interpolation))))
+    table))
+
+;;; These loops are very expensive (often several times so than
+;;; decoding a fold) on hmms with large tag-sets perhaps a
+;;; memoization technique is better suited here
+
+(make-transition-table-handler (make-description :order 2 :smoothing :simple-backoff)
+  (let* ((tag-card (hmm-tag-cardinality hmm))
+         (table (make-array (list tag-card tag-card tag-card) 
+                            :element-type 'single-float :initial-element most-negative-single-float)))
+    (loop
+     for i fixnum from 0 below tag-card
+     do (loop 
+         for j fixnum from 0 below tag-card                                         
+         do (loop
+             for k fixnum from 0 below tag-card do
+             (setf (aref (the (simple-array single-float (* * *)) table) i j k) 
+                   (transition-probability hmm k i j :order 2 :smoothing :simple-back-off)))))
+    table))
+
+(make-transition-table-handler (make-description :order 2 :smoothing :deleted-interpolation)
+  (let* ((tag-card (hmm-tag-cardinality hmm))
+         (table (make-array (list tag-card tag-card tag-card) 
+                            :element-type 'single-float :initial-element most-negative-single-float)))
+    (loop
+     for i fixnum from 0 below tag-card
+     do (loop 
+         for j fixnum from 0 below tag-card                                         
+         do (loop
+             for k fixnum from 0 below tag-card do
+             (setf (aref (the (simple-array single-float (* * *)) table) i j k) 
+                   (transition-probability hmm k i j :order 2 :smoothing :deleted-interpolation)))))
+    table))
 
 (defmacro bi-cached-transition (hmm from to)
   "Gets the cached transition probability from tag `from' to tag `to'
@@ -246,6 +324,9 @@
           (make-array (list n n n) :initial-element nil))
     (setf (hmm-unigram-probs hmm)
           (make-array n :initial-element nil))
+
+    (setf (hmm-transition-tables hmm) (make-lash))
+    
     (loop for i from 0 to (- n 1)
         do (setf (aref (hmm-emissions hmm) i) (make-hash-table :size 11)))
     (setf (hmm-caches hmm)

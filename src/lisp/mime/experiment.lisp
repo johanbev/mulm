@@ -81,15 +81,15 @@
   (let* ((hmm (mulm::train train)))
     (ecase smoothing
       (:deleted-interpolation
-       (setf (mulm::hmm-bigram-transition-table hmm)
-         (mulm::make-transition-table hmm 1 :deleted-interpolation))
-       (setf (mulm::hmm-trigram-transition-table hmm)
-         (mulm::make-transition-table hmm 2 :deleted-interpolation)))
+       (mulm::add-transition-table hmm (mulm::make-description :order 1
+                                                               :smoothing :deleted-interpolation))
+       (mulm::add-transition-table hmm (mulm::make-description :order 2
+                                                               :smoothing :deleted-interpolation)))
       (:constant 
-       (setf (mulm::hmm-bigram-transition-table hmm)
-         (mulm::make-transition-table hmm 1 :constant))
-       (setf (mulm::hmm-trigram-transition-table hmm)
-         (mulm::make-transition-table hmm 2 :constant)))
+       (mulm::add-transition-table hmm (mulm::make-description :order 1
+                                                               :smoothing :constant))
+       (mulm::add-transition-table hmm (mulm::make-description :order 2
+                                                               :smoothing :constant)))
       (:ig-interpolation
        (mulm::make-ig-transition-table hmm))
       (:kn

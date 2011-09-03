@@ -63,10 +63,12 @@
   (cond
    ((and (= order 1) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
-    (make-transition-table hmm 1 :constant))
+    (add-transition-table hmm
+                           (make-description :order 1 :smoothing :constant)))
    ((and (= order 2) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
-    (make-transition-table hmm 2 :deleted-interpolation))
+    (add-transition-table hmm
+                           (make-description :order 2 :smoothing :deleted-interpolation)))
    (t (format t "~&do-evaluation(): Make sure to have a transition-table")))    
   (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length corpus))
   (let ((func (or (and decoder (viterbi-decoder-function decoder))
