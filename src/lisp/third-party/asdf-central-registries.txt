@@ -1,0 +1,3 @@
+;; Rename this file to asdf-central-registry and put your asdf registry paths in here
+;; Pathnames will be read relative to Mulm source directory root
+../asdf-systems/
