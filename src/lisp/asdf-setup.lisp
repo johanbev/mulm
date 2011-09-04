@@ -1,12 +1,11 @@
 ;; Relocatable loader for asdf
 ;; for use outside the development environment
-;;
-;; NOTE this file cannot be compiled by itself, use load()
 
 (in-package :cl-user)
 
 ;; fetch the pathname of this file
-(defparameter *file-path* (or *compile-file-pathname* *load-pathname*))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter *file-path* (directory-namestring (or *compile-file-pathname* *load-pathname*))))
 
 ;; root is two levels up
 (defparameter *repository-root* (merge-pathnames "../../" *file-path*))
@@ -14,7 +13,8 @@
 ;; load asdf and register paths in the registry file
 (defparameter *asdf-registry-paths-file* (merge-pathnames "third-party/asdf-central-registries.txt" *file-path*))
 #-:asdf
-(load (compile-file (merge-pathnames "third-party/asdf.lisp" *file-path*)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (load (compile-file (merge-pathnames "third-party/asdf.lisp" *file-path*))))
 
 (with-standard-io-syntax
   (let ((*read-eval* nil))

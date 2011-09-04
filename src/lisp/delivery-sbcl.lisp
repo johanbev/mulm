@@ -2,7 +2,7 @@
 (in-package :cl-user)
 
 ;; load and setup asdf
-(load "asdf-setup.lisp")
+(load (compile-file "asdf-setup.lisp"))
 
 (asdf:operate 'asdf:load-op :mulm :force t)
 (asdf:operate 'asdf:load-op :getopt :force t)
