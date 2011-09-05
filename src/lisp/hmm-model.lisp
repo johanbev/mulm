@@ -11,19 +11,21 @@
       (capitalized-p form)
     t))
 
-;; Holds the options for constructing transition probabilities
-(defclass hmm-model-description ()
-  ((order     :initform 2 :initarg :order :accessor order)
-   (smoothing :initform :deleted-interpolation
-              :initarg :smoothing :accessor smoothing)))
+;; this needs to be available at macro expansion time
+(eval-when (:execute :load-toplevel :compile-toplevel)
+  ;; Holds the options for constructing transition probabilities
+  (defclass hmm-model-description ()
+    ((order     :initform 2 :initarg :order :accessor order)
+     (smoothing :initform :deleted-interpolation
+                :initarg :smoothing :accessor smoothing)))
 
-;; Dispatch key for make-transition-table
-(defun make-model-key (description)
-  (with-slots (order smoothing) description
-    (make-keyword (format nil "~a-~a" order smoothing))))
+  ;; Dispatch key for make-transition-table
+  (defun make-model-key (description)
+    (with-slots (order smoothing) description
+      (make-keyword (format nil "~a-~a" order smoothing))))
 
-(defun make-description (&key (order 1) (smoothing :constant))
-  (make-instance 'hmm-model-description :order order :smoothing smoothing))
+  (defun make-description (&key (order 1) (smoothing :constant))
+    (make-instance 'hmm-model-description :order order :smoothing smoothing)))
 
 (defstruct hmm
   ; all unique tokens seen by the model with mapping to integer code
@@ -180,17 +182,21 @@
 ;; Automatically encodes dispatching on the description key and
 ;; adds some boilerplate.
 (defmacro make-transition-table-handler (description &body body)
-  (let ((descr-sym (gensym))
-        (key-sym (gensym)))
-    `(let* ((,descr-sym ,description)
-            (,key-sym (make-model-key ,descr-sym)))
+  (let ((key-sym (gensym))
+        (descr-sym (gensym))
+        (descr-inst (apply #'make-description description))
+        (order-sym (gensym))
+        (smoothing-sym (gensym)))
+    `(let* ((,key-sym ,(make-model-key descr-inst))
+            (,order-sym ,(order descr-inst))
+            (,smoothing-sym ,(smoothing descr-inst)))
        (defmethod make-transition-table (hmm (description (eql ,key-sym)) &key)
          (log5:log-for (log5:info) "Caching transition probabilities, order ~a, smoothing ~a"
-                       (order ,descr-sym) (smoothing ,descr-sym))
+                       ,order-sym ,smoothing-sym)
          ,@body))))
 
 ;; Current standard transition probability table generators
-(make-transition-table-handler (make-description :order 1 :smoothing :constant)
+(make-transition-table-handler (:order 1 :smoothing :constant)
   (let* ((tag-card (hmm-tag-cardinality hmm))
          (table (make-array (list tag-card tag-card)
                             :element-type 'single-float
@@ -202,7 +208,7 @@
                        (transition-probability hmm j i nil :order 1 :smoothing :constant))))
     (list table nil)))
 
-(make-transition-table-handler (make-description :order 1 :smoothing :deleted-interpolation)
+(make-transition-table-handler (:order 1 :smoothing :deleted-interpolation)
   (let* ((tag-card (hmm-tag-cardinality hmm))
          (table (make-array (list tag-card tag-card)
                             :element-type 'single-float
@@ -218,7 +224,7 @@
 ;;; decoding a fold) on hmms with large tag-sets perhaps a
 ;;; memoization technique is better suited here
 
-(make-transition-table-handler (make-description :order 2 :smoothing :simple-backoff)
+(make-transition-table-handler (:order 2 :smoothing :simple-backoff)
   (let* ((tag-card (hmm-tag-cardinality hmm))
          (table (make-array (list tag-card tag-card tag-card) 
                             :element-type 'single-float :initial-element most-negative-single-float)))
@@ -232,7 +238,7 @@
                    (transition-probability hmm k i j :order 2 :smoothing :simple-back-off)))))
     (list nil table)))
 
-(make-transition-table-handler (make-description :order 2 :smoothing :deleted-interpolation)
+(make-transition-table-handler (:order 2 :smoothing :deleted-interpolation)
   (let* ((tag-card (hmm-tag-cardinality hmm))
          (table (make-array (list tag-card tag-card tag-card) 
                             :element-type 'single-float :initial-element most-negative-single-float)))
@@ -246,15 +252,15 @@
                    (transition-probability hmm k i j :order 2 :smoothing :deleted-interpolation)))))
     (list nil table)))
 
-(make-transition-table-handler (make-description :order 2 :smoothing :ig-interpolation)
+(make-transition-table-handler (:order 2 :smoothing :ig-interpolation)
   (make-ig-transition-table hmm))
 
-(make-transition-table-handler (make-description :order 1 :smoothing :kn)
+(make-transition-table-handler (:order 1 :smoothing :kn)
   (let ((*lm-root* (hmm-tag-lm hmm))
         (*hmm* hmm))
     (list (kn-bigrams (kn-unigrams)) nil)))
 
-(make-transition-table-handler (make-description :order 2 :smoothing :kn)
+(make-transition-table-handler (:order 2 :smoothing :kn)
   (let ((*lm-root* (hmm-tag-lm hmm))
         (*hmm* hmm))
     (list (kn-bigrams (kn-unigrams))
