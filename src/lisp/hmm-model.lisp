@@ -162,16 +162,15 @@
 (defmethod add-transition-table (hmm description &key (regenerate nil))
   (let* ((key (make-model-key description))
          (lookup (getlash key (hmm-transition-tables hmm)))
-         (table (if (and lookup (not regenerate))
-                  lookup
-                  (setf (getlash key (hmm-transition-tables hmm))
-                        (make-transition-table hmm key)))))
-    
-    (if (= (order description) 1)
-      (setf (hmm-bigram-transition-table hmm)
-            table)
-      (setf (hmm-trigram-transition-table hmm)
-            table))))
+         (tables (if (and lookup (not regenerate))
+                   lookup
+                   (setf (getlash key (hmm-transition-tables hmm))
+                         (make-transition-table hmm key)))))
+
+    (setf (hmm-bigram-transition-table hmm)
+          (first tables))
+    (setf (hmm-trigram-transition-table hmm)
+          (second tables))))
 
 ;; Decodes the description and redispatches on the description key
 (defmethod make-transition-table (hmm (description hmm-model-description) &key)
@@ -201,7 +200,7 @@
               for j below tag-card
               do (setf (aref table i j)
                        (transition-probability hmm j i nil :order 1 :smoothing :constant))))
-    table))
+    (list table nil)))
 
 (make-transition-table-handler (make-description :order 1 :smoothing :deleted-interpolation)
   (let* ((tag-card (hmm-tag-cardinality hmm))
@@ -213,7 +212,7 @@
               for j below tag-card
               do (setf (aref table i j)
                        (transition-probability hmm j i nil :order 1 :smoothing :deleted-interpolation))))
-    table))
+    (list table nil)))
 
 ;;; These loops are very expensive (often several times so than
 ;;; decoding a fold) on hmms with large tag-sets perhaps a
@@ -231,7 +230,7 @@
              for k fixnum from 0 below tag-card do
              (setf (aref (the (simple-array single-float (* * *)) table) i j k) 
                    (transition-probability hmm k i j :order 2 :smoothing :simple-back-off)))))
-    table))
+    (list nil table)))
 
 (make-transition-table-handler (make-description :order 2 :smoothing :deleted-interpolation)
   (let* ((tag-card (hmm-tag-cardinality hmm))
@@ -245,7 +244,21 @@
              for k fixnum from 0 below tag-card do
              (setf (aref (the (simple-array single-float (* * *)) table) i j k) 
                    (transition-probability hmm k i j :order 2 :smoothing :deleted-interpolation)))))
-    table))
+    (list nil table)))
+
+(make-transition-table-handler (make-description :order 2 :smoothing :ig-interpolation)
+  (make-ig-transition-table hmm))
+
+(make-transition-table-handler (make-description :order 1 :smoothing :kn)
+  (let ((*lm-root* (hmm-tag-lm hmm))
+        (*hmm* hmm))
+    (list (kn-bigrams (kn-unigrams)) nil)))
+
+(make-transition-table-handler (make-description :order 2 :smoothing :kn)
+  (let ((*lm-root* (hmm-tag-lm hmm))
+        (*hmm* hmm))
+    (list (kn-bigrams (kn-unigrams))
+          (kn-trigrams  (kn-unigrams)))))
 
 (defmacro bi-cached-transition (hmm from to)
   "Gets the cached transition probability from tag `from' to tag `to'

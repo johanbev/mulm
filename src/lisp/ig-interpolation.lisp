@@ -118,26 +118,23 @@
 
 (defun make-ig-transition-table (hmm)
   (clear-cache)
-   (unless (hmm-trigram-transition-table hmm)
-    (setf (hmm-trigram-transition-table hmm)
-      (make-array (list (hmm-tag-cardinality hmm)
-                        (hmm-tag-cardinality hmm)
-                        (hmm-tag-cardinality hmm))
-                  :element-type 'single-float
-                  :initial-element most-negative-single-float)))
-  (unless (hmm-bigram-transition-table hmm)
-    (setf (hmm-bigram-transition-table hmm)
-      (make-array (list (hmm-tag-cardinality hmm)
-                        (hmm-tag-cardinality hmm))
-                  :element-type 'single-float
-                  :initial-element most-negative-single-float)))
-  (loop
-      with tag-card = (hmm-tag-cardinality hmm)
-      with entropy = (unigram-entropy hmm)
-      for i below tag-card do
-        (loop for j below tag-card
-            do (setf (aref (hmm-bigram-transition-table hmm) i j)
-                 (ig-interpolated-bigram-prob hmm i j entropy))
-               (loop for k below tag-card do
-                     (setf (aref (hmm-trigram-transition-table hmm) i j k)
-                       (ig-interpolated-trigram-prob hmm i j k entropy))))))
+  (let ((tri-table (make-array (list (hmm-tag-cardinality hmm)
+                                     (hmm-tag-cardinality hmm)
+                                     (hmm-tag-cardinality hmm))
+                               :element-type 'single-float
+                               :initial-element most-negative-single-float))
+        (bi-table (make-array (list (hmm-tag-cardinality hmm)
+                                    (hmm-tag-cardinality hmm))
+                              :element-type 'single-float
+                              :initial-element most-negative-single-float)))
+    (loop
+     with tag-card = (hmm-tag-cardinality hmm)
+     with entropy = (unigram-entropy hmm)
+     for i below tag-card do
+     (loop for j below tag-card
+           do (setf (aref bi-table i j)
+                    (ig-interpolated-bigram-prob hmm i j entropy))
+           (loop for k below tag-card do
+                 (setf (aref tri-table i j k)
+                       (ig-interpolated-trigram-prob hmm i j k entropy)))))
+    (list bi-table tri-table)))

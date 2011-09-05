@@ -79,34 +79,10 @@
 
 (defun make-hmm (train order smoothing)
   (let* ((hmm (mulm::train train)))
-    (ecase smoothing
-      (:deleted-interpolation
-       (mulm::add-transition-table hmm (mulm::make-description :order 1
-                                                               :smoothing :deleted-interpolation))
-       (mulm::add-transition-table hmm (mulm::make-description :order 2
-                                                               :smoothing :deleted-interpolation)))
-      (:constant 
-       (mulm::add-transition-table hmm (mulm::make-description :order 1
-                                                               :smoothing :constant))
-       (mulm::add-transition-table hmm (mulm::make-description :order 2
-                                                               :smoothing :constant)))
-      (:ig-interpolation
-       (mulm::make-ig-transition-table hmm))
-      (:kn
-       (let ((mulm::*lm-root*
-              (mulm::hmm-tag-lm hmm))
-             (mulm::*hmm* hmm))
-         (ecase order
-           (1 (setf (mulm::hmm-bigram-transition-table hmm)
-                (mulm::kn-bigrams (mulm::kn-unigrams))))
-           (2 (setf (mulm::hmm-trigram-transition-table hmm)
-                (mulm::kn-trigrams  (mulm::kn-unigrams)))
-              (setf (mulm::hmm-bigram-transition-table hmm)
-                (mulm::kn-bigrams (mulm::kn-unigrams))))))))
+    (mulm::add-transition-table hmm (mulm::make-description :order order :smoothing smoothing))
     hmm))
 
 (defparameter *working-set* nil)
-
 
 (defun do-gc (&key full verbose)
   "Initiates a garbage collection."
