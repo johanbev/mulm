@@ -1,6 +1,7 @@
 *.fasl
 *.xfasl
 *.lisp~
+*.asd~
 eval/wsj/
 \#*\#
 .#*

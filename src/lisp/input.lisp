@@ -221,3 +221,18 @@
                      (not (string= tag cd-tag)))
                 (push (list word tag) it)))
             finally (return it))))
+
+(iterate:defmacro-driver (iterate:FOR sentence IN-CORPUS-STREAM corpus-stream)
+  (let ((kwd (if iterate:generate 'iterate:generate 'iterate:for)))
+    `(progn
+       (,kwd ,sentence iterate:next
+             (progn
+               (let ((sentence (loop for line = (read-line ,corpus-stream nil nil)
+                                     while line
+                                     until (string-equal (string-trim *whitespace* line) "")
+                                     collect line)))
+                 (if sentence
+                   sentence
+                   (iterate:terminate))))))))
+
+
