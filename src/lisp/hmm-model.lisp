@@ -183,7 +183,6 @@
 ;; adds some boilerplate.
 (defmacro make-transition-table-handler (description &body body)
   (let ((key-sym (gensym))
-        (descr-sym (gensym))
         (descr-inst (apply #'make-description description))
         (order-sym (gensym))
         (smoothing-sym (gensym)))
