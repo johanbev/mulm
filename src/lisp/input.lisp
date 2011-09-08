@@ -10,6 +10,8 @@
 (defclass id-normalizer (normalizer) nil)
 (defclass cd-normalizer (normalizer) nil)
 
+;; used to pass token count between corpus generator and read-tt-corpus()
+(defparameter *token-count* nil)
 
 (defmethod normalize (token (normalizer downcasing))
   (string-downcase token))
@@ -33,7 +35,6 @@
 
 (defun string-numberp (token)
   (funcall *digit-scanner* token 0 (length token)))
-
 
 (defmethod normalize (token (normalizer cd-normalizer))
   (if (string-numberp token)
@@ -67,6 +68,7 @@
 
 (defparameter *wsj-eval-file*
     (merge-pathnames "wsj/test.tt" *eval-path*))
+
 (defvar *wsj-train-corpus* nil)
 (defvar *wsj-test-corpus* nil)
 
@@ -76,45 +78,6 @@
 (defun split-tag-constraint (tag)
   (let ((tags (cl-ppcre:all-matches-as-strings "[^\|\\s]+" tag)))
     (list (first tags) (rest tags))))
-
-(defun read-tt-corpus (file &key lexicon (constrained nil) (tag-map nil))
-  "Create a list of lists corpus from TT format file."
-  (declare (ignore lexicon))
-  (let ((result nil)
-        (token-count 0))
-
-    (log5:log-for (log5:info) "Reading corpus from file ~a" file)
-  
-    (with-open-file (stream file :direction :input)
-      (loop 
-       with accu 
-       with forms
-       for line = (read-line stream nil)
-       ;; split on any whitespace
-       for split = (position-if #'(lambda (c)
-                                    (member c *whitespace*)) line)
-       for form = (string-trim *whitespace* (normalize-token (subseq line 0 split)))
-       for raw-tag = (if split (string-trim *whitespace* (subseq line (+ split 1))))
-       for tag = (if tag-map
-                   (gethash raw-tag tag-map raw-tag)
-                   raw-tag)                  
-       while line
-       if (and form (not (string= form "")))
-       do (if constrained
-            (destructuring-bind (tag constraint) (split-tag-constraint tag)
-              (push (list form tag constraint) forms))
-            (push (list form tag) forms))
-       and do (incf token-count)
-       else do
-       (when forms
-         (push (nreverse forms)  accu))
-       (setf forms nil)
-       finally (when forms (push (nreverse forms) accu)) (setf result (nreverse accu))))
-
-    (log5:log-for (log5:info) "Read ~a tokens in training corpus" token-count)
-
-    result))
-
 
 (defun ll-to-word-list (ll)
   "Extract the sentences out of a list of lists corpus"
@@ -136,6 +99,7 @@
 (defun read-wsj-corpus ()
   (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
   (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*)))
+
 ;; Brown corpus
 (defvar *brown-train-corpus* nil)
 (defvar *brown-eval-corpus* nil)
@@ -207,7 +171,6 @@
 	       do (format stream "~a~c~a~%" form #\Tab tag))
 	   (format stream "~%"))))
 
-
 (defun check-cd-mapping (corpus &key (cd-tag "CD"))
   (loop for sent in corpus
       nconcing
@@ -222,17 +185,50 @@
                 (push (list word tag) it)))
             finally (return it))))
 
+;; tokenizes tt format token line
+(defun read-token (line)
+  (let* ((split (position-if #'(lambda (c)
+                                 (member c *whitespace*)) line))
+         (form (string-trim *whitespace* (normalize-token (subseq line 0 split))))
+         (tag (if split
+                (string-trim *whitespace* (subseq line (+ split 1))))))
+    (if (and form (not (string= form "")))
+      (if nil ;; constrained
+        (destructuring-bind (tag constraint) (split-tag-constraint tag)
+          (list form tag constraint))
+        (list form tag)))))
+
+;; reads tt token lines until end-of-sentence (empty line) occurs
+(defun read-sentence (s)
+  (loop for line = (read-line s nil nil)
+        while line
+        until (string-equal (string-trim *whitespace* line) "")
+        do (incf *token-count*)
+        collect (read-token line)))
+
+;; iterate generator for tt format corpus file
 (iterate:defmacro-driver (iterate:FOR sentence IN-CORPUS-STREAM corpus-stream)
-  (let ((kwd (if iterate:generate 'iterate:generate 'iterate:for)))
-    `(progn
-       (,kwd ,sentence iterate:next
-             (progn
-               (let ((sentence (loop for line = (read-line ,corpus-stream nil nil)
-                                     while line
-                                     until (string-equal (string-trim *whitespace* line) "")
-                                     collect line)))
-                 (if sentence
-                   sentence
-                   (iterate:terminate))))))))
+    (let ((kwd (if iterate:generate 'iterate:generate 'iterate:for)))
+      `(progn
+         (,kwd ,sentence iterate:next
+               (progn
+                 (let ((sentence (read-sentence ,corpus-stream)))
+                   (if sentence
+                     sentence
+                     (iterate:terminate))))))))
 
+(defun read-tt-corpus (file &key (constrained nil))
+  "Create a list of lists corpus from TT format file."
+  (declare (ignore constrained))
 
+  (log5:log-for (log5:info) "Reading corpus from file ~a" file)
+  
+  (let* ((*token-count* 0)
+         (corpus (with-open-file (s file)
+                   (iterate:iter
+                     (iterate:generate sent :in-corpus-stream s)
+                     (iterate:collect (iterate:next sent))))))
+
+    (log5:log-for (log5:info) "Read ~a tokens in training corpus" *token-count*)
+
+    corpus))
