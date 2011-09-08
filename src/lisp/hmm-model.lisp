@@ -533,8 +533,11 @@
 
     ;; collect counts from setences in the corpus
     (log5:log-for (log5:info) "Collecting tag and token frequencies")
-    (populate-counts corpus hmm)
 
+    (when (null corpus)
+      (error "Cannot train with empty corpus"))
+    
+    (populate-counts corpus hmm)
     
     (calculate-parameters hmm)
 
