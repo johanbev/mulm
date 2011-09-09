@@ -1,9 +1,13 @@
 (in-package :cl-user)
 
 (defun process-sentence (sentence model)
-  (let* ((tokens (mapcar #'first sentence))
-         (result (mulm::viterbi-trigram model tokens)))
-    (loop for tok in tokens
+  (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
+         (result (mulm::viterbi-trigram model tokens))
+         (external-forms (loop for token in sentence
+                               if (mulm::token-external-form token)
+                               collect (mulm::token-external-form token)
+                               else collect (mulm::token-internal-form token))))
+    (loop for tok in external-forms
           for tag in result
           do (format t "~a~C~a~%" tok #\Tab tag))
     (format t "~%")))

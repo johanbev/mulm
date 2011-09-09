@@ -3,7 +3,8 @@
 (defun evaluate (hmm corpus decoder-func &key (seq-handler nil) (decoder nil))
   (let ((seqs (ll-to-word-list corpus))
         (tag-seqs (ll-to-tag-list corpus))
-        (constraints (ll-to-constraint-list corpus)))
+        ; (constraints (ll-to-constraint-list corpus))
+        )
     (loop
         with correct = 0
         with total = 0
@@ -15,8 +16,9 @@
         for total-sequence from 0
         for seq in seqs
         for tag-seq in tag-seqs
-        for constraint in constraints
-        for result = (and seq (funcall decoder-func hmm seq :decoder decoder :constraints constraint))
+        ; for constraint in constraints
+        for result = (and seq (funcall decoder-func hmm seq :decoder decoder ; :constraints constraint
+                                       ))
         for unknown = (loop 
                           for x in seq 
                           when (not (token-to-code x (hmm-token-lexicon hmm) :rop t))
@@ -64,11 +66,11 @@
    ((and (= order 1) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
     (add-transition-table hmm
-                           (make-description :order 1 :smoothing :constant)))
+                          (make-description :order 1 :smoothing :constant)))
    ((and (= order 2) clobber)
     (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
     (add-transition-table hmm
-                           (make-description :order 2 :smoothing :deleted-interpolation)))
+                          (make-description :order 2 :smoothing :deleted-interpolation)))
    (t (format t "~&do-evaluation(): Make sure to have a transition-table")))    
   (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length corpus))
   (let ((func (or (and decoder (viterbi-decoder-function decoder))

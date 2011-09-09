@@ -303,8 +303,8 @@
   (let ((tag-map (make-hash-table :test #'equal)))
     (loop for sentence in corpus
           do (loop for token in sentence
-                   do (if (not (gethash (second token) tag-map))
-                        (setf (gethash (second token) tag-map) t))))
+                   do (if (not (gethash (token-tag token) tag-map))
+                        (setf (gethash (token-tag token) tag-map) t))))
     (hash-table-count tag-map)))
 
 ;; WARNING does not fully initialize the hmm data structure.
@@ -411,19 +411,21 @@
    Returns the passed hmm struct."
   ;; Add start and end tags
   (let* ((unigrams (append '("<s>")
-                           (mapcar #'second sentence)
+                           (mapcar #'token-tag sentence)
                            '("</s>"))))
                                         ;(bigrams (partition unigrams 2)))
                                         ;(trigrams (partition unigrams 3)))
     (funcall *bigram-stream* :reset unigrams)
     (funcall *trigram-stream* :reset unigrams)
-    (loop for (token tag) in sentence
-        for code = (token-to-code token (hmm-token-lexicon hmm))
-        do (incf (hmm-token-count hmm))
-        do (incf (gethash code
-                          (aref (hmm-emissions hmm)
-                                (token-to-code tag (hmm-tag-lexicon hmm)))
-                          0)))
+    (loop for token in sentence
+          for form = (token-internal-form token)
+          for tag = (token-tag token)
+          for code = (token-to-code form (hmm-token-lexicon hmm))
+          do (incf (hmm-token-count hmm))
+          do (incf (gethash code
+                            (aref (hmm-emissions hmm)
+                                  (token-to-code tag (hmm-tag-lexicon hmm)))
+                            0)))
 
     (loop for unigram in unigrams
         for code = (token-to-code unigram (hmm-tag-lexicon hmm))

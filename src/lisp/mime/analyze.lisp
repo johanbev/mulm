@@ -253,7 +253,9 @@
   (loop
       for seq in (fold-train fold)
       do (loop 
-             for (form gold) in seq
+             for token in seq
+             for form = (mulm::token-internal-form token)
+             for gold = (mulm::token-tag token)
              for code = (mulm::token-to-code form *lexicon*)
              for word = (mulm::get-or-add code *word-types* (make-word))
              do (pushnew gold (word-tags word) :test #'equal))))

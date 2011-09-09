@@ -26,7 +26,7 @@ Jones	NNP
 Industrial	NNP
 Average	NNP
 plunged	VBD
-|cd|	CD
+190.58	CD
 points	NNS
 --	:
 most	JJS
@@ -57,7 +57,7 @@ installed	VBN
 after	IN
 the	DT
 October	NNP
-|cd|	CD
+1987	CD
 crash	NN
 failed	VBD
 their	PRP$
@@ -81,7 +81,7 @@ futures	NNS
 .	.
 
 The	DT
-|cd|	CD
+49	CD
 stock	NN
 specialist	NN
 firms	NNS
@@ -103,7 +103,7 @@ were	VBD
 criticized	VBN
 after	IN
 the	DT
-|cd|	CD
+1987	CD
 crash	NN
 --	:
 once	RB
@@ -364,7 +364,7 @@ a	DT
 190.58-point	JJ
 ,	,
 or	CC
-|cd|	CD
+6.9	CD
 %	NN
 ,	,
 loss	NN
@@ -381,7 +381,7 @@ Final-hour	NNP
 trading	NN
 accelerated	VBD
 to	TO
-|cd|	CD
+108.1	CD
 million	CD
 shares	NNS
 ,	,
@@ -400,7 +400,7 @@ of	IN
 the	DT
 day	NN
 ,	,
-|cd|	CD
+251.2	CD
 million	CD
 shares	NNS
 were	VBD
@@ -413,7 +413,7 @@ Jones	NNP
 industrials	NNS
 closed	VBD
 at	IN
-|cd|	CD
+2569.26	CD
 .	.
 
 The	DT
@@ -435,9 +435,9 @@ crash	NN
 that	WDT
 occurred	VBD
 Oct.	NNP
-|cd|	CD
+19	CD
 ,	,
-|cd|	CD
+1987	CD
 .	.
 
 In	IN
@@ -461,10 +461,10 @@ since	IN
 the	DT
 market	NN
 fell	VBD
-|cd|	CD
+156.83	CD
 ,	,
 or	CC
-|cd|	CD
+8	CD
 %	NN
 ,	,
 a	DT
@@ -477,7 +477,7 @@ Monday	NNP
 The	DT
 Dow	NNP
 fell	VBD
-|cd|	CD
+22.6	CD
 %	NN
 on	IN
 Black	NNP
@@ -510,7 +510,7 @@ about	IN
 the	DT
 proposed	VBN
 $	$
-|cd|	CD
+6.79	CD
 billion	CD
 buy-out	NN
 of	IN
@@ -552,7 +552,7 @@ rise	VB
 .	.
 
 At	IN
-|cd|	CD
+2:43	CD
 p.m.	NN
 EDT	NNP
 ,	,
@@ -647,7 +647,7 @@ takeovers	NNS
 .	.
 
 And	CC
-|cd|	CD
+10	CD
 minutes	NNS
 after	IN
 the	DT
@@ -678,7 +678,7 @@ Dow	NNP
 was	VBD
 down	RP
 about	IN
-|cd|	CD
+35	CD
 points	NNS
 .	.
 
@@ -728,11 +728,11 @@ Group	NNP
 which	WDT
 closed	VBD
 down	RB
-|cd|	CD
-|cd|	CD
+3	CD
+7/8	CD
 to	TO
-|cd|	CD
-|cd|	CD
+41	CD
+1/2	CD
 ,	,
 Delta	NNP
 Air	NNP
@@ -740,11 +740,11 @@ Lines	NNPS
 ,	,
 which	WDT
 fell	VBD
-|cd|	CD
-|cd|	CD
+7	CD
+3/4	CD
 to	TO
-|cd|	CD
-|cd|	CD
+69	CD
+1/4	CD
 ,	,
 and	CC
 Philips	NNP
@@ -752,10 +752,10 @@ Industries	NNPS
 ,	,
 which	WDT
 sank	VBD
-|cd|	CD
+3	CD
 to	TO
-|cd|	CD
-|cd|	CD
+21	CD
+1/2	CD
 .	.
 
 These	DT
@@ -802,20 +802,20 @@ stock	NN
 was	VBD
 trading	NN
 at	IN
-|cd|	CD
+41	CD
 ,	,
 down	RB
-|cd|	CD
-|cd|	CD
+3	CD
+3/8	CD
 ,	,
 while	IN
 IBM	NNP
 closed	VBD
-|cd|	CD
-|cd|	CD
+5	CD
+5/8	CD
 lower	JJR
 at	IN
-|cd|	CD
+102	CD
 .	.
 
 Selling	NNP
@@ -882,7 +882,7 @@ tight	JJ
 Now	RB
 ,	,
 at	IN
-|cd|	CD
+3:07	CD
 ,	,
 one	CD
 of	IN
@@ -898,12 +898,12 @@ hold	NN
 as	IN
 the	DT
 S&P	NNP
-|cd|	CD
+500	CD
 futures	NNS
 contract	NN
 had	VBD
 plunged	VBN
-|cd|	CD
+12	CD
 points	NNS
 ,	,
 equivalent	JJ
@@ -947,7 +947,7 @@ halt	NN
 in	IN
 the	DT
 S&P	NNP
-|cd|	CD
+500	CD
 pit	NN
 in	IN
 Chicago	NNP
@@ -1181,10 +1181,10 @@ Dow	NNP
 industrials	NNS
 were	VBD
 down	RB
-|cd|	CD
+55	CD
 points	NNS
 at	IN
-|cd|	CD
+3	CD
 p.m.	NN
 before	IN
 the	DT
@@ -1193,7 +1193,7 @@ halt	NN
 .	.
 
 At	IN
-|cd|	CD
+3:30	CD
 p.m.	NN
 ,	,
 at	IN
@@ -1211,7 +1211,7 @@ the	DT
 average	NN
 was	VBD
 down	RB
-|cd|	CD
+114.76	CD
 points	NNS
 .	.
 
@@ -1365,7 +1365,7 @@ orders	NNS
 
 At	IN
 about	RB
-|cd|	CD
+3:30	CD
 p.m.	NN
 EDT	NNP
 ,	,
@@ -1427,7 +1427,7 @@ again	RB
 
 At	IN
 about	IN
-|cd|	CD
+3:45	CD
 ,	,
 the	DT
 S&P	NNP
@@ -1439,7 +1439,7 @@ another	DT
 limit	NN
 ,	,
 of	IN
-|cd|	CD
+30	CD
 points	NNS
 down	RB
 ,	,
@@ -1465,7 +1465,7 @@ fall	VB
 as	RB
 much	RB
 as	IN
-|cd|	CD
+200	CD
 points	NNS
 .	.
 
@@ -1643,7 +1643,7 @@ and	CC
 that	IN
 of	IN
 October	NNP
-|cd|	CD
+1987	CD
 ''	''
 and	CC
 that	IN
@@ -1737,7 +1737,7 @@ ground	NN
 to	TO
 its	PRP$
 final	JJ
-|cd|	CD
+190.58	CD
 loss	NN
 Friday	NNP
 ,	,
@@ -1762,7 +1762,7 @@ Susquehanna	NNP
 Investment	NNP
 Group	NNP
 said	VBD
-|cd|	CD
+2,000	CD
 S&P	NNP
 contracts	NNS
 were	VBD
@@ -1776,7 +1776,7 @@ the	DT
 equivalent	NN
 of	IN
 $	$
-|cd|	CD
+330	CD
 million	CD
 in	IN
 stock	NN
@@ -1985,9 +1985,9 @@ Funds	NNPS
 --	:
 WSJ	NNP
 Oct.	NNP
-|cd|	CD
+16	CD
 ,	,
-|cd|	CD
+1989	CD
 )	-RRB-
 
 But	CC
@@ -1999,7 +1999,7 @@ just	RB
 as	RB
 in	IN
 the	DT
-|cd|	CD
+1987	CD
 crash	NN
 ,	,
 the	DT
@@ -2058,7 +2058,7 @@ Friday	NNP
 Concerning	VBG
 your	PRP$
 Sept.	NNP
-|cd|	CD
+21	CD
 page-one	NN
 article	NN
 on	IN
@@ -2179,7 +2179,7 @@ portion	NN
 of	IN
 the	DT
 $	$
-|cd|	CD
+32	CD
 million	CD
 realized	VBN
 from	IN
@@ -2242,7 +2242,7 @@ has	VBZ
 made	VBN
 a	DT
 $	$
-|cd|	CD
+409	CD
 million	CD
 cash	NN
 bid	NN
@@ -2261,7 +2261,7 @@ holdings	NNS
 
 The	DT
 $	$
-|cd|	CD
+409	CD
 million	CD
 bid	NN
 includes	VBZ
@@ -2271,7 +2271,7 @@ of	IN
 an	DT
 estimated	VBN
 $	$
-|cd|	CD
+300	CD
 million	CD
 in	IN
 secured	JJ
@@ -2335,7 +2335,7 @@ claims	NNS
 to	TO
 have	VB
 $	$
-|cd|	CD
+1	CD
 billion	CD
 in	IN
 assets	NNS
@@ -2424,7 +2424,7 @@ its	PRP$
 creditors	NNS
 under	IN
 Chapter	NNP
-|cd|	CD
+11	CD
 of	IN
 the	DT
 U.S.	NNP
@@ -2496,7 +2496,7 @@ committee	NN
 
 The	DT
 $	$
-|cd|	CD
+409	CD
 million	CD
 bid	NN
 is	VBZ
@@ -2506,7 +2506,7 @@ Mr.	NNP
 Simpson	NNP
 as	IN
 representing	VBG
-|cd|	CD
+75	CD
 %	NN
 of	IN
 the	DT
@@ -2547,7 +2547,7 @@ offer	NN
 covers	VBZ
 the	DT
 massive	JJ
-|cd|	CD
+1.8	CD
 million-square-foot	JJ
 Forest	NNP
 Fair	NNP
@@ -2556,7 +2556,7 @@ in	IN
 Cincinnati	NNP
 ,	,
 the	DT
-|cd|	CD
+800,000	CD
 square-foot	JJ
 Richland	NNP
 Fashion	NNP
@@ -2568,7 +2568,7 @@ S.C.	NNP
 ,	,
 and	CC
 the	DT
-|cd|	CD
+700,000	CD
 square-foot	JJ
 Thornton	NNP
 Town	NNP
@@ -2585,7 +2585,7 @@ Thornton	NNP
 mall	NN
 opened	VBD
 Sept.	NNP
-|cd|	CD
+19	CD
 with	IN
 a	DT
 Bigg	NNP
@@ -2603,7 +2603,7 @@ expected	VBN
 to	TO
 open	VB
 Nov.	NNP
-|cd|	CD
+15	CD
 .	.
 
 Other	JJ
@@ -2789,7 +2789,7 @@ based	VBN
 in	IN
 Atlanta	NNP
 in	IN
-|cd|	CD
+1979	CD
 when	WRB
 Mr.	NNP
 Simpson	NNP
@@ -2808,7 +2808,7 @@ company	NN
 grew	VBD
 modestly	RB
 until	IN
-|cd|	CD
+1986	CD
 ,	,
 when	WRB
 a	DT
@@ -2843,7 +2843,7 @@ but	CC
 ill-fated	JJ
 ,	,
 $	$
-|cd|	CD
+1	CD
 billion	CD
 acquisition	NN
 binge	NN
@@ -2911,7 +2911,7 @@ said	VBD
 he	PRP
 resigned	VBD
 in	IN
-|cd|	CD
+1988	CD
 .	.
 
 Since	IN
@@ -3054,7 +3054,7 @@ Canadian	JJ
 steel-ingot	NN
 production	NN
 totaled	VBD
-|cd|	CD
+291,890	CD
 metric	JJ
 tons	NNS
 in	IN
@@ -3062,10 +3062,10 @@ the	DT
 week	NN
 ended	VBN
 Oct.	NNP
-|cd|	CD
+7	CD
 ,	,
 up	RB
-|cd|	CD
+14.8	CD
 %	NN
 from	IN
 the	DT
@@ -3074,7 +3074,7 @@ week	NN
 's	POS
 total	NN
 of	IN
-|cd|	CD
+254,280	CD
 tons	NNS
 ,	,
 Statistics	NNP
@@ -3093,10 +3093,10 @@ week	NN
 total	NN
 was	VBD
 up	RP
-|cd|	CD
+6.2	CD
 %	NN
 from	IN
-|cd|	CD
+274,963	CD
 tons	NNS
 a	DT
 year	NN
@@ -3107,14 +3107,14 @@ The	DT
 year-to-date	JJ
 total	NN
 was	VBD
-|cd|	CD
+12,006,883	CD
 tons	NNS
 ,	,
 up	RB
-|cd|	CD
+7.8	CD
 %	NN
 from	IN
-|cd|	CD
+11,141,711	CD
 tons	NNS
 a	DT
 year	NN
@@ -3127,7 +3127,7 @@ plans	VBZ
 to	TO
 raise	VB
 $	$
-|cd|	CD
+175	CD
 million	CD
 in	IN
 new	JJ
@@ -3137,7 +3137,7 @@ by	IN
 selling	VBG
 about	IN
 $	$
-|cd|	CD
+9.75	CD
 billion	CD
 of	IN
 52-week	JJ
@@ -3145,7 +3145,7 @@ bills	NNS
 and	CC
 redeeming	VBG
 $	$
-|cd|	CD
+9.58	CD
 billion	CD
 of	IN
 maturing	VBG
@@ -3158,14 +3158,14 @@ will	MD
 be	VB
 dated	VBN
 Oct.	NNP
-|cd|	CD
+26	CD
 and	CC
 will	MD
 mature	VB
 Oct.	NNP
-|cd|	CD
+25	CD
 ,	,
-|cd|	CD
+1990	CD
 .	.
 
 They	PRP
@@ -3177,7 +3177,7 @@ minimum	JJ
 denominations	NNS
 of	IN
 $	$
-|cd|	CD
+10,000	CD
 .	.
 
 Bids	NNS
@@ -3185,7 +3185,7 @@ must	MD
 be	VB
 received	VBN
 by	IN
-|cd|	CD
+1	CD
 p.m.	NN
 EDT	NNP
 Thursday	NNP
@@ -3304,7 +3304,7 @@ preceding	VBG
 Black	NNP
 Monday	NNP
 in	IN
-|cd|	CD
+1987	CD
 .	.
 
 The	DT
@@ -3336,7 +3336,7 @@ redemptions	NNS
 represented	VBD
 less	JJR
 than	IN
-|cd|	CD
+15	CD
 %	NN
 of	IN
 the	DT
@@ -3346,7 +3346,7 @@ position	NN
 of	IN
 about	IN
 $	$
-|cd|	CD
+2	CD
 billion	CD
 of	IN
 Fidelity	NNP
@@ -3386,7 +3386,7 @@ Fidelity	NNP
 Investments	NNP
 '	POS
 $	$
-|cd|	CD
+5	CD
 billion	CD
 Equity-Income	NNP
 Fund	NNP
@@ -3462,7 +3462,7 @@ fund	NN
 redemptions	NNS
 during	IN
 the	DT
-|cd|	CD
+1987	CD
 debacle	NN
 did	VBD
 n't	RB
@@ -3516,7 +3516,7 @@ cash	NN
 positions	NNS
 well	RB
 above	IN
-|cd|	CD
+20	CD
 %	NN
 in	IN
 several	JJ
@@ -3546,10 +3546,10 @@ levels	NNS
 to	TO
 more	JJR
 than	IN
-|cd|	CD
+20	CD
 %	NN
 and	CC
-|cd|	CD
+30	CD
 %	NN
 ,	,
 respectively	RB
@@ -3567,7 +3567,7 @@ of	IN
 Fidelity	NNP
 's	POS
 $	$
-|cd|	CD
+12.7	CD
 billion	CD
 Magellan	NNP
 Fund	NNP
@@ -3583,11 +3583,11 @@ built	VBN
 up	RP
 cash	NN
 to	TO
-|cd|	CD
+7	CD
 %	NN
 or	CC
 $	$
-|cd|	CD
+850	CD
 million	CD
 .	.
 
@@ -3664,7 +3664,7 @@ group	NN
 stock	NN
 funds	NNS
 held	VBD
-|cd|	CD
+10.2	CD
 %	NN
 of	IN
 assets	NNS
@@ -3691,10 +3691,10 @@ modestly	RB
 higher	JJR
 than	IN
 the	DT
-|cd|	CD
+8.8	CD
 %	NN
 and	CC
-|cd|	CD
+9.2	CD
 %	NN
 levels	NNS
 in	IN
@@ -3702,7 +3702,7 @@ August	NNP
 and	CC
 September	NNP
 of	IN
-|cd|	CD
+1987	CD
 .	.
 
 Also	RB
@@ -3782,7 +3782,7 @@ at	IN
 less	JJR
 than	IN
 half	DT
-|cd|	CD
+1987	CD
 levels	NNS
 .	.
 
@@ -3837,7 +3837,7 @@ manager	NN
 of	IN
 the	DT
 $	$
-|cd|	CD
+1.8	CD
 billion	CD
 Wellington	NNP
 Fund	NNP
@@ -4029,7 +4029,7 @@ fund	NN
 investors	NNS
 in	IN
 October	NNP
-|cd|	CD
+1987	CD
 .	.
 
 Fidelity	NNP
@@ -4037,7 +4037,7 @@ on	IN
 Saturday	NNP
 opened	VBD
 its	PRP$
-|cd|	CD
+54	CD
 walk-in	JJ
 investor	NN
 centers	NNS
@@ -4065,7 +4065,7 @@ centers	NNS
 will	MD
 open	VB
 at	IN
-|cd|	CD
+7:30	CD
 EDT	NNP
 this	DT
 morning	NN
@@ -4074,7 +4074,7 @@ instead	RB
 of	IN
 the	DT
 normal	JJ
-|cd|	CD
+8:30	CD
 .	.
 
 T.	NNP
@@ -4271,7 +4271,7 @@ a	DT
 staggering	JJ
 gain	NN
 of	IN
-|cd|	CD
+25	CD
 %	NN
 through	IN
 September	NNP
@@ -4295,7 +4295,7 @@ Hutton	NNP
 Inc.	NNP
 's	POS
 $	$
-|cd|	CD
+335	CD
 million	CD
 Sector	NNP
 Analysis	NNP
@@ -4309,7 +4309,7 @@ open	VB
 down	RP
 at	IN
 least	JJS
-|cd|	CD
+50	CD
 points	NNS
 on	IN
 technical	JJ
@@ -4343,10 +4343,10 @@ n't	RB
 decline	VB
 more	JJR
 than	IN
-|cd|	CD
+10	CD
 %	NN
 to	TO
-|cd|	CD
+15	CD
 %	NN
 from	IN
 recent	JJ
@@ -4447,7 +4447,7 @@ that	DT
 of	IN
 the	DT
 October	NNP
-|cd|	CD
+1987	CD
 crash	NN
 ,	,
 fund	NN
@@ -4515,7 +4515,7 @@ manager	NN
 of	IN
 the	DT
 $	$
-|cd|	CD
+580	CD
 million	CD
 T.	NNP
 Rowe	NNP
@@ -4553,10 +4553,10 @@ fiscal-first-quarter	JJ
 earnings	NNS
 of	IN
 between	IN
-|cd|	CD
+15	CD
 cents	NNS
 and	CC
-|cd|	CD
+19	CD
 cents	NNS
 a	DT
 share	NN
@@ -4567,10 +4567,10 @@ analysts	NNS
 '	POS
 estimates	NNS
 of	IN
-|cd|	CD
+19	CD
 cents	NNS
 to	TO
-|cd|	CD
+23	CD
 cents	NNS
 .	.
 
@@ -4617,18 +4617,18 @@ net	JJ
 income	NN
 of	IN
 $	$
-|cd|	CD
+1.7	CD
 million	CD
 ,	,
 or	CC
-|cd|	CD
+21	CD
 cents	NNS
 a	DT
 share	NN
 ,	,
 on	IN
 $	$
-|cd|	CD
+14.1	CD
 million	CD
 in	IN
 sales	NNS
@@ -4639,7 +4639,7 @@ from	IN
 the	DT
 strike	NN
 by	IN
-|cd|	CD
+55,000	CD
 Machinists	NNS
 union	NN
 members	NNS
@@ -4722,7 +4722,7 @@ and	CC
 that	IN
 more	JJR
 than	IN
-|cd|	CD
+500	CD
 passengers	NNS
 who	WP
 were	VBD
@@ -4753,7 +4753,7 @@ America	NNP
 West	NNP
 that	IN
 the	DT
-|cd|	CD
+757	CD
 it	PRP
 was	VBD
 supposed	VBN
@@ -4767,7 +4767,7 @@ be	VB
 delivered	VBN
 until	IN
 Nov.	NNP
-|cd|	CD
+7	CD
 --	:
 the	DT
 day	NN
@@ -4823,14 +4823,14 @@ to	TO
 America	NNP
 West	NNP
 another	DT
-|cd|	CD
+757	CD
 twin-engine	JJ
 aircraft	NN
 as	IN
 well	RB
 as	IN
 a	DT
-|cd|	CD
+737	CD
 by	IN
 year	NN
 's	POS
@@ -4960,7 +4960,7 @@ of	IN
 Machinists	NNP
 '	POS
 District	NNP
-|cd|	CD
+751	CD
 ,	,
 said	VBD
 in	IN
@@ -5141,7 +5141,7 @@ it	PRP
 will	MD
 deliver	VB
 a	DT
-|cd|	CD
+757	CD
 on	IN
 time	NN
 later	RBR
@@ -5157,12 +5157,12 @@ take	VB
 delivery	NN
 of	IN
 another	DT
-|cd|	CD
+757	CD
 in	IN
 early	JJ
 December	NNP
 and	CC
-|cd|	CD
+20	CD
 more	JJR
 next	JJ
 year	NN
@@ -5227,13 +5227,13 @@ trying	VBG
 to	TO
 finish	VB
 some	DT
-|cd|	CD
+40	CD
 aircraft	NN
 --	:
 mostly	RB
-|cd|	CD
+747	CD
 and	CC
-|cd|	CD
+767	CD
 jumbo	JJ
 jets	NNS
 at	IN
@@ -5438,13 +5438,13 @@ Boeing	NNP
 shares	NNS
 fell	VBD
 $	$
-|cd|	CD
+4	CD
 Friday	NNP
 to	TO
 close	VB
 at	IN
 $	$
-|cd|	CD
+57.375	CD
 in	IN
 composite	JJ
 trading	NN
@@ -5578,7 +5578,7 @@ company	NN
 offer	NN
 of	IN
 a	DT
-|cd|	CD
+10	CD
 %	NN
 wage	NN
 increase	NN
@@ -5686,11 +5686,11 @@ United	NNP
 Auto	NNP
 Workers	NNPS
 Local	NNP
-|cd|	CD
+1069	CD
 ,	,
 which	WDT
 represents	VBZ
-|cd|	CD
+3,000	CD
 workers	NNS
 at	IN
 Boeing	NNP
@@ -5760,7 +5760,7 @@ total	NN
 of	IN
 about	IN
 $	$
-|cd|	CD
+326	CD
 million	CD
 .	.
 
@@ -5870,7 +5870,7 @@ Canadian	JJ
 dollars	NNS
 (	-LRB-
 US$	$
-|cd|	CD
+851	CD
 million	CD
 )	-RRB-
 ,	,
@@ -5952,7 +5952,7 @@ They	PRP
 can	MD
 be	VB
 C$	$
-|cd|	CD
+1	CD
 billion	CD
 plus	NN
 ,	,
@@ -6081,11 +6081,11 @@ to	TO
 raise	VB
 about	IN
 #	#
-|cd|	CD
+20	CD
 billion	CD
 (	-LRB-
 $	$
-|cd|	CD
+31.05	CD
 billion	CD
 )	-RRB-
 from	IN
@@ -6123,7 +6123,7 @@ expected	VBN
 to	TO
 raise	VB
 #	#
-|cd|	CD
+13	CD
 billion	CD
 ,	,
 making	VBG
@@ -6150,32 +6150,32 @@ able	JJ
 to	TO
 compete	VB
 for	IN
-|cd|	CD
+15	CD
 %	NN
 of	IN
 customers	NNS
 until	IN
-|cd|	CD
+1994	CD
 ,	,
 and	CC
 for	IN
 another	DT
-|cd|	CD
+10	CD
 %	NN
 between	IN
-|cd|	CD
+1994	CD
 and	CC
-|cd|	CD
+1998	CD
 .	.
 
 Canadian	NNP
 Utilities	NNPS
 had	VBD
-|cd|	CD
+1988	CD
 revenue	NN
 of	IN
 C$	$
-|cd|	CD
+1.16	CD
 billion	CD
 ,	,
 mainly	RB
@@ -6195,7 +6195,7 @@ the	DT
 company	NN
 serves	VBZ
 about	RB
-|cd|	CD
+800,000	CD
 customers	NNS
 .	.
 
@@ -6346,7 +6346,7 @@ capable	JJ
 of	IN
 producing	VBG
 about	IN
-|cd|	CD
+500	CD
 megawatts	NNS
 of	IN
 power	NN
@@ -6356,11 +6356,11 @@ cost	NN
 of	IN
 about	IN
 $	$
-|cd|	CD
+300	CD
 million	CD
 to	TO
 $	$
-|cd|	CD
+400	CD
 million	CD
 .	.
 
@@ -6375,18 +6375,18 @@ third	JJ
 earnings	NNS
 of	IN
 $	$
-|cd|	CD
+1.3	CD
 million	CD
 to	TO
 $	$
-|cd|	CD
+1.7	CD
 million	CD
 ,	,
 or	CC
-|cd|	CD
+14	CD
 cents	NNS
 to	TO
-|cd|	CD
+18	CD
 cents	NNS
 a	DT
 share	NN
@@ -6413,7 +6413,7 @@ net	JJ
 income	NN
 of	IN
 $	$
-|cd|	CD
+326,000	CD
 ,	,
 or	CC
 four	CD
@@ -6426,7 +6426,7 @@ revenue	NN
 of	IN
 about	IN
 $	$
-|cd|	CD
+41.4	CD
 million	CD
 .	.
 
@@ -6454,12 +6454,12 @@ trans-Atlantic	JJ
 flights	NNS
 are	VBP
 $	$
-|cd|	CD
+2,400	CD
 to	TO
 Paris	NNP
 and	CC
 $	$
-|cd|	CD
+3,200	CD
 to	TO
 London	NNP
 .	.
@@ -6470,7 +6470,7 @@ Centennial	NNP
 Journal	NNP
 article	NN
 Oct.	NNP
-|cd|	CD
+5	CD
 ,	,
 the	DT
 fares	NNS
@@ -6498,7 +6498,7 @@ at	IN
 a	DT
 rate	NN
 of	IN
-|cd|	CD
+2.016	CD
 million	CD
 cubic	JJ
 feet	NNS
@@ -6508,15 +6508,15 @@ a	DT
 day	NN
 through	IN
 a	DT
-|cd|	CD
+16	CD
 64-inch	JJ
 opening	NN
 at	IN
 depths	NNS
 between	IN
-|cd|	CD
+5,782	CD
 and	CC
-|cd|	CD
+5,824	CD
 feet	NNS
 .	.
 
@@ -6528,7 +6528,7 @@ operator	NN
 ,	,
 with	IN
 a	DT
-|cd|	CD
+100	CD
 %	NN
 interest	NN
 in	IN
@@ -6542,14 +6542,14 @@ Offshore	NNP
 's	POS
 stock	NN
 rose	VBD
-|cd|	CD
+12.5	CD
 cents	NNS
 Friday	NNP
 to	TO
 close	VB
 at	IN
 $	$
-|cd|	CD
+8.25	CD
 in	IN
 New	NNP
 York	NNP
@@ -6569,7 +6569,7 @@ it	PRP
 formed	VBD
 a	DT
 $	$
-|cd|	CD
+53.4	CD
 million	CD
 limited	JJ
 partnership	NN
@@ -6862,7 +6862,7 @@ is	VBZ
 putting	VBG
 up	RP
 only	RB
-|cd|	CD
+10	CD
 %	NN
 of	IN
 the	DT
@@ -6926,7 +6926,7 @@ plastics	NNS
 took	VBD
 off	RP
 in	IN
-|cd|	CD
+1987	CD
 ,	,
 Quantum	NNP
 Chemical	NNP
@@ -7050,12 +7050,12 @@ year-earlier	JJ
 profit	NN
 of	IN
 $	$
-|cd|	CD
+99.8	CD
 million	CD
 ,	,
 or	CC
 $	$
-|cd|	CD
+3.92	CD
 a	DT
 share	NN
 ,	,
@@ -7063,7 +7063,7 @@ on	IN
 sales	NNS
 of	IN
 $	$
-|cd|	CD
+724.4	CD
 million	CD
 .	.
 
@@ -7080,17 +7080,17 @@ its	PRP$
 value	NN
 since	IN
 Sept.	NNP
-|cd|	CD
+1	CD
 ,	,
 closed	VBN
 at	IN
 $	$
-|cd|	CD
+34.375	CD
 share	NN
 ,	,
 down	RB
 $	$
-|cd|	CD
+1.125	CD
 ,	,
 in	IN
 New	NNP
@@ -7280,13 +7280,13 @@ executive	NN
 's	POS
 job	NN
 in	IN
-|cd|	CD
+1986	CD
 .	.
 
 Mr.	NNP
 Stookey	NNP
 ,	,
-|cd|	CD
+59	CD
 years	NNS
 old	JJ
 ,	,
@@ -7375,7 +7375,7 @@ largest	JJS
 share	NN
 ,	,
 about	RB
-|cd|	CD
+20	CD
 %	NN
 .	.
 
@@ -7430,7 +7430,7 @@ profit	NN
 fluctuates	NNS
 by	IN
 about	IN
-|cd|	CD
+85	CD
 cents	NNS
 a	DT
 share	NN
@@ -7476,7 +7476,7 @@ for	IN
 as	RB
 much	RB
 as	IN
-|cd|	CD
+50	CD
 cents	NNS
 a	DT
 pound	NN
@@ -7487,10 +7487,10 @@ have	VBP
 skidded	VBD
 to	TO
 between	IN
-|cd|	CD
+35	CD
 cents	NNS
 and	CC
-|cd|	CD
+40	CD
 cents	NNS
 .	.
 
@@ -7753,7 +7753,7 @@ November	NNP
 
 I	PRP
 say	VBP
-|cd|	CD
+1992	CD
 .	.
 ''	''
 
@@ -7804,7 +7804,7 @@ a	DT
 three-year	JJ
 ,	,
 $	$
-|cd|	CD
+1.3	CD
 billion	CD
 plant-expansion	NN
 program	NN
@@ -7835,7 +7835,7 @@ ago	RB
 to	TO
 about	IN
 $	$
-|cd|	CD
+240	CD
 million	CD
 ,	,
 largely	RB
@@ -7920,10 +7920,10 @@ quarterly	JJ
 dividend	NN
 ,	,
 raised	VBD
-|cd|	CD
+36	CD
 %	NN
 to	TO
-|cd|	CD
+75	CD
 cents	NNS
 a	DT
 share	NN
@@ -7951,7 +7951,7 @@ questions	NNS
 in	IN
 a	DT
 Sept.	NNP
-|cd|	CD
+29	CD
 meeting	NN
 with	IN
 analysts	NNS
@@ -8014,10 +8014,10 @@ Quantum	NNP
 shares	NNS
 slid	VBD
 $	$
-|cd|	CD
+2.625	CD
 to	TO
 $	$
-|cd|	CD
+36.625	CD
 in	IN
 Big	NNP
 Board	NNP
@@ -8059,7 +8059,7 @@ in	IN
 September	NNP
 to	TO
 within	IN
-|cd|	CD
+12	CD
 hours	NNS
 of	IN
 completing	VBG
@@ -8279,10 +8279,10 @@ plant	NN
 usually	RB
 accounts	VBZ
 for	IN
-|cd|	CD
+20	CD
 %	NN
 to	TO
-|cd|	CD
+25	CD
 %	NN
 of	IN
 Quantum	NNP
@@ -8290,7 +8290,7 @@ Quantum	NNP
 polyethylene	NN
 production	NN
 and	CC
-|cd|	CD
+50	CD
 %	NN
 of	IN
 its	PRP$
@@ -8394,7 +8394,7 @@ transaction	NN
 valued	VBN
 at	IN
 $	$
-|cd|	CD
+1.18	CD
 billion	CD
 .	.
 
@@ -8525,12 +8525,12 @@ a	DT
 month	NN
 after	IN
 moving	VBG
-|cd|	CD
+11	CD
 of	IN
 the	DT
 group	NN
 's	POS
-|cd|	CD
+14	CD
 employees	NNS
 to	TO
 New	NNP
@@ -8558,7 +8558,7 @@ year	NN
 in	IN
 a	DT
 $	$
-|cd|	CD
+25	CD
 billion	CD
 leveraged	JJ
 buy-out	NN
@@ -8584,7 +8584,7 @@ unit	NN
 and	CC
 dismissing	VBG
 its	PRP$
-|cd|	CD
+14	CD
 employees	NNS
 ,	,
 in	IN
@@ -8675,7 +8675,7 @@ is	VBZ
 spending	VBG
 about	IN
 $	$
-|cd|	CD
+140	CD
 million	CD
 on	IN
 network	NN
@@ -8688,7 +8688,7 @@ down	RB
 from	IN
 roughly	RB
 $	$
-|cd|	CD
+200	CD
 million	CD
 last	JJ
 year	NN
@@ -8704,7 +8704,7 @@ will	MD
 be	VB
 disbanded	VBN
 Dec.	NNP
-|cd|	CD
+1	CD
 ,	,
 and	CC
 the	DT
@@ -8764,7 +8764,7 @@ group	NN
 said	VBD
 RJR	NNP
 moved	VBD
-|cd|	CD
+11	CD
 employees	NNS
 of	IN
 the	DT
@@ -8821,7 +8821,7 @@ the	DT
 company	NN
 moved	VBD
 the	DT
-|cd|	CD
+11	CD
 employees	NNS
 to	TO
 New	NNP
@@ -8987,7 +8987,7 @@ quotas	NNS
 which	WDT
 expired	VBD
 Sept.	NNP
-|cd|	CD
+30	CD
 .	.
 
 Brazil	NNP
@@ -9012,9 +9012,9 @@ the	DT
 year	NN
 ending	VBG
 Oct.	NNP
-|cd|	CD
+1	CD
 ,	,
-|cd|	CD
+1990	CD
 .	.
 
 In	IN
@@ -9026,11 +9026,11 @@ steelmakers	NNS
 have	VBP
 supplied	VBN
 about	IN
-|cd|	CD
+80	CD
 %	NN
 of	IN
 the	DT
-|cd|	CD
+100	CD
 million	CD
 tons	NNS
 of	IN
@@ -9045,7 +9045,7 @@ nation	NN
 Of	IN
 the	DT
 remaining	JJ
-|cd|	CD
+20	CD
 %	NN
 needed	VBN
 ,	,
@@ -9054,7 +9054,7 @@ steel-quota	NN
 negotiations	NNS
 allocate	VBP
 about	RB
-|cd|	CD
+15	CD
 %	NN
 to	TO
 foreign	JJ
@@ -9147,9 +9147,9 @@ agreements	NNS
 ,	,
 until	IN
 March	NNP
-|cd|	CD
+31	CD
 ,	,
-|cd|	CD
+1992	CD
 .	.
 
 It	PRP
@@ -9236,7 +9236,7 @@ doubled	VBD
 its	PRP$
 quota	NN
 to	TO
-|cd|	CD
+0.95	CD
 %	NN
 of	IN
 the	DT
@@ -9244,7 +9244,7 @@ U.S.	NNP
 steel	NN
 market	NN
 from	IN
-|cd|	CD
+0.48	CD
 %	NN
 under	IN
 the	DT
@@ -9257,7 +9257,7 @@ Korea	NNP
 ,	,
 which	WDT
 had	VBD
-|cd|	CD
+1.9	CD
 %	NN
 under	IN
 the	DT
@@ -9273,7 +9273,7 @@ small	JJ
 increase	NN
 to	TO
 about	IN
-|cd|	CD
+1.95	CD
 %	NN
 .	.
 
@@ -9284,7 +9284,7 @@ to	TO
 slightly	RB
 more	JJR
 than	IN
-|cd|	CD
+2	CD
 %	NN
 of	IN
 the	DT
@@ -9311,7 +9311,7 @@ its	PRP$
 allowance	NN
 from	IN
 the	DT
-|cd|	CD
+1.43	CD
 %	NN
 share	NN
 it	PRP
@@ -9364,7 +9364,7 @@ has	VBZ
 been	VBN
 supplying	VBG
 about	IN
-|cd|	CD
+5	CD
 %	NN
 of	IN
 the	DT
@@ -9376,7 +9376,7 @@ recent	JJ
 quotas	NNS
 of	IN
 about	IN
-|cd|	CD
+6.7	CD
 %	NN
 .	.
 
@@ -9388,7 +9388,7 @@ steel	NN
 to	TO
 total	VB
 about	IN
-|cd|	CD
+4.5	CD
 %	NN
 of	IN
 the	DT
@@ -9399,7 +9399,7 @@ with	IN
 a	DT
 quota	NN
 of	IN
-|cd|	CD
+5.9	CD
 %	NN
 .	.
 
@@ -9415,21 +9415,21 @@ its	PRP$
 quota	NN
 increased	VBN
 about	IN
-|cd|	CD
+300,000	CD
 tons	NNS
 ,	,
 to	TO
-|cd|	CD
+7	CD
 %	NN
 of	IN
 the	DT
 U.S.	NNP
 market	NN
 from	IN
-|cd|	CD
+6.7	CD
 %	NN
 in	IN
-|cd|	CD
+1988	CD
 .	.
 
 But	CC
@@ -9440,10 +9440,10 @@ been	VBN
 as	IN
 high	JJ
 as	IN
-|cd|	CD
+6.9	CD
 %	NN
 in	IN
-|cd|	CD
+1984	CD
 .	.
 
 Japan	NNP
@@ -9458,10 +9458,10 @@ its	PRP$
 quota	NN
 to	TO
 about	IN
-|cd|	CD
+5	CD
 %	NN
 from	IN
-|cd|	CD
+5.9	CD
 %	NN
 previously	RB
 .	.
@@ -9479,7 +9479,7 @@ South	NNP
 Korea	NNP
 provide	VB
 about	IN
-|cd|	CD
+80	CD
 %	NN
 of	IN
 the	DT
@@ -9518,7 +9518,7 @@ had	VBD
 about	IN
 an	DT
 extra	JJ
-|cd|	CD
+2	CD
 %	NN
 of	IN
 the	DT
@@ -9543,7 +9543,7 @@ made	VBN
 up	RP
 of	IN
 a	DT
-|cd|	CD
+1	CD
 %	NN
 increase	NN
 in	IN
@@ -9552,7 +9552,7 @@ overall	JJ
 quota	NN
 program	NN
 and	CC
-|cd|	CD
+1	CD
 %	NN
 from	IN
 cutting	VBG
@@ -9580,7 +9580,7 @@ they	PRP
 will	MD
 have	VB
 another	DT
-|cd|	CD
+1	CD
 %	NN
 of	IN
 the	DT
@@ -9643,7 +9643,7 @@ second-quarter	JJ
 earnings	NNS
 to	TO
 trail	VB
-|cd|	CD
+1988	CD
 results	NNS
 ,	,
 but	CC
@@ -9678,7 +9678,7 @@ net	JJ
 income	NN
 of	IN
 $	$
-|cd|	CD
+272,000	CD
 ,	,
 or	CC
 five	CD
@@ -9694,13 +9694,13 @@ quarter	NN
 ,	,
 ended	VBN
 Sept.	NNP
-|cd|	CD
+30	CD
 .	.
 
 Revenue	NN
 totaled	VBD
 $	$
-|cd|	CD
+5	CD
 million	CD
 .	.
 
@@ -9737,7 +9737,7 @@ of	IN
 just	RB
 under	IN
 $	$
-|cd|	CD
+4	CD
 million	CD
 .	.
 
@@ -9824,7 +9824,7 @@ Elcotel	NNP
 expects	VBZ
 to	TO
 place	VB
-|cd|	CD
+10,000	CD
 fax	NN
 machines	NNS
 ,	,
@@ -9879,7 +9879,7 @@ a	DT
 minimum	NN
 of	IN
 $	$
-|cd|	CD
+10	CD
 of	IN
 recurring	VBG
 net	JJ
@@ -9992,7 +9992,7 @@ would	MD
 produce	VB
 about	IN
 $	$
-|cd|	CD
+5	CD
 of	IN
 recurring	VBG
 net	JJ
@@ -10010,7 +10010,7 @@ retail	JJ
 price	NN
 index	NN
 rose	VBD
-|cd|	CD
+0.7	CD
 %	NN
 in	IN
 September	NNP
@@ -10019,7 +10019,7 @@ August	NNP
 and	CC
 was	VBD
 up	RP
-|cd|	CD
+7.6	CD
 %	NN
 for	IN
 the	DT
@@ -10065,7 +10065,7 @@ record	NN
 as	IN
 of	IN
 Oct.	NNP
-|cd|	CD
+23	CD
 .	.
 
 The	DT
@@ -10113,7 +10113,7 @@ group	NN
 acquires	VBZ
 more	JJR
 than	IN
-|cd|	CD
+15	CD
 %	NN
 of	IN
 the	DT
@@ -10237,7 +10237,7 @@ which	WDT
 quickly	RB
 won	VBD
 a	DT
-|cd|	CD
+30	CD
 %	NN
 stake	NN
 in	IN
@@ -10358,7 +10358,7 @@ hit	VBD
 the	DT
 shelves	NNS
 in	IN
-|cd|	CD
+1987	CD
 ,	,
 P&G	NNP
 's	POS
@@ -10370,12 +10370,12 @@ market	NN
 fell	VBD
 to	TO
 about	IN
-|cd|	CD
+8	CD
 %	NN
 from	IN
 more	JJR
 than	IN
-|cd|	CD
+20	CD
 %	NN
 .	.
 
@@ -10394,7 +10394,7 @@ now	RB
 estimated	VBN
 to	TO
 be	VB
-|cd|	CD
+12	CD
 %	NN
 .	.
 
@@ -10422,7 +10422,7 @@ be	VB
 in	IN
 the	DT
 $	$
-|cd|	CD
+4	CD
 billion	CD
 U.S.	NNP
 detergent	NN
@@ -10463,7 +10463,7 @@ its	PRP$
 best-selling	JJ
 Tide	NNP
 into	IN
-|cd|	CD
+16	CD
 different	JJ
 varieties	NNS
 ,	,
@@ -10776,7 +10776,7 @@ P&G	NNP
 which	WDT
 has	VBZ
 about	IN
-|cd|	CD
+23	CD
 %	NN
 of	IN
 the	DT
@@ -11395,11 +11395,11 @@ targeted	VBN
 under	IN
 the	DT
 Super	NNP
-|cd|	CD
+301	CD
 provision	NN
 of	IN
 the	DT
-|cd|	CD
+1988	CD
 trade	NN
 bill	NN
 .	.
@@ -11569,7 +11569,7 @@ has	VBZ
 been	VBN
 stuck	VBN
 around	IN
-|cd|	CD
+10	CD
 %	NN
 for	IN
 years	NNS
@@ -11580,18 +11580,18 @@ Americans	NNPS
 have	VBP
 interpreted	VBN
 a	DT
-|cd|	CD
+1986	CD
 agreement	NN
 as	IN
 assuring	VBG
 U.S.	NNP
 companies	NNS
 a	DT
-|cd|	CD
+20	CD
 %	NN
 share	NN
 by	IN
-|cd|	CD
+1991	CD
 ,	,
 but	CC
 the	DT
@@ -11624,7 +11624,7 @@ do	VB
 much	RB
 better	JJR
 than	IN
-|cd|	CD
+20	CD
 %	NN
 .	.
 ''	''
@@ -11676,7 +11676,7 @@ quarter	NN
 that	WDT
 ended	VBD
 June	NNP
-|cd|	CD
+30	CD
 and	CC
 is	VBZ
 seeking	VBG
@@ -11740,9 +11740,9 @@ the	DT
 year	NN
 ended	VBN
 June	NNP
-|cd|	CD
+30	CD
 ,	,
-|cd|	CD
+1988	CD
 ,	,
 Traditional	JJ
 reported	VBD
@@ -11750,12 +11750,12 @@ net	JJ
 income	NN
 of	IN
 $	$
-|cd|	CD
+4.9	CD
 million	CD
 ,	,
 or	CC
 $	$
-|cd|	CD
+1.21	CD
 a	DT
 share	NN
 .	.
@@ -11780,12 +11780,12 @@ net	JJ
 income	NN
 was	VBD
 $	$
-|cd|	CD
+4.7	CD
 million	CD
 ,	,
 or	CC
 $	$
-|cd|	CD
+1.31	CD
 a	DT
 share	NN
 ,	,
@@ -11793,7 +11793,7 @@ on	IN
 revenue	NN
 of	IN
 $	$
-|cd|	CD
+44.3	CD
 million	CD
 .	.
 
@@ -11818,7 +11818,7 @@ Commission	NNP
 ``	``
 within	IN
 approximately	RB
-|cd|	CD
+45	CD
 days	NNS
 .	.
 ''	''
@@ -11870,7 +11870,7 @@ would	MD
 establish	VB
 a	DT
 $	$
-|cd|	CD
+250,000	CD
 trust	NN
 fund	NN
 to	TO
@@ -11933,7 +11933,7 @@ system	NN
 's	POS
 about	IN
 $	$
-|cd|	CD
+3	CD
 million	CD
 purchase	NN
 price	NN
@@ -12095,7 +12095,7 @@ overseas	JJ
 
 Syms	NNP
 operates	VBZ
-|cd|	CD
+25	CD
 off-price	JJ
 apparel	NN
 stores	NNS
@@ -12326,13 +12326,13 @@ companies	NNS
 It	PRP
 has	VBZ
 plunged	VBN
-|cd|	CD
+13	CD
 %	NN
 since	IN
 July	NNP
 to	TO
 around	IN
-|cd|	CD
+26	CD
 cents	NNS
 a	DT
 pound	NN
@@ -12344,13 +12344,13 @@ ago	IN
 ethylene	NN
 sold	VBN
 for	IN
-|cd|	CD
+33	CD
 cents	NNS
 ,	,
 peaking	VBG
 at	IN
 about	IN
-|cd|	CD
+34	CD
 cents	NNS
 last	JJ
 December	NNP

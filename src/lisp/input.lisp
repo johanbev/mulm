@@ -10,6 +10,9 @@
 (defclass id-normalizer (normalizer) nil)
 (defclass cd-normalizer (normalizer) nil)
 
+(defstruct token
+  (internal-form nil) (external-form nil) (tag nil))
+
 ;; used to pass token count between corpus generator and read-tt-corpus()
 (defparameter *token-count* nil)
 
@@ -82,13 +85,13 @@
 (defun ll-to-word-list (ll)
   "Extract the sentences out of a list of lists corpus"
   (mapcar (lambda (x)
-	    (mapcar #'car x))
+	    (mapcar #'token-internal-form x))
 	  ll))
 
 (defun ll-to-tag-list (ll)
   "Extract the tag-sequences out of a list of lists corpus"
   (mapcar (lambda (x)
-	     (mapcar #'second x))
+	     (mapcar #'token-tag x))
 	  ll))
 
 (defun ll-to-constraint-list (ll)
@@ -189,14 +192,18 @@
 (defun read-token (line)
   (let* ((split (position-if #'(lambda (c)
                                  (member c *whitespace*)) line))
-         (form (string-trim *whitespace* (normalize-token (subseq line 0 split))))
+         (form (string-trim *whitespace* (subseq line 0 split)))
+         (normalized-form (normalize-token form))
+         (use-normalized (string-not-equal form normalized-form))
          (tag (if split
                 (string-trim *whitespace* (subseq line (+ split 1))))))
     (if (and form (not (string= form "")))
       (if nil ;; constrained
         (destructuring-bind (tag constraint) (split-tag-constraint tag)
           (list form tag constraint))
-        (list form tag)))))
+        (make-token :external-form (if use-normalized form)
+                    :internal-form normalized-form
+                    :tag tag)))))
 
 ;; reads tt token lines until end-of-sentence (empty line) occurs
 (defun read-sentence (s)
