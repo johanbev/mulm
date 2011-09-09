@@ -1,21 +1,26 @@
 (in-package :cl-user)
 
+(defun process-sentence (sentence model)
+  (let* ((tokens (mapcar #'first sentence))
+         (result (mulm::viterbi-trigram model tokens)))
+    (loop for tok in tokens
+          for tag in result
+          do (format t "~a~C~a~%" tok #\Tab tag))
+    (format t "~%")))
+
 ;; simple top level driver for command line delivery
 (defun top-level-tag (model-file in-file)
-  (let ((model (mulm::deserialize-hmm-model-from-file model-file))
-        (input (mulm::read-tt-corpus in-file)))
+  (let ((model (mulm::deserialize-hmm-model-from-file model-file)))
     (mulm::add-transition-table model (mulm::make-description :order 2
                                                               :smoothing :deleted-interpolation))
 
     (log5:log-for (log5:info) "Started tagging corpus")
-    
-    (loop for sentence in input
-          for tokens = (mapcar #'first sentence)
-          for result = (mulm::viterbi-trigram model tokens)
-          do (loop for tok in tokens
-                   for tag in result
-                   do (format t "~a~C~a~%" tok #\Tab tag))
-          do (format t "~%"))
+
+    (let ((mulm::*token-count* 0))
+      (with-open-file (s in-file)
+        (iterate:iter
+          (iterate:generate sent :in-corpus-stream s)
+          (process-sentence (iterate:next sent) model))))
     
     (log5:log-for (log5:info) "Completed tagging corpus")))
 
