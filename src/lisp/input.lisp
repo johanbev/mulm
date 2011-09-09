@@ -217,7 +217,7 @@
                      sentence
                      (iterate:terminate))))))))
 
-(defun read-tt-corpus (file &key (constrained nil))
+(defun read-tt-corpus (file &key (constrained nil) (sentence-handler nil) (collect t))
   "Create a list of lists corpus from TT format file."
   (declare (ignore constrained))
 
@@ -227,8 +227,13 @@
          (corpus (with-open-file (s file)
                    (iterate:iter
                      (iterate:generate sent :in-corpus-stream s)
-                     (iterate:collect (iterate:next sent))))))
+                     (let ((next-sent (iterate:next sent)))
+                       (when collect
+                         (iterate:collect next-sent))
+                       (when sentence-handler
+                         (funcall sentence-handler next-sent)))))))
 
     (log5:log-for (log5:info) "Read ~a tokens in training corpus" *token-count*)
 
     corpus))
+

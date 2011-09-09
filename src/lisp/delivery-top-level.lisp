@@ -16,12 +16,11 @@
 
     (log5:log-for (log5:info) "Started tagging corpus")
 
-    (let ((mulm::*token-count* 0))
-      (with-open-file (s in-file)
-        (iterate:iter
-          (iterate:generate sent :in-corpus-stream s)
-          (process-sentence (iterate:next sent) model))))
-    
+    (mulm::read-tt-corpus in-file
+                          :sentence-handler #'(lambda (sentence)
+                                                (process-sentence sentence model))
+                          :collect nil)
+
     (log5:log-for (log5:info) "Completed tagging corpus")))
 
 (defun top-level-train (in-file)
