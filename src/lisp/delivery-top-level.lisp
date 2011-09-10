@@ -1,8 +1,8 @@
 (in-package :cl-user)
 
-(defun process-sentence (sentence model)
+(defun process-sentence (sentence decoder)
   (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
-         (result (mulm::viterbi-trigram model tokens))
+         (result (mulm::decode decoder tokens))
          (external-forms (loop for token in sentence
                                if (mulm::token-external-form token)
                                collect (mulm::token-external-form token)
@@ -14,15 +14,16 @@
 
 ;; simple top level driver for command line delivery
 (defun top-level-tag (model-file in-file)
-  (let ((model (mulm::deserialize-hmm-model-from-file model-file)))
-    (mulm::add-transition-table model (mulm::make-description :order 2
-                                                              :smoothing :deleted-interpolation))
+  (let* ((model (mulm::deserialize-hmm-model-from-file model-file))
+         (decoder (mulm::make-decoder-from-model model
+                                                 (mulm::make-description :order 2
+                                                                         :smoothing :deleted-interpolation))))
 
     (log5:log-for (log5:info) "Started tagging corpus")
 
     (mulm::read-tt-corpus in-file
                           :sentence-handler #'(lambda (sentence)
-                                                (process-sentence sentence model))
+                                                (process-sentence sentence decoder))
                           :collect nil)
 
     (log5:log-for (log5:info) "Completed tagging corpus")))

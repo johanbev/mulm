@@ -276,17 +276,26 @@
           do (push (code-to-token state (hmm-tag-lexicon hmm)) result)
           finally (return result)))))
 
-(defstruct viterbi-decoder
-  function
-  model
-  (caches (make-hash-table))
-  trellis
-  back)
+(defstruct decoder
+  (function nil)
+  (model nil)
+  (description nil))
 
-(defun make-decoder (training-corpus)
-  (setup-decoder
-   (make-viterbi-decoder :function #'viterbi-bigram-slow
-                         :model (train training-corpus))))
+(defun make-decoder-from-model (model description)
+  (add-transition-table model description)
+  
+  (make-decoder :function (ecase (order description)
+                            (1 #'viterbi-bigram)
+                            (2 #'viterbi-trigram))
+                :model model
+                :description description))
+
+(defun make-decoder-from-corpus (corpus description)
+  (let ((model (train corpus)))
+    (make-decoder-from-model model description)))
+
+(defun decode (decoder sentence)
+  (funcall (decoder-function decoder) (decoder-model decoder) sentence))
 
 (defun setup-decoder (decoder &optional input)
   (declare (ignore input))
