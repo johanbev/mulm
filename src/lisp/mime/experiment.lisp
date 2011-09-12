@@ -77,11 +77,6 @@
         (read stream)
       ,@body)))
 
-(defun make-hmm (train order smoothing)
-  (let* ((hmm (mulm::train train)))
-    (mulm::add-transition-table hmm (mulm::make-description :order order :smoothing smoothing))
-    hmm))
-
 (defparameter *working-set* nil)
 
 (defun do-gc (&key full verbose)
@@ -99,10 +94,10 @@
 
 (defun perform-experiment (file)
   (setf *working-set* nil)
-  (format t "reading in experiment file...~%")
+  (log5:log-for (log5:info) "Reading experiment file")
   (with-experiment file
     (declare (ignorable experiment))
-    (format t "read experiment file...~%")
+    (log5:log-for (log5:info) "Finished reading experiment file")
     (if (and (or train test) corpora)
         (error "Illegal experiment file: Cannot have both train and test set and folds!")
       (progn
@@ -125,36 +120,36 @@
                    splits
                  (list (list (prepare-corpora (list train) corpus-type file)
                              (prepare-corpora (list test) corpus-type file))))))
-          (format t "read corpora...~%")          
+          (log5:log-for (log5:info) "Finished reading corpora")          
           (loop
               for (train test) in splits
               for i from 1
-              do (format t "~&Doing fold ~a~%" i)
+              do (log5:log-for (log5:info) "Doing fold ~a" i)
                  (when tag-split
                    (let ((ts (mulm::tag-split-corpora train test)))
                      (setf train (first ts)
                            test (second ts))))
-                 (format t "~&Training model....~%")
-                 (let ((hmm (make-hmm train order smoothing)))
-                   (format t "~&Model trained.")
-                   (format t "~&Model has ~a states." (mulm::hmm-n hmm))
-                   (format t "~&Decoding ~a sequences" (length test))
-                   (let ((decoder (ecase order
-                                    (1 #'mulm::viterbi-bigram)
-                                    (2 #'mulm::viterbi-trigram))))
-                     (loop
+                 (log5:log-for (log5:info) "Training model")
+                 (let* ((decoder (mulm::make-decoder-from-corpus train
+                                                                 (mulm::make-description :order order
+                                                                                         :smoothing smoothing)))
+                        (hmm (mulm::decoder-model decoder)))
+                   (log5:log-for (log5:info) "Model trained")
+                   (log5:log-for (log5:info) "Model has ~a states" (mulm::hmm-n hmm))
+                   (log5:log-for (log5:info) "Decoding ~a sequences" (length test))
+                   (loop
                          for forms in (mulm::ll-to-word-list test)
                          for gold-tags in (mulm::ll-to-tag-list test)
                          if forms
                          collect (list 
                                   forms
                                   gold-tags
-                                  (funcall decoder hmm forms)) into res
-                         else do (format t "~&WARN: Attempt to decode empty sequence, are corpora well formed?~%")
+                                  (mulm::decode decoder forms)) into res
+                         else do (log5:log-for (log5:warn) "Attempt to decode empty sequence, are corpora well formed?")
                          finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
                                              res train)
                                        *working-set*)
-                                 (when gc (setf hmm nil) (do-gc :full t)))))))))
+                                 (when gc (setf hmm nil) (do-gc :full t))))))))
     ;; now register-profile and print it
     (let ((profile (register-profile *working-set* name)))
       (when print

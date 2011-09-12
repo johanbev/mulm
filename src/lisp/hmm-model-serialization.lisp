@@ -173,7 +173,6 @@
 
 
       (calculate-parameters hmm)
-      (setup-hmm-beam hmm)
 
       hmm)))
 

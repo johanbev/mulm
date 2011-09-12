@@ -1,8 +1,9 @@
 (in-package :mulm)
 
-(defun evaluate (hmm corpus decoder-func &key (seq-handler nil) (decoder nil))
+(defun evaluate (decoder corpus &key (seq-handler nil))
   (let ((seqs (ll-to-word-list corpus))
         (tag-seqs (ll-to-tag-list corpus))
+        (hmm (decoder-model decoder))
         ; (constraints (ll-to-constraint-list corpus))
         )
     (loop
@@ -17,8 +18,7 @@
         for seq in seqs
         for tag-seq in tag-seqs
         ; for constraint in constraints
-        for result = (and seq (funcall decoder-func hmm seq :decoder decoder ; :constraints constraint
-                                       ))
+        for result = (and seq (decode decoder seq))
         for unknown = (loop 
                           for x in seq 
                           when (not (token-to-code x (hmm-token-lexicon hmm) :rop t))
@@ -47,48 +47,30 @@
                           correct total correct-sequence total-sequence
 			  correct-unknown total-unknown unknown-sequence correct-unknown-sequence)))))
 
-(defun do-evaluation (&key (order 1)
-                           (decoder nil)
-                           (hmm *hmm*)
+(defun do-evaluation (&key (decoder nil)
                            (corpus *wsj-test-corpus*)
-                           (clobber t)
+                           (order 1)
+                           (smoothing :deleted-interpolation)
                            (marker nil))
-  (when decoder
-    (setf hmm (viterbi-decoder-model decoder)))
-  (unless hmm
-    (format t "~&do-evaluation(): No model! Using WSJ")
+  (unless decoder
+    (log5:log-for (log5:info) "Generating decoder from corpus")
     (unless *wsj-train-corpus*
       (read-wsj-corpus))
-    (setf hmm (train *wsj-train-corpus*)))
-  (unless corpus
-    (setf corpus (read-tt-corpus *wsj-eval-file*)))
-  (cond
-   ((and (= order 1) clobber)
-    (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
-    (add-transition-table hmm
-                          (make-description :order 1 :smoothing :constant)))
-   ((and (= order 2) clobber)
-    (format t "~&do-evaluation(): Ahoy, generating cached transition-table for you")
-    (add-transition-table hmm
-                          (make-description :order 2 :smoothing :deleted-interpolation)))
-   (t (format t "~&do-evaluation(): Make sure to have a transition-table")))    
-  (format t "~&do-evaluation(): BEGIN evaluation with ~a sequences~%" (length corpus))
-  (let ((func (or (and decoder (viterbi-decoder-function decoder))
-                  (ecase order
-                    (1 #'viterbi-bigram)
-                    (2 #'viterbi-trigram))))
-        (seq-handler (if marker
+    (setf decoder (make-decoder-from-corpus *wsj-train-corpus*
+                                            (make-description :order order
+                                                              :smoothing smoothing))))    
+  (log5:log-for (log5:info) "Evaluating with ~a sequences~%" (length corpus))
+  (let ((seq-handler (if marker
                        #'(lambda (total)
-                                    (when (and marker
-                                               (= (rem total marker) 0))
-                                      (write-char #\.)
-                                      (finish-output))))))
+                           (when (and marker
+                                      (= (rem total marker) 0))
+                             (write-char #\.)
+                             (finish-output))))))
     (multiple-value-bind (acc seqacc correct total cs ts cu tu us cus)
-        (evaluate hmm corpus func
-                  :seq-handler seq-handler
-                  :decoder decoder)
+        (evaluate decoder corpus
+                  :seq-handler seq-handler)
       (declare (ignore cs ts))
-      (format t "~%Order:            ~a~%" (if decoder func order))
+      (format t "~%Order:            ~a~%" order)
       (format t "Correct:          ~2,4T~a~%" correct)
       (format t "Accuracy:         ~2,4T~,3f %~%" (* acc 100))
       (format t "Sequence Accuracy:~2,4T~,3f %~%" (* seqacc 100))

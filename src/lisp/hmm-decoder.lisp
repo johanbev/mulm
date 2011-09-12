@@ -24,12 +24,13 @@
 
 (defvar *warn-if-long* nil)
 
-(defun viterbi-trigram (hmm input &key &allow-other-keys)
+(defun viterbi-trigram (decoder input &key &allow-other-keys)
   "Yields the best sequence of hmm states given the observations in input.
    input : list of strings
    returns a list of strings"
   (declare (optimize (speed 3) (debug 1)))
-  (let* ((input (encode-input hmm input)) ;; encode the input to numerical codes
+  (let* ((hmm (decoder-model decoder))
+         (input (encode-input hmm input)) ;; encode the input to numerical codes
          (n (hmm-tag-cardinality hmm)) ;; get the size of the tag set
          (nn (* n n)) ;; the bigram state-set is the square of the tag saet
          (l (length input)) 
@@ -184,9 +185,10 @@
                     (mapcar #'second result)))))
 
 ;; NOTE transition tables must be cached by calling make-transition-table() before calling this function
-(defun viterbi-bigram (hmm input &key (beam-width 13.80) &allow-other-keys)
+(defun viterbi-bigram (decoder input &key (beam-width 13.80) &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
-  (let* ((input (encode-input hmm input))
+  (let* ((hmm (decoder-model decoder))
+         (input (encode-input hmm input))
          (n (hmm-tag-cardinality hmm))
          (l (length input))
          (viterbi (make-array (list n l) :initial-element most-negative-single-float :element-type 'single-float))
@@ -214,7 +216,7 @@
         for time of-type fixnum from 1 to (- l 1)
         for unk = (unknown-token-p hmm form)
         for unk-emi = (and unk (query-suffix-trie hmm (second form)))
-        with indices = (hmm-beam-array hmm)
+        with indices = (make-array n :fill-pointer t) ;; hmm-beam-array (hmm-beam-array hmm)
         initially (setf (fill-pointer indices) 0)
                   (loop 
                       for x below n
@@ -295,13 +297,7 @@
     (make-decoder-from-model model description)))
 
 (defun decode (decoder sentence)
-  (funcall (decoder-function decoder) (decoder-model decoder) sentence))
-
-(defun setup-decoder (decoder &optional input)
-  (declare (ignore input))
-  (setf (gethash :unknown-word (viterbi-decoder-caches decoder))
-        (make-hash-table))
-  decoder)
+  (funcall (decoder-function decoder) decoder sentence))
 
 (defun decode-start (decoder hmm input viterbi pointer &optional (constraints nil))
   (let ((n (hmm-tag-cardinality hmm)))
@@ -373,10 +369,9 @@
      do (push (code-to-token state (hmm-tag-lexicon hmm)) result)
      finally (return result))))
 
-(defun viterbi-bigram-slow (hmm input &key (beam-width 13.80) (decoder nil) (constraints nil))
-  (declare (ignore hmm))
+(defun viterbi-bigram-slow (decoder input &key (beam-width 13.80) (constraints nil))
   ; (declare (optimize (speed 3) (debug  1) (space 0)))
-  (let* ((hmm (viterbi-decoder-model decoder))
+  (let* ((hmm (decoder-model decoder))
          (input (encode-input hmm input))
          (n (hmm-tag-cardinality hmm))
          (l (length input))
@@ -393,16 +388,14 @@
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer))
 
-    ;; nuke existing caches
-    (setup-decoder decoder)
-
     (decode-start decoder hmm input viterbi pointer (first constraints))
     
     (loop
         for form in (rest input)
         for time of-type fixnum from 1 to (- l 1)
 
-        with indices = (hmm-beam-array hmm)
+        with indices = (make-array n :fill-pointer t) ;; hmm-beam-array
+    
         initially (setf (fill-pointer indices) 0)
                   (loop 
                       for x below n

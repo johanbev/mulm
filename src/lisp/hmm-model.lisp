@@ -39,9 +39,6 @@
   ; and decoding
   (n 0)
   
-  tag-array
-  beam-array
-
   ;; array indexed on tag codes containing maps with token codes as keys
   ;; and log probs as values
   emissions
@@ -387,18 +384,6 @@
                           prob)))))
     lm-root))
 
-(defun setup-hmm-beam (hmm)
-  "Initializes the hmm struct fields concerning the beam search.
-   hmm - Instantiated hmm struct.
-   Returns the passed hmm struct."
-  (let ((n (hmm-tag-cardinality hmm)))
-    (setf (hmm-beam-array hmm) (make-array n :fill-pointer t))
-    (setf (hmm-tag-array hmm)
-          (make-array n :element-type 'fixnum 
-                      :initial-contents (loop for i from 0 to (1- n) collect i))))
-  hmm)
-
-
 ;; prepare bigram and trigram generators.
 (defparameter *bigram-stream* (make-partition-stream nil 2))
 (defparameter *trigram-stream* (make-partition-stream nil 3))
@@ -542,8 +527,6 @@
     (populate-counts corpus hmm)
     
     (calculate-parameters hmm)
-
-    (setup-hmm-beam hmm)
     
     hmm))
 
