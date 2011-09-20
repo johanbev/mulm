@@ -100,8 +100,10 @@
                       collect (third tok))))
 
 (defun read-wsj-corpus ()
-  (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*))
-  (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*)))
+  (unless *wsj-train-corpus*
+    (setf *wsj-train-corpus* (read-tt-corpus *wsj-train-file*)))
+  (unless *wsj-test-corpus*
+    (setf *wsj-test-corpus* (read-tt-corpus *wsj-eval-file*))))
 
 ;; Brown corpus
 (defvar *brown-train-corpus* nil)
@@ -240,7 +242,7 @@
                        (when sentence-handler
                          (funcall sentence-handler next-sent)))))))
 
-    (log5:log-for (log5:info) "Read ~a tokens in training corpus" *token-count*)
+    (log5:log-for (log5:info) "Read ~a tokens in corpus" *token-count*)
 
     corpus))
 

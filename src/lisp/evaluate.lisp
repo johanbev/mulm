@@ -52,10 +52,13 @@
                            (order 1)
                            (smoothing :deleted-interpolation)
                            (marker nil))
+  ;; make sure default corpora are initialized if needed
+  (unless (and corpus decoder)
+    (read-wsj-corpus))
+  (unless corpus
+    (setf corpus *wsj-test-corpus*))
   (unless decoder
     (log5:log-for (log5:info) "Generating decoder from corpus")
-    (unless *wsj-train-corpus*
-      (read-wsj-corpus))
     (setf decoder (make-decoder-from-corpus *wsj-train-corpus*
                                             (make-description :order order
                                                               :smoothing smoothing))))    
