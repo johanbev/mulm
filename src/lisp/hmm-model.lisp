@@ -76,10 +76,7 @@
   bigram-transition-table ;; actual bigram transitions with log-probs used by decoder
 
   ;; WARNING not used directly by the decoder yet but will replace the two slots above
-  transition-tables
-  
-  caches ;; transient caches for decoding
-  )
+  transition-tables)
 
 ;; NOTE tag cardinality is the total number of tags used by the model, ie. start and end
 ;; tags are added to the tag set. N is the number of tags seen in the training data.
@@ -279,15 +276,11 @@
   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
 
 (defun emission-probability-slow (decoder hmm state form)
+  (declare (ignore decoder))
   (if (unknown-token-p hmm form)
     (let* ((form (token-to-code (second form)
                                 (hmm-token-lexicon hmm) :rop t))
-           (cache (gethash :unknown-word (viterbi-decoder-caches decoder)))
-           (cache-lookup (gethash form cache))
-           (dist (or cache-lookup
-                     (let ((dist (query-suffix-trie hmm form)))
-                       (setf (gethash form cache) dist)
-                       dist))))
+           (dist (query-suffix-trie hmm form)))
       (aref dist state))
     (the single-float
          (gethash form
@@ -343,20 +336,8 @@
     (setf (hmm-transition-tables hmm) (make-lash))
     
     (loop for i from 0 to (- n 1)
-        do (setf (aref (hmm-emissions hmm) i) (make-hash-table :size 11)))
-    (setf (hmm-caches hmm)
-      (list 
-       ;;; We try to prevent newspace expansion here: these caches
-       ;;; will live as long as the hmm-struct they belong to it is
-       ;;; therefore likely that they will eventually be tenured
-       ;;; anyway. it should be better to not have these clogging up
-       ;;; newspace and being scavenged around
-       (make-array (list (* n n) 100) :initial-element nil) ;; backpointer table
-       (make-array (list (* n n) 100) 
-                   :initial-element most-negative-single-float 
-                   :element-type 'single-float) ;; trellis
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum) ;; first agenda
-       (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))))
+        do (setf (aref (hmm-emissions hmm) i) (make-hash-table :size 11))))
+  
   hmm)
 
 (defun calculate-tag-lm (hmm)

@@ -33,15 +33,12 @@
          (input (encode-input hmm input)) ;; encode the input to numerical codes
          (n (hmm-tag-cardinality hmm)) ;; get the size of the tag set
          (nn (* n n)) ;; the bigram state-set is the square of the tag saet
-         (l (length input)) 
-         ;; Reuse the backpointer array if it fits, or create a new one:
-         (pointer (if (< l 99)
-                      (first (hmm-caches hmm))
-                    (make-array (list nn l) :initial-element nil)))
-         ;; Reuse the trellis if it fits or creaate a new one:
-         (viterbi (if (< l 99)
-                      (second (hmm-caches hmm))
-                    (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float)))
+         (l (length input))
+
+         ; viterbi trellis and backpointer array
+         (pointer (make-array (list nn l) :initial-element nil))
+         (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
+         
          ;; Keep track of `active' tags, ie. tags that have P(w|t) > 0.
          (active-tags (make-array (list n l) :initial-element nil))
          ;; The final sequence probability
@@ -50,9 +47,10 @@
          (final-back nil)
          (end-tag (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t))
          (start-tag (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t))
-         ;; Reuse agendas:
-         (previous-possible (third (hmm-caches hmm)))
-         (next-possible (fourth (hmm-caches hmm))))
+
+         (previous-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))
+         (next-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)))
+
     ;; Now declare some types to make things more efficient
     (declare (type (simple-array single-float (* *)) viterbi)
              (type (simple-array t (* *)) pointer active-tags)
@@ -184,7 +182,6 @@
         finally (return
                     (mapcar #'second result)))))
 
-;; NOTE transition tables must be cached by calling make-transition-table() before calling this function
 (defun viterbi-bigram (decoder input &key (beam-width 13.80) &allow-other-keys)
   (declare (optimize (speed 3) (debug  1) (space 0)))
   (let* ((hmm (decoder-model decoder))
