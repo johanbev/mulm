@@ -1732,7 +1732,7 @@ forefront	NN
 As	IN
 the	DT
 Dow	NNP
-average	JJ
+average	NN
 ground	NN
 to	TO
 its	PRP$
@@ -2125,7 +2125,7 @@ know	VB
 George	NNP
 Morton	NNP
 
-Ports	NNP
+Ports	NNS
 of	IN
 Call	NNP
 Inc.	NNP
@@ -2297,7 +2297,7 @@ Jay	NNP
 Shidler	NNP
 ,	,
 chief	JJ
-executive	NN
+executive	JJ
 officer	NN
 of	IN
 Shidler	NNP
@@ -3961,7 +3961,7 @@ about	RB
 .	.
 ''	''
 
-Major	NNP
+Major	JJ
 mutual-fund	JJ
 groups	NNS
 said	VBD
@@ -7972,7 +7972,7 @@ regularly	RB
 --	:
 as	IN
 nothing	NN
-more	JJR
+more	RBR
 than	IN
 the	DT
 standard	JJ
@@ -9710,7 +9710,7 @@ Pierce	NNP
 chairman	NN
 and	CC
 chief	JJ
-executive	NN
+executive	JJ
 officer	NN
 ,	,
 said	VBD
@@ -9759,7 +9759,7 @@ sales	NNS
 of	IN
 privately	RB
 owned	VBN
-pay	VB
+pay	NN
 telephones	NNS
 ,	,
 Elcotel	NNP
@@ -10128,7 +10128,7 @@ tender	NN
 offer	NN
 .	.
 
-Measuring	NNP
+Measuring	JJ
 cups	NNS
 may	MD
 soon	RB
@@ -10562,7 +10562,7 @@ concentrated	VBN
 as	IN
 the	DT
 new	JJ
-Cheer	NNP
+Cheer	NN
 ,	,
 bombed	VBN
 in	IN
@@ -11806,7 +11806,7 @@ it	PRP
 would	MD
 file	VB
 a	DT
-delayed	VBN
+delayed	JJ
 fiscal-year	JJ
 report	NN
 with	IN

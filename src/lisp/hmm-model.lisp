@@ -376,9 +376,9 @@
    sentence - In list of lists format.
    Returns the passed hmm struct."
   ;; Add start and end tags
-  (let* ((unigrams (append (list *start-tag*)
+  (let* ((unigrams (append (list *start-tag* *start-tag*)
                            (mapcar #'token-tag sentence)
-                           (list *end-tag*))))
+                           (list *end-tag* *end-tag*))))
                                         ;(bigrams (partition unigrams 2)))
                                         ;(trigrams (partition unigrams 3)))
     (funcall *bigram-stream* :reset unigrams)
