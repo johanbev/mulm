@@ -19,5 +19,7 @@
 
 (defparameter *whitespace* '(#\Tab #\Space #\Newline))
 
+(defparameter *start-tag* "<s>")
+(defparameter *end-tag* "</s>")
 
 (defvar *hmm* nil)

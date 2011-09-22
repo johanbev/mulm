@@ -90,8 +90,8 @@
 	 (limit-array (make-array (list length tag-card)
 				  :element-type 'single-float :initial-element most-negative-single-float))
 	 (*heap* (make-heap))
-	 (start-node (make-node :time -1 :probability 0.0 :value (token-to-code "<s>" (hmm-tag-lexicon hmm) :rop t)))
-	 (end-tag (token-to-code "</s>" (hmm-tag-lexicon hmm) :rop t)))
+	 (start-node (make-node :time -1 :probability 0.0 :value (token-to-code *start-tag* (hmm-tag-lexicon hmm) :rop t)))
+	 (end-tag (token-to-code *start-tag* (hmm-tag-lexicon hmm) :rop t)))
     ;; make transitions from the start node and enqueue
     (declare
        ;; this declaration should be redundant

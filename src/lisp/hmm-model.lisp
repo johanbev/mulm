@@ -306,8 +306,8 @@
    Returns the passed hmm struct."
   (setf (hmm-n hmm) n)
   
-  (token-to-code "<s>" (hmm-tag-lexicon hmm))
-  (token-to-code "</s>" (hmm-tag-lexicon hmm))
+  (token-to-code *start-tag* (hmm-tag-lexicon hmm))
+  (token-to-code *end-tag* (hmm-tag-lexicon hmm))
   
   ;; add start and end tags to tag set size
   (let ((n (hmm-tag-cardinality hmm)))
@@ -376,9 +376,9 @@
    sentence - In list of lists format.
    Returns the passed hmm struct."
   ;; Add start and end tags
-  (let* ((unigrams (append '("<s>")
+  (let* ((unigrams (append (list *start-tag*)
                            (mapcar #'token-tag sentence)
-                           '("</s>"))))
+                           (list *end-tag*))))
                                         ;(bigrams (partition unigrams 2)))
                                         ;(trigrams (partition unigrams 3)))
     (funcall *bigram-stream* :reset unigrams)
