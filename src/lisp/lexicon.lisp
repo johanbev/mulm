@@ -32,7 +32,7 @@
      (lexicon-count object)
      (lexicon-size object))))
 
-(defun token-to-code (token lexicon &key rop)
+(defun token-to-code (token lexicon &key (add-unknown nil))
   "Translate token to code, if the token is added if it's not already in the lexicon.
    rop - read-only, new tokens are not added
    returns the integer code for the token"
@@ -40,7 +40,7 @@
    ;; we have the token already, return the code
    (gethash token (lexicon-forward lexicon))
    ;; add the token unless read-only
-   (unless rop
+   (when add-unknown
      (let* ((i (lexicon-count lexicon)))
        ;; add to forwards map
        (setf (gethash token (lexicon-forward lexicon)) i)

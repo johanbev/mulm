@@ -152,7 +152,7 @@
                  collecting
                    (loop 
                        for (form tag) in sentence
-                       for code = (token-to-code form (hmm-token-lexicon hmm) :rop t)
+                       for code = (token-to-code form (hmm-token-lexicon hmm))
                        for replacement = (gethash (list code tag) replacement-table)
                        if replacement 
                        collect (list form replacement)

@@ -86,13 +86,12 @@
 (defun bigram-to-code (hmm bigram)
   "Returns index of bigram data in "
   (let ((c1 (token-to-code (first bigram)
-                           (hmm-tag-lexicon hmm)
-                           :rop t))
+                           (hmm-tag-lexicon hmm)))
         (c2 (token-to-code (second bigram)
-                           (hmm-tag-lexicon hmm)
-                           :rop t)))
+                           (hmm-tag-lexicon hmm))))    
     (+ (* c1 (hmm-tag-cardinality hmm))
        c2)))
+
 
 (defmethod print-object ((object hmm) stream)
   (format stream "<HMM with ~a states>" (hmm-n object)))
@@ -279,7 +278,7 @@
   (declare (ignore decoder))
   (if (unknown-token-p hmm form)
     (let* ((form (token-to-code (second form)
-                                (hmm-token-lexicon hmm) :rop t))
+                                (hmm-token-lexicon hmm)))
            (dist (query-suffix-trie hmm form)))
       (aref dist state))
     (the single-float
@@ -306,8 +305,8 @@
    Returns the passed hmm struct."
   (setf (hmm-n hmm) n)
   
-  (token-to-code *start-tag* (hmm-tag-lexicon hmm))
-  (token-to-code *end-tag* (hmm-tag-lexicon hmm))
+  (token-to-code *start-tag* (hmm-tag-lexicon hmm) :add-unknown t)
+  (token-to-code *end-tag* (hmm-tag-lexicon hmm) :add-unknown t)
   
   ;; add start and end tags to tag set size
   (let ((n (hmm-tag-cardinality hmm)))
@@ -386,22 +385,22 @@
     (loop for token in sentence
           for form = (token-internal-form token)
           for tag = (token-tag token)
-          for code = (token-to-code form (hmm-token-lexicon hmm))
+          for code = (token-to-code form (hmm-token-lexicon hmm) :add-unknown t)
           do (incf (hmm-token-count hmm))
           do (incf (gethash code
                             (aref (hmm-emissions hmm)
-                                  (token-to-code tag (hmm-tag-lexicon hmm)))
+                                  (token-to-code tag (hmm-tag-lexicon hmm) :add-unknown t))
                             0)))
 
     (loop for unigram in unigrams
-        for code = (token-to-code unigram (hmm-tag-lexicon hmm))
+        for code = (token-to-code unigram (hmm-tag-lexicon hmm) :add-unknown t)
         do (incf (aref (hmm-unigram-counts hmm) code)))
     
     (loop with stream = *bigram-stream*
         for bigram = (funcall stream)
         while bigram
-        for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm))
-        for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm))
+        for previous = (token-to-code (first bigram) (hmm-tag-lexicon hmm) :add-unknown t)
+        for current = (token-to-code (second bigram) (hmm-tag-lexicon hmm) :add-unknown t)
         do (incf (aref (hmm-bigram-counts hmm) previous current)))
 
     (loop 
@@ -409,9 +408,9 @@
         for trigram = (funcall stream)
         while trigram
               
-        do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm)))
-                 (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm)))
-                 (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm))))
+        do (let ((t1 (token-to-code (first trigram) (hmm-tag-lexicon hmm) :add-unknown t))
+                 (t2 (token-to-code (second trigram) (hmm-tag-lexicon hmm) :add-unknown t))
+                 (t3 (token-to-code (third trigram) (hmm-tag-lexicon hmm) :add-unknown t)))
              (incf (aref (hmm-trigram-counts hmm) t1 t2 t3))))
     hmm))
 

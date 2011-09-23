@@ -256,7 +256,7 @@
              for token in seq
              for form = (mulm::token-internal-form token)
              for gold = (mulm::token-tag token)
-             for code = (mulm::token-to-code form *lexicon*)
+             for code = (mulm::token-to-code form *lexicon* :add-unknown t)
              for word = (mulm::get-or-add code *word-types* (make-word))
              do (pushnew gold (word-tags word) :test #'equal))))
 
@@ -266,7 +266,7 @@
       do
         (loop
             for form in (result-forms result)
-            for code = (mulm::token-to-code form *lexicon*)
+            for code = (mulm::token-to-code form *lexicon* :add-unknown t)
             for gold in (result-gold result)
             for blue in (result-blue result)
             for word = (mulm::get-or-add code *word-types* (make-word :unseen t))
@@ -283,7 +283,7 @@
       for result in (fold-results fold)
       do (loop
              for form in (result-forms result)
-             for code = (mulm::token-to-code form *lexicon*)
+             for code = (mulm::token-to-code form *lexicon* :add-unknown t)
              for word = (gethash code *word-types*)
              for count = (length (word-tags word))
              do (incf accu count)

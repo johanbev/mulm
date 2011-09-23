@@ -39,8 +39,8 @@
       for blue in blues
       for gold in golds
       do (incf (aref matrix
-                     (token-to-code blue (hmm-tag-lexicon hmm) :rop t)
-                     (token-to-code gold (hmm-tag-lexicon hmm) :rop t)))
+                     (token-to-code blue (hmm-tag-lexicon hmm))
+                     (token-to-code gold (hmm-tag-lexicon hmm))))
       finally (return matrix)))
 
 
@@ -66,15 +66,15 @@
     (loop for tag1 across tags
           do (loop for tag2 across tags
                    do (let ((val1 (aref (hmm-transitions hmm1)
-                                        (token-to-code tag1 (hmm-tag-lexicon hmm1) :rop t)
-                                        (token-to-code tag2 (hmm-tag-lexicon hmm1) :rop t)))
+                                        (token-to-code tag1 (hmm-tag-lexicon hmm1))
+                                        (token-to-code tag2 (hmm-tag-lexicon hmm1))))
                             (val2 (aref (hmm-transitions hmm2)
-                                        (token-to-code tag1 (hmm-tag-lexicon hmm2) :rop t)
-                                        (token-to-code tag2 (hmm-tag-lexicon hmm2) :rop t))))
+                                        (token-to-code tag1 (hmm-tag-lexicon hmm2))
+                                        (token-to-code tag2 (hmm-tag-lexicon hmm2)))))
                         (if (not (equal val1 val2))
                           (format t "~a ~a ~a ~a~%" tag1 tag2 val1 val2)))))
     (loop for tag across tags
-          for map1 = (aref (hmm-emissions hmm1) (token-to-code tag (hmm-tag-lexicon hmm1) :rop t))
-          for map2 = (aref (hmm-emissions hmm2) (token-to-code tag (hmm-tag-lexicon hmm2) :rop t))
+          for map1 = (aref (hmm-emissions hmm1) (token-to-code tag (hmm-tag-lexicon hmm1)))
+          for map2 = (aref (hmm-emissions hmm2) (token-to-code tag (hmm-tag-lexicon hmm2)))
           do (if (hash-table-diff map1 map2)
                (format t "~a~%" tag)))))

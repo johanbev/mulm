@@ -8,7 +8,7 @@
 
    returns a list of encoded tokens."
   (loop for token in input
-        for code = (token-to-code token (hmm-token-lexicon hmm) :rop t)
+        for code = (token-to-code token (hmm-token-lexicon hmm))
         if code collect code
         else collect (list :unk token)))
 
@@ -45,8 +45,8 @@
          (final most-negative-single-float)
          ;; The final backpointer
          (final-back nil)
-         (end-tag (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t))
-         (start-tag (token-to-code *start-tag* (hmm-tag-lexicon hmm) :rop t))
+         (end-tag (token-to-code *end-tag* (hmm-tag-lexicon hmm)))
+         (start-tag (token-to-code *start-tag* (hmm-tag-lexicon hmm)))
 
          (previous-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))
          (next-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)))
@@ -205,7 +205,7 @@
         with unk-emi = (and unk (query-suffix-trie hmm (second form)))
         do (setf (aref viterbi state 0)
                  (+ (bi-cached-transition hmm
-                                          (token-to-code *start-tag* (hmm-tag-lexicon hmm) :rop t)
+                                          (token-to-code *start-tag* (hmm-tag-lexicon hmm))
                                           state)
                     (if unk
                       (aref unk-emi state)
@@ -256,7 +256,7 @@
               do (vector-push current indices)))
 
     (loop
-        with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t)
+        with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm))
         with time of-type fixnum = (- l 1)
         for previous of-type fixnum from 0 to (- n 1)
         for old of-type single-float = (aref viterbi final time)
@@ -265,10 +265,10 @@
         when (> new old) do
           (setf (aref viterbi final time) new)
           (setf (aref pointer final time) previous))
-    (if (null (aref pointer (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t) (- l 1)))
+    (if (null (aref pointer (token-to-code *end-tag* (hmm-tag-lexicon hmm)) (- l 1)))
         nil
       (loop
-          with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t)
+          with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm))
           with time = (- l 1)
           with last  = (aref pointer final time)
           with result = (list (code-to-token last (hmm-tag-lexicon hmm)))
@@ -306,7 +306,7 @@
      for state from 0 to (- n 1)
      when (or (null constraints) (member state constraints)) 
      do (setf (aref viterbi state 0)
-              (+ (bi-cached-transition hmm (token-to-code *start-tag* (hmm-tag-lexicon hmm) :rop t) state)
+              (+ (bi-cached-transition hmm (token-to-code *start-tag* (hmm-tag-lexicon hmm)) state)
                  (emission-probability-slow decoder hmm state form)))
      and do (setf (aref pointer state 0) 0))))
 
@@ -345,7 +345,7 @@
 (defun decode-end (hmm viterbi pointer l)
   (let ((n (hmm-tag-cardinality hmm)))
     (loop
-     with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t)
+     with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm))
      with time of-type fixnum = (- l 1)
      for previous of-type fixnum from 0 to (- n 1)
      for old of-type single-float = (aref viterbi final time)
@@ -356,10 +356,10 @@
      (setf (aref pointer final time) previous))))
 
 (defun backtrack-slow (hmm pointer l)
-  (if (null (aref pointer (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t) (- l 1)))
+  (if (null (aref pointer (token-to-code *end-tag* (hmm-tag-lexicon hmm)) (- l 1)))
     nil
     (loop
-     with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm) :rop t)
+     with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm))
      with time = (- l 1)
      with last  = (aref pointer final time)
      with result = (list (code-to-token last (hmm-tag-lexicon hmm)))
@@ -377,7 +377,7 @@
          (l (length input))
          (constraints (loop for tags in constraints
                             collect (loop for tag in tags
-                                          collect (token-to-code tag (hmm-tag-lexicon hmm) :rop t))))
+                                          collect (token-to-code tag (hmm-tag-lexicon hmm)))))
          (viterbi (make-array (list n l)
                               :initial-element most-negative-single-float
                               :element-type 'single-float))

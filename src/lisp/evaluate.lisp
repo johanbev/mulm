@@ -21,7 +21,7 @@
         for result = (and seq (decode decoder seq))
         for unknown = (loop 
                           for x in seq 
-                          when (not (token-to-code x (hmm-token-lexicon hmm) :rop t))
+                          when (not (token-to-code x (hmm-token-lexicon hmm)))
                           do (return t) 
                           finally (return nil))
         when unknown
@@ -33,7 +33,7 @@
         do
           (loop
               for x in seq
-              for unknown = (not (token-to-code x (hmm-token-lexicon hmm) :rop t))
+              for unknown = (not (token-to-code x (hmm-token-lexicon hmm)))
               for blue in result
               for gold in tag-seq
               when unknown do (incf total-unknown)
