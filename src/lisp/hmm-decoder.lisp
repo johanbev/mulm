@@ -28,7 +28,7 @@
   "Yields the best sequence of hmm states given the observations in input.
    input : list of strings
    returns a list of strings"
-  (declare (optimize (speed 3) (debug 1)))
+  ; (declare (optimize (speed 3) (debug 1)))
   (let* ((hmm (decoder-model decoder))
          (input (encode-input hmm input)) ;; encode the input to numerical codes
          (n (hmm-tag-cardinality hmm)) ;; get the size of the tag set
@@ -64,7 +64,7 @@
     (when (and *warn-if-long* (> l 100))
       (format t "~&Decoding a long sequence"))
     
-    ;; Fill out the first column in the trellis, this uses bigram probabilites, not trigram!
+    ;; Fill out the first column in the trellis
     (loop
         with form = (first input)
         with unk = (unknown-token-p hmm form)
@@ -72,10 +72,13 @@
         for tag fixnum from 0 to (- n 1)
         for state = (+ (* start-tag n) tag)
         do (setf (aref viterbi state 0)
-                 (+ (the single-float (if (hmm-bigram-transition-table hmm)
-                                          (bi-cached-transition hmm start-tag tag)
-                                        (transition-probability hmm tag start-tag nil
-                                                                :order 1 :smoothing :deleted-interpolation)))
+                 (+ (the single-float
+                         ; This is the "correct" transition probobality for the first column
+                         ;
+                         ; (tri-cached-transition hmm start-tag start-tag tag)
+                         ;
+                         ; But it actually works slightly better to use the smoothed bigram probability
+                         (transition-probability hmm tag start-tag nil :order 1 :smoothing :deleted-interpolation))
                     (the single-float
                       (if unk
                           (aref unk-emi tag)
