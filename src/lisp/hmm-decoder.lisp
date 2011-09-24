@@ -24,42 +24,56 @@
 
 (defvar *warn-if-long* nil)
 
+(defstruct decoder-state
+  ; viterbi trellis and backpointer array
+  (pointer nil :type (simple-array t (* *)))
+  (viterbi nil :type (simple-array single-float (* *)))
+  ;; Keep track of `active' tags, ie. tags that have P(w|t) > 0.
+  (active-tags nil :type (simple-array t (* *)))
+  ;; The final sequence probability
+  (final nil :type single-float)
+  ;; The final backpointer
+  (final-back nil)
+  (previous-possible nil :type (array fixnum (*)))
+  (next-possible nil :type (array fixnum (*))))
+
+(defun setup-trigram-decoding-state (decoder input)
+  (let* ((hmm (decoder-model decoder))
+         (n (hmm-tag-cardinality hmm))
+         (nn (* n n))
+         (l (length input))
+         (state (make-decoder-state
+                 :pointer (make-array (list nn l)
+                                      :initial-element nil)
+                 :viterbi (make-array (list nn l)
+                                      :initial-element most-negative-single-float
+                                      :element-type 'single-float)
+                 :active-tags (make-array (list n l) :initial-element nil)
+                 :final most-negative-single-float
+                 :final-back nil
+                 :previous-possible (make-array (* n n)
+                                                :initial-element 0
+                                                :fill-pointer 0
+                                                :element-type 'fixnum)
+                 :next-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))))
+    (setf (fill-pointer (decoder-state-previous-possible state)) 0
+          (fill-pointer (decoder-state-next-possible state)) 0)
+
+    state))
+
 (defun viterbi-trigram (decoder input &key &allow-other-keys)
   "Yields the best sequence of hmm states given the observations in input.
    input : list of strings
    returns a list of strings"
-  ; (declare (optimize (speed 3) (debug 1)))
+  (declare (optimize (speed 3) (debug 1)))
   (let* ((hmm (decoder-model decoder))
          (input (encode-input hmm input)) ;; encode the input to numerical codes
          (n (hmm-tag-cardinality hmm)) ;; get the size of the tag set
-         (nn (* n n)) ;; the bigram state-set is the square of the tag saet
          (l (length input))
-
-         ; viterbi trellis and backpointer array
-         (pointer (make-array (list nn l) :initial-element nil))
-         (viterbi (make-array (list nn l) :initial-element most-negative-single-float :element-type 'single-float))
-         
-         ;; Keep track of `active' tags, ie. tags that have P(w|t) > 0.
-         (active-tags (make-array (list n l) :initial-element nil))
-         ;; The final sequence probability
-         (final most-negative-single-float)
-         ;; The final backpointer
-         (final-back nil)
          (end-tag (token-to-code *end-tag* (hmm-tag-lexicon hmm)))
          (start-tag (token-to-code *start-tag* (hmm-tag-lexicon hmm)))
-
-         (previous-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum))
-         (next-possible (make-array (* n n) :initial-element 0 :fill-pointer 0 :element-type 'fixnum)))
-
-    ;; Now declare some types to make things more efficient
-    (declare (type (simple-array single-float (* *)) viterbi)
-             (type (simple-array t (* *)) pointer active-tags)
-             (type (array fixnum (*)) previous-possible next-possible))
-    (declare (type fixnum n nn l start-tag end-tag)
-             (type single-float final))
-    ;; Reset the agendas we reused:
-    (setf (fill-pointer previous-possible) 0
-          (fill-pointer next-possible) 0)
+         (decoding-state (setup-trigram-decoding-state decoder input)))
+    (declare (type fixnum n nn l start-tag end-tag))
     
     (when (and *warn-if-long* (> l 100))
       (format t "~&Decoding a long sequence"))
@@ -71,7 +85,7 @@
         with unk-emi = (and unk (query-suffix-trie hmm (second form)))
         for tag fixnum from 0 to (- n 1)
         for state = (+ (* start-tag n) tag)
-        do (setf (aref viterbi state 0)
+        do (setf (aref (decoder-state-viterbi decoding-state) state 0)
                  (+ (the single-float
                          ; This is the "correct" transition probobality for the first column
                          ;
@@ -83,15 +97,15 @@
                       (if unk
                           (aref unk-emi tag)
                         (emission-probability hmm tag form)))))
-        do (setf (aref pointer state 0) 0))
+        do (setf (aref (decoder-state-pointer decoding-state) state 0) 0))
     ;; Fill out all remaining columns
     (loop
         ;; First put all simple unigram states on the agenda:
         initially (loop
                       for x fixnum below n
                       for state = (encode-bigram start-tag x)
-                      do (vector-push state previous-possible)
-                         (setf (aref active-tags x 0) t))
+                      do (vector-push state (decoder-state-previous-possible decoding-state))
+                         (setf (aref (decoder-state-active-tags decoding-state) x 0) t))
                   
         ;; Now we are ready to fill the trellis
         for form in (rest input) ;; For each word form in the rest of the input
@@ -115,20 +129,22 @@
               
               ;;; This tag can generate current emission:
               do (setf touch t)
-                 (setf (aref active-tags current time) t)
+                 (setf (aref (decoder-state-active-tags decoding-state) current time) t)
                  (loop
                      for tag fixnum below n
                      ;; Remove old cells in the reused trellis:
-                     do (setf (aref viterbi (encode-bigram tag current) time) most-negative-single-float)
+                     do (setf (aref (decoder-state-viterbi decoding-state) (encode-bigram tag current) time) most-negative-single-float)
                      ;; If the previous tag n was active we put the combination of that tag and the current tag on the agenda:
-                     when (aref active-tags tag previous-time)
-                     do (vector-push (encode-bigram tag current) next-possible))
+                     when (aref (decoder-state-active-tags decoding-state) tag previous-time)
+                     do (vector-push (encode-bigram tag current)
+                                     (decoder-state-next-possible decoding-state)))
                  
                  ;; Now we do the actual argmaxing:
                  (loop
-                     for previous fixnum across previous-possible ;;; for each possible previous tag
+                     for previous fixnum across (decoder-state-previous-possible decoding-state) ;;; for each possible previous tag
                      ;;; lookup the probability of that cell in the trellis:
-                     for prev-prob of-type single-float = (aref viterbi previous previous-time)
+                     for prev-prob of-type single-float = (aref (decoder-state-viterbi decoding-state)
+                                                                previous previous-time)
                      ;;; The best probability as of yet:
                      with old of-type single-float = most-negative-single-float
                      ;; If the previous cell has a probability _lower_ than the best yet we can safely
@@ -146,13 +162,17 @@
                             ;; If this was an improvement update the trellis and backpointer to reflect this
                             (when (> new old)
                               (setf old new) ; keep our `local' cache updated
-                              (setf (aref viterbi (encode-bigram t2 current) time) new)
-                              (setf (aref pointer (encode-bigram t2 current) time) previous)))))
+                              (setf (aref (decoder-state-viterbi decoding-state)
+                                          (encode-bigram t2 current) time) new)
+                              (setf (aref (decoder-state-pointer decoding-state)
+                                          (encode-bigram t2 current) time) previous)))))
               ;; Now swap the agendas and empty the next agenda
               finally
-                (psetf previous-possible next-possible
-                       next-possible previous-possible)
-                (setf (fill-pointer next-possible) 0)
+                (psetf (decoder-state-previous-possible decoding-state)
+                       (decoder-state-next-possible decoding-state)
+                       (decoder-state-next-possible decoding-state)
+                       (decoder-state-previous-possible decoding-state))
+                (setf (fill-pointer (decoder-state-next-possible decoding-state)) 0)
                 ;; If we havent done anything at this time-step then we fail :-(
                 (unless touch
                   (error "No tag generates current emission!"))))
@@ -160,27 +180,28 @@
     ;; Now we find the transition probability into the final state:
     (loop
         with end fixnum = (1- l)
-        for code fixnum across previous-possible
+        for code fixnum across (decoder-state-previous-possible decoding-state)
         do
           (multiple-value-bind (t1 t2)
               (truncate code n)
             (declare (type fixnum t1 t2))
-            (let* ((prob (aref viterbi code end)))
+            (let* ((prob (aref (decoder-state-viterbi decoding-state) code end)))
               (declare (type fixnum code)
                        (type single-float prob))
-              (when (> prob final)
+              (when (> prob (decoder-state-final decoding-state))
                 (let ((new (+ prob
                               (tri-cached-transition hmm t1 t2 end-tag))))
                   (declare (type single-float new))
-                  (when (> new final)
-                    (setf final new)
-                    (setf final-back code)))))))
+                  (when (> new (decoder-state-final decoding-state))
+                    (setf (decoder-state-final decoding-state) new)
+                    (setf (decoder-state-final-back decoding-state) code)))))))
     ;; And finally we follow the backpointers to get the actual best sequence of tags:
     (loop with time = (1- l)
-        with last = final-back
+        with last = (decoder-state-final-back decoding-state)
         with result = (list (code-to-bigram hmm last))
         for i fixnum from time downto 1
-        for state = (aref pointer last i) then (aref pointer state i)
+        for state = (aref (decoder-state-pointer decoding-state) last i)
+        then (aref (decoder-state-pointer decoding-state) state i)
         do (push (code-to-bigram hmm state) result)
         finally (return
                     (mapcar #'second result)))))
