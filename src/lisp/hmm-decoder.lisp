@@ -73,16 +73,17 @@
                         :pointer (make-array (list n l) :initial-element nil))))
 
 (defun viterbi-trigram-start (decoder input decoding-state)
+  (declare (optimize (speed 3) (debug 1)))
   ;; Fill out the first column in the trellis
   (let* ((hmm (decoder-model decoder))
          (n (hmm-tag-cardinality hmm))
          (start-tag (token-to-code *start-tag* (hmm-tag-lexicon hmm))))
     (loop
      with form = (first input)
-     with unk = (unknown-token-p hmm form)
-     with unk-emi = (and unk (query-suffix-trie hmm (second form)))
      for tag fixnum from 0 to (- n 1)
      for state = (+ (* start-tag n) tag)
+     for emission = (emission-probability hmm tag form :prune t)
+     when emission
      do (setf (aref (decoder-state-viterbi decoding-state) state 0)
               (+ (the single-float
                          ; This is the "correct" transition probobality for the first column
@@ -91,11 +92,8 @@
                          ;
                          ; But it actually works slightly better to use the smoothed bigram probability
                       (transition-probability hmm tag start-tag nil :order 1 :smoothing :deleted-interpolation))
-                 (the single-float
-                      (if unk
-                        (aref unk-emi tag)
-                        (emission-probability hmm tag form)))))
-     do (setf (aref (decoder-state-pointer decoding-state) state 0) 0))))
+                 emission))
+     and do (setf (aref (decoder-state-pointer decoding-state) state 0) 0))))
 
 (defun viterbi-trigram (decoder input &key &allow-other-keys)
   "Yields the best sequence of hmm states given the observations in input.
@@ -129,29 +127,19 @@
      for form in (rest input) ;; For each word form in the rest of the input
      for time fixnum from 1 to (- l 1)
      for previous-time fixnum = (1- time)
-     for unk = (unknown-token-p hmm form)
-     ;; If this was an unknown token, we get a vector of emission probabilities here:
-     for unk-emi = (and unk 
-                        (query-suffix-trie hmm (second form)))
-                                                                   
      do 
      (loop
       with touch = nil ;; a guard to see if we actually do something at this time in the trellis
       for current fixnum from 0 to (- n 1)
-      for emission of-type single-float = (if unk
-                                            (aref unk-emi current)
-                                            (emission-probability hmm current form))
-      ;; If the emission probability is too low P(w|t) <= 0, we discard this state from further processing.
-      when (or  (> emission -19.0)
-                (and unk (> emission -100.10)))
-              
+      for emission = (emission-probability hmm current form :prune t) ; nil if emission is pruned
       ;;; This tag can generate current emission:
+      when emission
       do (setf touch t)
-      (setf (aref (decoder-state-active-tags decoding-state) current time) t)
+      and do (setf (aref (decoder-state-active-tags decoding-state) current time) t)
       (loop
        for tag fixnum below n
        ;; Remove old cells in the reused trellis:
-       do (setf (aref (decoder-state-viterbi decoding-state) (encode-bigram tag current) time) most-negative-single-float)
+       ; do (setf (aref (decoder-state-viterbi decoding-state) (encode-bigram tag current) time) most-negative-single-float)
        ;; If the previous tag n was active we put the combination of that tag and the current tag on the agenda:
        when (aref (decoder-state-active-tags decoding-state) tag previous-time)
        do (vector-push (encode-bigram tag current)
@@ -236,23 +224,18 @@
     (loop
         with form = (first input)
         for state from 0 to (- n 1)
-        with unk = (unknown-token-p hmm form)
-        with unk-emi = (and unk (query-suffix-trie hmm (second form)))
+        for emission = (emission-probability hmm state form)
         do (setf (aref (decoder-state-viterbi decoding-state) state 0)
                  (+ (bi-cached-transition hmm
                                           (token-to-code *start-tag* (hmm-tag-lexicon hmm))
                                           state)
-                    (if unk
-                      (aref unk-emi state)
-                      (emission-probability hmm state form))))
-          (setf (aref (decoder-state-pointer decoding-state)
-                      state 0)
-                0))
+                    emission))
+        do (setf (aref (decoder-state-pointer decoding-state)
+                       state 0)
+                 0))
     (loop
         for form in (rest input)
         for time of-type fixnum from 1 to (- l 1)
-        for unk = (unknown-token-p hmm form)
-        for unk-emi = (and unk (query-suffix-trie hmm (second form)))
         with indices = (make-array n :fill-pointer t) ;; hmm-beam-array (hmm-beam-array hmm)
         initially (setf (fill-pointer indices) 0)
                   (loop 
@@ -267,15 +250,14 @@
                 (loop
                     with old of-type single-float = (aref (decoder-state-viterbi decoding-state)
                                                           current time)
-                    with emission of-type single-float = (if unk
-                                                             (aref unk-emi current)
-                                                           (emission-probability hmm current form))
+                    with emission = (emission-probability hmm current form)
+        
                     for index fixnum from 0 to (1- (fill-pointer indices))
                     for previous = (aref indices index)
                     for prev-prob of-type single-float = (aref (decoder-state-viterbi decoding-state)
                                                                previous (1- time))
-                    when (> prev-prob old) do
-                      (let ((new
+                    when (> prev-prob old)
+                    do (let ((new
                              (+ prev-prob
                                 (bi-cached-transition hmm previous current)
                                 emission)))

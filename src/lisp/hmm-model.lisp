@@ -270,9 +270,34 @@
      (max -10000.0
           (aref (the (simple-array single-float (* * *)) (hmm-trigram-transition-table ,hmm)) ,t1 ,t2 ,to))))
 
-(defmacro emission-probability (hmm state form)
+; (defmacro emission-probability (hmm state form)
+;   "Gets the probability P(e|t)"
+;   `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
+
+;; get rid of the macro for know
+;; this function will handle unknown words internally
+
+;; TODO
+;; unknown word probs should be cached since the same word is looked up for the whole viterbi column
+;; in sequence
+
+;; bigram and trigram has different pruning strategies, this is the trigram one activated with
+;; keyword prune
+;; TODO unify pruning through beam search in both?
+(defun emission-probability (hmm state form &key (prune nil))
   "Gets the probability P(e|t)"
-  `(the single-float (or (gethash ,form (aref (the (simple-array t (*)) (hmm-emissions ,hmm)) ,state)) -19.0)))
+  (let* ((unk (unknown-token-p hmm form))
+         (unk-emi (and unk 
+                       (query-suffix-trie hmm (second form))))
+         (emission (if unk
+                     (aref unk-emi state)
+                     (or (gethash form (aref (the (simple-array t (*)) (hmm-emissions hmm)) state))
+                         -19.0))))
+    ;; If the emission probability is too low P(w|t) <= 0, we discard this state from further processing.
+    (if (or  (null prune)
+             (> emission -19.0)
+             (and unk (> emission -100.10)))
+      emission)))
 
 (defun emission-probability-slow (decoder hmm state form)
   (declare (ignore decoder))
