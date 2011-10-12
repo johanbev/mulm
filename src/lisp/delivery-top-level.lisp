@@ -1,17 +1,5 @@
 (in-package :cl-user)
 
-(defun process-sentence (sentence decoder)
-  (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
-         (result (mulm::decode decoder tokens))
-         (external-forms (loop for token in sentence
-                               if (mulm::token-external-form token)
-                               collect (mulm::token-external-form token)
-                               else collect (mulm::token-internal-form token))))
-    (loop for tok in external-forms
-          for tag in result
-          do (format t "~a~C~a~%" tok #\Tab tag))
-    (format t "~%")))
-
 ;; simple top level driver for command line delivery
 (defun top-level-tag (model-file in-file)
   (let* ((model (mulm::deserialize-hmm-model-from-file model-file))
@@ -23,7 +11,7 @@
 
     (mulm::read-tt-corpus in-file
                           :sentence-handler #'(lambda (sentence)
-                                                (process-sentence sentence decoder))
+                                                (mulm::process-sentence sentence decoder))
                           :collect nil)
 
     (log5:log-for (log5:info) "Completed tagging corpus")))
