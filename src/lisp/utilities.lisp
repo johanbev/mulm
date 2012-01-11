@@ -142,19 +142,23 @@
   (or 
    #+sbcl sb-ext:*posix-argv*
    #+lispworks system:*line-arguments-list*
+   #+allegro (sys:command-line-arguments)
    nil))
 
 (defun get-command-line-args ()
   (or
    ;; SBCL and LW includes command path
    #+(or sbcl lispworks) (rest (get-command-line))
+   #+(allegro) (rest (sys:command-line-arguments))
    nil))
 
 (defun make-keyword (str)
   (if str (intern (string-upcase str) :keyword)))
 
 (defun quit (&key (status 0))
-  #-sbcl
+  #+lispworks
   (lispworks:quit :status status)
   #+sbcl
-  (sb-ext:quit :unix-status status))
+  (sb-ext:quit :unix-status status)
+  #+allegro
+  (excl:exit status))
