@@ -210,78 +210,62 @@
         then (aref (decoder-state-pointer decoding-state) state i)
         do (push (code-to-bigram hmm state) result)
         finally (return
-                    (mapcar #'second result)))))
+                  (mapcar #'second result)))))
 
-(defun viterbi-bigram (decoder input &key (beam-width 13.80) &allow-other-keys)
-  (declare (optimize (speed 3) (debug  1) (space 0)))
+(defun viterbi-bigram (decoder input &key &allow-other-keys)
+  (declare (optimize (speed 3) (debug 1)))
+  #+allegro (declare (:explain :calls))
   (let* ((hmm (decoder-model decoder))
          (input (encode-input hmm input))
          (n (hmm-tag-cardinality hmm))
          (l (length input))
          (decoding-state (setup-bigram-decoding-state decoder input)))
-    
     (declare (type fixnum n l))
+    ;; First, fill in all initial probabilities into the trellis
+    
     (loop
-        with form = (first input)
-        for state from 0 to (- n 1)
-        for emission = (emission-probability hmm state form)
+        with form = (first input) 
+        for state fixnum from 0 to (- n 1)
+        for emission of-type single-float  = (emission-probability hmm state form)
+        ;; fill in emission and transition probability from start state
         do (setf (aref (decoder-state-viterbi decoding-state) state 0)
                  (+ (bi-cached-transition hmm
                                           (token-to-code *start-tag* (hmm-tag-lexicon hmm))
                                           state)
                     emission))
+        ;; and update backpointer accordingly
         do (setf (aref (decoder-state-pointer decoding-state)
                        state 0)
-                 0))
+             0))
+    ;; Next, fill out the rest of the trellis
     (loop
         for form in (rest input)
         for time of-type fixnum from 1 to (- l 1)
-        with indices = (make-array n :fill-pointer t) ;; hmm-beam-array (hmm-beam-array hmm)
-        initially (setf (fill-pointer indices) 0)
-                  (loop 
-                      for x below n
-                      do (vector-push x indices))
-        for best-hypothesis of-type single-float = most-negative-single-float
-        for trigger of-type single-float = most-negative-single-float
         do
           (loop
               for current of-type fixnum from 0 to (- n 1)
-              do
+              for emission  = (emission-probability hmm current form :prune t)
+              when emission do
                 (loop
                     with old of-type single-float = (aref (decoder-state-viterbi decoding-state)
                                                           current time)
-                    with emission = (emission-probability hmm current form)
-        
-                    for index fixnum from 0 to (1- (fill-pointer indices))
-                    for previous = (aref indices index)
+                    for previous fixnum from 0 to (- n 1)
                     for prev-prob of-type single-float = (aref (decoder-state-viterbi decoding-state)
                                                                previous (1- time))
                     when (> prev-prob old)
                     do (let ((new
-                             (+ prev-prob
-                                (bi-cached-transition hmm previous current)
-                                emission)))
-                        (declare (type single-float new))
-                        (when (> new trigger)
-                          (setf trigger new)
-                          (setf best-hypothesis (- new beam-width)))
-                        (when (> new old)
-                          (setf old new)
-                          (setf (aref (decoder-state-viterbi decoding-state)
-                                      current time)
-                                new)
-                          (setf (aref (decoder-state-pointer decoding-state)
-                                      current time)
-                                previous)))))
-          (loop
-              initially (setf (fill-pointer indices) 0)
-              for current of-type fixnum from 0 to (- n 1)
-              for prob of-type single-float = (the single-float
-                                                   (aref (decoder-state-viterbi decoding-state)
-                                                         current time))
-              when (> prob best-hypothesis)
-              do (vector-push current indices)))
-
+                              (+ prev-prob
+                                 (bi-cached-transition hmm previous current)
+                                 emission)))
+                         (declare (type single-float new))
+                         (when (> new old)
+                           (setf old new)
+                           (setf (aref (decoder-state-viterbi decoding-state)
+                                       current time)
+                             new)
+                           (setf (aref (decoder-state-pointer decoding-state)
+                                       current time)
+                             previous))))))
     (loop
         with final = (token-to-code *end-tag* (hmm-tag-lexicon hmm))
         with time of-type fixnum = (- l 1)
@@ -289,16 +273,16 @@
         for old of-type single-float = (aref (decoder-state-viterbi decoding-state)
                                              final time)
         for new of-type single-float = (+ (the single-float
-                                               (aref (decoder-state-viterbi decoding-state)
-                                                     previous time))
+                                            (aref (decoder-state-viterbi decoding-state)
+                                                  previous time))
                                           (bi-cached-transition hmm previous final))
         when (> new old) do
           (setf (aref (decoder-state-viterbi decoding-state)
                       final time)
-                new)
+            new)
           (setf (aref (decoder-state-pointer decoding-state)
                       final time)
-                previous))
+            previous))
     (if (null (aref (decoder-state-pointer decoding-state)
                     (token-to-code *end-tag* (hmm-tag-lexicon hmm)) (- l 1)))
         nil
@@ -336,7 +320,7 @@
     (make-decoder-from-model model description)))
 
 (defun decode (decoder sentence)
-  (funcall (decoder-function decoder) decoder sentence))
+  (funcall (decoder-function decoder) decoder sentence))a
 
 (defun process-sentence (sentence decoder)
   (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
