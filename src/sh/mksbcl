@@ -1,0 +1,9 @@
+#! /bin/bash
+echo '
+    (load "~/quicklisp/setup.lisp")
+    (push #P"~/etc/asdf/" asdf:*central-registry*)
+    (asdf:oos (quote asdf:load-op) (quote mulm))
+    (asdf:operate (quote asdf:load-op) :getopt :force t)
+    (load #P"~/src/mulm/src/lisp/delivery-top-level.lisp")
+
+    (save-lisp-and-die #p"mulm-sbcl-test" :executable t :toplevel (function main)) ' | sbcl
