@@ -16,13 +16,15 @@
 
     (log5:log-for (log5:info) "Completed tagging corpus")))
 
-(defun top-level-train (in-file)
+(defun top-level-train (in-file &optional model-file)
   (log5:log-for (log5:info) "Training HMM model")
   (let ((model (mulm::train (mulm::read-tt-corpus in-file))))
-    (mulm::serialize-hmm-model-to-file model (concatenate 'string in-file ".mulm"))))
+    (mulm::serialize-hmm-model-to-file model (or model-file (concatenate 'string in-file ".mulm")))))
 
 (defun top-level-print-help ()
-  (format t "Help!~%"))
+  (format t 
+          "Usage: mulm -model model-file tag input-file OR
+            [-model model-file] train corpus-file~%"))
 
 (defparameter *opt-specifier* '(("verbose" :none)
                                 ("model" :required)))
@@ -38,7 +40,9 @@
   (multiple-value-bind (args opts errs)
       (getopt:getopt (mulm::get-command-line-args) *opt-specifier*)
 
-    (when (or (null args) (> (length args) 2) (not (null errs)))
+    (when (or (null args) 
+              (> (length args) 2)
+              (not (null errs)))
       (error 'argument-error :text "malformed argument list"))
 
     (when (= (length args) 2)
@@ -54,7 +58,7 @@
     (let ((action (mulm::make-keyword (first args))))
       (case action
         (:tag (top-level-tag *model-file* *input-file*))
-        (:train (top-level-train *input-file*))
+        (:train (top-level-train *input-file* *model-file*))
         (:help (top-level-print-help))
         (t (top-level-print-help))))
 
