@@ -149,7 +149,7 @@
   (or
    ;; SBCL and LW includes command path
    #+(or sbcl lispworks) (rest (get-command-line))
-   #+(allegro) (rest (sys:command-line-arguments))
+   #+allegro (rest (sys:command-line-arguments))
    nil))
 
 (defun make-keyword (str)

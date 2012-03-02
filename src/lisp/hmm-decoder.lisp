@@ -320,7 +320,7 @@
     (make-decoder-from-model model description)))
 
 (defun decode (decoder sentence)
-  (funcall (decoder-function decoder) decoder sentence))a
+  (funcall (decoder-function decoder) decoder sentence))
 
 (defun process-sentence (sentence decoder)
   (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
