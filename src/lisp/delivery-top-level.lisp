@@ -55,11 +55,15 @@
       (case action
         (:tag (top-level-tag *model-file* *input-file*))
         (:train (top-level-train *input-file*))
-        (:help (top-level-print-help))))
+        (:help (top-level-print-help))
+        (t (top-level-print-help))))
 
     (when *verbose*
       (format *error-output* "~%"))))
 
 (defun main ()
-  (handler-case (main-body)
-    (argument-error (top-level-print-help) nil)))
+  ;; just print help if called w/o args
+  (if (null (mulm::get-command-line-args))
+      (top-level-print-help)
+    (handler-case (main-body)
+      (argument-error nil (top-level-print-help)))))
