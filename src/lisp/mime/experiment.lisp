@@ -1,5 +1,24 @@
 (in-package :mime)
 
+(defstruct experiment
+  (name)
+  (corpora)
+  (train)
+  (test)
+  (print t)
+  (save)
+  (suffix-cutoff mulm::*suffix-cutoff*)
+  (suffix-freq mulm::*suffix-frequency*)
+  (freq-cutoff mulm::*estimation-cutoff*)
+  (case-dependent-tries t)
+  (training-curve)
+  (gc nil)
+  (corpus-type :tt)
+  (order 2)
+  (tag-split nil)
+  (folds 10)
+  (smoothing :deleted-interpolation))
+
 (defun prepare-corpora (corpora type file)
   (loop
       with reader = (ecase type
@@ -51,8 +70,8 @@
                collect seq)
            held-out))))
 
-(defmacro with-experiment (file &body body)
-  `(with-open-file (stream ,file :direction :input)
+(defun read-experiment-file (file)
+  (with-open-file (stream file :direction :input)
     ;;; this is why we do this in lisp:
     (destructuring-bind
         (experiment
@@ -75,7 +94,28 @@
          (folds 10)
          (smoothing :deleted-interpolation))
         (read stream)
-      ,@body)))
+      (declare (ignore experiment))
+      (make-experiment :name name
+                       :corpora corpora
+                       :train train
+                       :test test
+                       :print print
+                       :save save
+                       :suffix-cutoff suffix-cutoff
+                       :suffix-freq suffix-freq
+                       :freq-cutoff freq-cutoff
+                       :case-dependent-tries case-dependent-tries
+                       :training-curve training-curve
+                       :gc gc
+                       :corpus-type corpus-type
+                       :order order
+                       :tag-split tag-split
+                       :folds folds
+                       :smoothing smoothing))))
+
+(defmacro with-experiment ((experiment file) &body body)
+  `(let ((,experiment (read-experiment-file ,file)))
+     ,@body))
 
 (defparameter *working-set* nil)
 
@@ -91,48 +131,55 @@
   #+corman (ccl:gc (if full 3 0))
   #+lispworks (hcl:mark-and-sweep (if full 3 0)))
 
-
 (defun perform-experiment (file)
   (setf *working-set* nil)
   (log5:log-for (log5:info) "Reading experiment file")
-  (with-experiment file
+  (with-experiment (e file)
     (declare (ignorable experiment))
     (log5:log-for (log5:info) "Finished reading experiment file")
-    (if (and (or train test) corpora)
+    (if (and (or (experiment-train e) (experiment-test e))
+             (experiment-corpora e))
         (error "Illegal experiment file: Cannot have both train and test set and folds!")
       (progn
         (let (corpus splits
-              (mulm::*estimation-cutoff* freq-cutoff)
-              (mulm::*suffix-cutoff* suffix-cutoff)
-              (mulm::*suffix-frequency* suffix-freq)
-              (mulm::*split-tries* case-dependent-tries))
+              (mulm::*estimation-cutoff* (experiment-freq-cutoff e))
+              (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
+              (mulm::*suffix-frequency* (experiment-suffix-freq e))
+              (mulm::*split-tries* (experiment-case-dependent-tries e)))
           (cond
-           (training-curve
-            (setf corpus (prepare-corpora corpora corpus-type file))
+           ((experiment-training-curve e)
+            (setf corpus (prepare-corpora (experiment-corpora e)
+                                          (experiment-corpus-type e)
+                                          file))
             (setf splits (split-into-training-curves corpus)))
-           (corpora
-            (setf 
-                corpus
-              (prepare-corpora corpora corpus-type file)
-              splits
-              (split-into-folds corpus folds)))
-            (t (setf
-                   splits
-                 (list (list (prepare-corpora (list train) corpus-type file)
-                             (prepare-corpora (list test) corpus-type file))))))
+           ((experiment-corpora e)
+            (setf corpus
+                  (prepare-corpora (experiment-corpora e)
+                                   (experiment-corpus-type e)
+                                   file)
+                  splits
+                  (split-into-folds corpus (experiment-folds e))))
+            (t (setf splits
+                     (list (list (prepare-corpora (list (experiment-train e))
+                                                  (experiment-corpus-type e)
+                                                  file)
+                                 (prepare-corpora (list (experiment-test e))
+                                                  (experiment-corpus-type e)
+                                                  file))))))
           (log5:log-for (log5:info) "Finished reading corpora")          
           (loop
               for (train test) in splits
               for i from 1
               do (log5:log-for (log5:info) "Doing fold ~a" i)
-                 (when tag-split
+                 (when (experiment-tag-split e)
                    (let ((ts (mulm::tag-split-corpora train test)))
                      (setf train (first ts)
                            test (second ts))))
                  (log5:log-for (log5:info) "Training model")
-                 (let* ((decoder (mulm::make-decoder-from-corpus train
-                                                                 (mulm::make-description :order order
-                                                                                         :smoothing smoothing)))
+                 (let* ((decoder (mulm::make-decoder-from-corpus
+                                  train
+                                  (mulm::make-description :order (experiment-order e)
+                                                          :smoothing (experiment-smoothing e))))
                         (hmm (mulm::decoder-model decoder)))
                    (log5:log-for (log5:info) "Model trained")
                    (log5:log-for (log5:info) "Model has ~a states" (mulm::hmm-n hmm))
@@ -145,26 +192,30 @@
                                   forms
                                   gold-tags
                                   (mulm::decode decoder forms)) into res
-                         else do (log5:log-for (log5:warn) "Attempt to decode empty sequence, are corpora well formed?")
+                         else do (log5:log-for (log5:warn)
+                                               "Attempt to decode empty sequence, are corpora well formed?")
                          finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
                                              res train)
                                        *working-set*)
-                                 (when gc (setf hmm nil) (do-gc :full t))))))))
+                                 (when (experiment-gc e)
+                                   (setf hmm nil)
+                                   (do-gc :full t))))))))
     ;; now register-profile and print it
-    (let ((profile (register-profile *working-set* name)))
-      (when print
-        (typecase print
-          (string (with-open-file (stream print :direction :output :if-exists :supersede)
-                    (if training-curve
+    (let ((profile (register-profile *working-set* (experiment-name e))))
+      (when (experiment-print e)
+        (typecase (experiment-print e)
+          (string (with-open-file (stream (experiment-print e)
+                                          :direction :output :if-exists :supersede)
+                    (if (experiment-training-curve e)
                         (print-lc (learning-curve profile) stream)
                       (print-profile profile stream))))
-          (t (if training-curve
+          (t (if (experiment-training-curve e)
                  (print-lc (learning-curve profile))
                (print-profile profile t)))))
-      (when save
-        (with-open-file (stream save :direction :output :if-exists :supersede)
+      (when (experiment-save e)
+        (with-open-file (stream (experiment-save e) :direction :output :if-exists :supersede)
           (write profile :stream stream)))
-      (when gc
+      (when (experiment-gc e)
         (setf *working-set* nil)
         (do-gc :full t)
         (do-gc))

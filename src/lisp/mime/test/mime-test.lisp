@@ -25,5 +25,10 @@
             for val in known-values
             do (ensure-same (float (mime::fold-token-acc fold)) val :test #'almost=))))))
 
+(deftestsuite experiment (all) ()
+  (:tests
+   ((mime::with-experiment (e (merge-pathnames "brown.expr" *package-path*))
+      (ensure-same (mime::experiment-name e) "BROWN" :test #'equal)))))
+
 (defun run-all-tests ()
   (run-tests :suite 'all))
