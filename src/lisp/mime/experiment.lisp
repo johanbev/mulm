@@ -163,35 +163,40 @@
       (error "Illegal experiment file: Cannot have both train and test set and folds!"))
     (perform-experiment e)))
 
+(defun create-splits (e)
+  (let ((splits nil)
+        (corpus nil))
+    (cond
+     ((experiment-training-curve e)
+      (setf corpus (prepare-corpora (experiment-corpora e)
+                                    (experiment-corpus-type e)
+                                    (experiment-path e)))
+      (setf splits (split-into-training-curves corpus)))
+     ((experiment-corpora e)
+      (setf corpus
+            (prepare-corpora (experiment-corpora e)
+                             (experiment-corpus-type e)
+                             (experiment-path e))
+            splits
+            (split-into-folds corpus (experiment-folds e))))
+     (t (setf splits
+              (list (list (prepare-corpora (list (experiment-train e))
+                                           (experiment-corpus-type e)
+                                           (experiment-path e))
+                          (prepare-corpora (list (experiment-test e))
+                                           (experiment-corpus-type e)
+                                           (experiment-path e)))))))
+    splits))
+
 (defun perform-experiment (e)
   (setf *working-set* nil)
   (progn
-    (let (corpus
-          splits
+    (let ((splits (create-splits e))
           (mulm::*estimation-cutoff* (experiment-freq-cutoff e))
           (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
           (mulm::*suffix-frequency* (experiment-suffix-freq e))
           (mulm::*split-tries* (experiment-case-dependent-tries e)))
-      (cond
-       ((experiment-training-curve e)
-        (setf corpus (prepare-corpora (experiment-corpora e)
-                                      (experiment-corpus-type e)
-                                      (experiment-path e)))
-        (setf splits (split-into-training-curves corpus)))
-       ((experiment-corpora e)
-        (setf corpus
-              (prepare-corpora (experiment-corpora e)
-                               (experiment-corpus-type e)
-                               (experiment-path e))
-              splits
-              (split-into-folds corpus (experiment-folds e))))
-       (t (setf splits
-                (list (list (prepare-corpora (list (experiment-train e))
-                                             (experiment-corpus-type e)
-                                             (experiment-path e))
-                            (prepare-corpora (list (experiment-test e))
-                                             (experiment-corpus-type e)
-                                             (experiment-path e)))))))
+      
       (log5:log-for (log5:info) "Finished reading corpora")          
       (loop
        for (train test) in splits
