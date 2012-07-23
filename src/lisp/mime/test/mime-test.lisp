@@ -17,8 +17,9 @@
 
 (deftestsuite regression (all) ()
   (:tests
-   ((let ((result (ensure (mime::perform-experiment (merge-pathnames "brown.expr"
-                                                                     *package-path*))))
+   ((let ((result (ensure
+                   (mime::perform-experiment-with-file (merge-pathnames "brown.expr"
+                                                                        *package-path*))))
           (known-values '(95.868126 95.94203 95.95978 96.10878 95.522576
                                     95.88038 95.81569 95.87732 95.68882 95.89907)))
       (loop for fold in (mime::profile-folds result)
