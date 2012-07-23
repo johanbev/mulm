@@ -1,3 +1,4 @@
 (experiment "BROWN"
-            :corpora ("brown-train.tt" "brown-eval.tt")
-            :order 2)
+	:corpora ("brown-train.tt" "brown-eval.tt")
+	:order 2
+	:print nil)
