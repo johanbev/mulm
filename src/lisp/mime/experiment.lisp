@@ -78,10 +78,14 @@
 
 
 (defun make-model-handler (e train)
-  (mulm::make-decoder-from-corpus
-   train
-   (mulm::make-description :order (experiment-order e)
-                           :smoothing (experiment-smoothing e))))
+  (let ((mulm::*estimation-cutoff* (experiment-freq-cutoff e))
+        (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
+        (mulm::*suffix-frequency* (experiment-suffix-freq e))
+        (mulm::*split-tries* (experiment-case-dependent-tries e)))
+    (mulm::make-decoder-from-corpus
+     train
+     (mulm::make-description :order (experiment-order e)
+                             :smoothing (experiment-smoothing e)))))
 
 (defun predict-handler (decoder forms)
   (mulm::decode decoder forms))
@@ -191,12 +195,7 @@
 (defun perform-experiment (e)
   (setf *working-set* nil)
   (progn
-    (let ((splits (create-splits e))
-          (mulm::*estimation-cutoff* (experiment-freq-cutoff e))
-          (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
-          (mulm::*suffix-frequency* (experiment-suffix-freq e))
-          (mulm::*split-tries* (experiment-case-dependent-tries e)))
-      
+    (let ((splits (create-splits e)))
       (log5:log-for (log5:info) "Finished reading corpora")          
       (loop
        for (train test) in splits
