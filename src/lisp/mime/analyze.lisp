@@ -104,7 +104,8 @@
       (setf (fold-train fold)
         (third res))
       (loop
-          with known-codes = (first res)
+          with known-codes = (mulm::lexicon-forward
+                              (mulm::hmm-token-lexicon (mulm::decoder-model (first res))))
           for seq in (second res)
           for result = (register-result seq known-codes)
           do (with-slots (correct no-unks unk-correct length) result
@@ -119,11 +120,11 @@
 
 (defvar *current-profile* nil)
 
-(defun register-profile (working-set name)
-  (let ((profile (mk-profile name)))
+(defun register-profile (e working-set)
+  (let ((profile (mk-profile (experiment-name e))))
     (loop 
         for fold in working-set
-        for reg = (register-fold fold)
+        for reg = (register-fold-handler e fold)
         do (push reg (profile-folds profile))
         finally (return profile))))
 

@@ -24,7 +24,7 @@
 (defstruct system
   (build-model-handler)
   (predict-handler)
-  (scoring-handler))
+  (register-fold-handler))
 
 (defun prepare-corpora (corpora type path)
   (loop
@@ -78,17 +78,27 @@
 
 
 (defun make-model-handler (e train)
-  (let ((mulm::*estimation-cutoff* (experiment-freq-cutoff e))
-        (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
-        (mulm::*suffix-frequency* (experiment-suffix-freq e))
-        (mulm::*split-tries* (experiment-case-dependent-tries e)))
-    (mulm::make-decoder-from-corpus
-     train
-     (mulm::make-description :order (experiment-order e)
-                             :smoothing (experiment-smoothing e)))))
+  (let* ((mulm::*estimation-cutoff* (experiment-freq-cutoff e))
+         (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
+         (mulm::*suffix-frequency* (experiment-suffix-freq e))
+         (mulm::*split-tries* (experiment-case-dependent-tries e))
+         (decoder (mulm::make-decoder-from-corpus
+                   train
+                   (mulm::make-description :order (experiment-order e)
+                                           :smoothing (experiment-smoothing e))))
+         (hmm (mulm::decoder-model decoder)))
+    (log5:log-for (log5:info) "Model trained")
+    (log5:log-for (log5:info) "Model has ~a states" (mulm::hmm-n hmm))
 
-(defun predict-handler (decoder forms)
+    decoder))
+
+(defun predict-handler (e decoder forms)
+  (declare (ignore e))
   (mulm::decode decoder forms))
+
+(defun register-fold-handler (e fold)
+  (declare (ignore e))
+  (register-fold fold))
 
 (defun init-system (system-type)
   (cond ((eql system-type :mulm)
@@ -208,11 +218,7 @@
                  test (second ts))))
        
        (log5:log-for (log5:info) "Training model")
-       (let* ((decoder (make-model-handler e train))
-              (hmm (mulm::decoder-model decoder)))
-         
-         (log5:log-for (log5:info) "Model trained")
-         (log5:log-for (log5:info) "Model has ~a states" (mulm::hmm-n hmm))
+       (let* ((decoder (make-model-handler e train)))
 
          (log5:log-for (log5:info) "Decoding ~a sequences" (length test))
          (loop
@@ -222,37 +228,37 @@
           collect (list 
                    forms
                    gold-tags
-                   (predict-handler decoder forms)) into res
+                   (predict-handler e decoder forms)) into res
           else do (log5:log-for (log5:warn)
                                 "Attempt to decode empty sequence, are corpora well formed?")
-          finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
+          finally (push (list decoder
                               res train)
                         *working-set*)
           (when (experiment-gc e)
-            (setf hmm nil)
-            (do-gc :full t)))))))
-  ;; now register-profile and print it
-  (let ((profile (register-profile *working-set* (experiment-name e))))
-    (when (experiment-print e)
-      (typecase (experiment-print e)
-        (string (with-open-file (stream (experiment-print e)
-                                        :direction :output :if-exists :supersede)
-                  (if (experiment-training-curve e)
-                    (print-lc (learning-curve profile) stream)
-                    (print-profile profile stream))))
-        (t (if (experiment-training-curve e)
-             (print-lc (learning-curve profile))
-             (print-profile profile t)))))
-    (when (experiment-save e)
-      (with-open-file (stream (experiment-save e) :direction :output :if-exists :supersede)
-        (write profile :stream stream)))
-    (when (experiment-gc e)
-      (setf *working-set* nil)
-      (do-gc :full t)
-      (do-gc))
+            (do-gc :full t)))))      
+      ;; now register-profile and print it
+      (let ((profile (register-profile e *working-set*)))
+           (when (experiment-print e)
+             (typecase (experiment-print e)
+               (string (with-open-file (stream (experiment-print e)
+                                               :direction :output :if-exists :supersede)
+                         (if (experiment-training-curve e)
+                           (print-lc (learning-curve profile) stream)
+                           (print-profile profile stream))))
+               (t (if (experiment-training-curve e)
+                    (print-lc (learning-curve profile))
+                    (print-profile profile t)))))
+           (when (experiment-save e)
+             (with-open-file (stream (experiment-save e) :direction :output :if-exists :supersede)
+               (write profile :stream stream)))
+           (when (experiment-gc e)
+             (setf *working-set* nil)
+             (do-gc :full t)
+             (do-gc))
 
-    (loop for fold in (profile-folds profile)
-          do (setf (fold-train fold) nil)
-          do (setf (fold-results fold) nil))
+           (loop for fold in (profile-folds profile)
+                 do (setf (fold-train fold) nil)
+                 do (setf (fold-results fold) nil))
       
-    profile))
+           profile))))
+
