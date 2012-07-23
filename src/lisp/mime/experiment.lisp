@@ -20,6 +20,11 @@
   (folds 10)
   (smoothing :deleted-interpolation))
 
+(defstruct system
+  (build-model-handler)
+  (predict-handler)
+  (scoring-handler))
+
 (defun prepare-corpora (corpora type path)
   (loop
       with reader = (ecase type
