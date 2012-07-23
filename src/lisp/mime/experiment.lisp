@@ -3,6 +3,7 @@
 (defstruct experiment
   (name)
   (path)
+  (system :mulm)
   (corpora)
   (train)
   (test)
@@ -75,6 +76,21 @@
                collect seq)
            held-out))))
 
+
+(defun make-model-handler (e train)
+  (mulm::make-decoder-from-corpus
+   train
+   (mulm::make-description :order (experiment-order e)
+                           :smoothing (experiment-smoothing e))))
+
+(defun predict-handler (decoder forms)
+  (mulm::decode decoder forms))
+
+(defun init-system (system-type)
+  (cond ((eql system-type :mulm)
+         (make-system :build-model-handler #'make-model-handler
+                      :predict-handler #'predict-handler))))
+
 (defun read-experiment-file (file)
   (with-open-file (stream file :direction :input)
     ;;; this is why we do this in lisp:
@@ -82,6 +98,7 @@
         (experiment
          name
          &key
+         (system :mulm)
          corpora
          train
          test
@@ -102,6 +119,7 @@
       (declare (ignore experiment))
       (make-experiment :name name
                        :path (pathname-directory file)
+                       :system (init-system system)
                        :corpora corpora
                        :train train
                        :test test
@@ -148,11 +166,12 @@
 (defun perform-experiment (e)
   (setf *working-set* nil)
   (progn
-    (let (corpus splits
-                 (mulm::*estimation-cutoff* (experiment-freq-cutoff e))
-                 (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
-                 (mulm::*suffix-frequency* (experiment-suffix-freq e))
-                 (mulm::*split-tries* (experiment-case-dependent-tries e)))
+    (let (corpus
+          splits
+          (mulm::*estimation-cutoff* (experiment-freq-cutoff e))
+          (mulm::*suffix-cutoff* (experiment-suffix-cutoff e))
+          (mulm::*suffix-frequency* (experiment-suffix-freq e))
+          (mulm::*split-tries* (experiment-case-dependent-tries e)))
       (cond
        ((experiment-training-curve e)
         (setf corpus (prepare-corpora (experiment-corpora e)
@@ -179,17 +198,18 @@
        for i from 1
        do (log5:log-for (log5:info) "Doing fold ~a" i)
        (when (experiment-tag-split e)
+         (log5:log-for (log5:info) "Tag splitting corpus" i)
          (let ((ts (mulm::tag-split-corpora train test)))
            (setf train (first ts)
                  test (second ts))))
+       
        (log5:log-for (log5:info) "Training model")
-       (let* ((decoder (mulm::make-decoder-from-corpus
-                        train
-                        (mulm::make-description :order (experiment-order e)
-                                                :smoothing (experiment-smoothing e))))
+       (let* ((decoder (make-model-handler e train))
               (hmm (mulm::decoder-model decoder)))
+         
          (log5:log-for (log5:info) "Model trained")
          (log5:log-for (log5:info) "Model has ~a states" (mulm::hmm-n hmm))
+
          (log5:log-for (log5:info) "Decoding ~a sequences" (length test))
          (loop
           for forms in (mulm::ll-to-word-list test)
@@ -198,7 +218,7 @@
           collect (list 
                    forms
                    gold-tags
-                   (mulm::decode decoder forms)) into res
+                   (predict-handler decoder forms)) into res
           else do (log5:log-for (log5:warn)
                                 "Attempt to decode empty sequence, are corpora well formed?")
           finally (push (list (mulm::lexicon-forward (mulm::hmm-token-lexicon hmm))
