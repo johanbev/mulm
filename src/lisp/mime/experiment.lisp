@@ -103,7 +103,8 @@
 (defun init-system (system-type)
   (cond ((eql system-type :mulm)
          (make-system :build-model-handler #'make-model-handler
-                      :predict-handler #'predict-handler))))
+                      :predict-handler #'predict-handler
+                      :register-fold-handler #'register-fold-handler))))
 
 (defun read-experiment-file (file)
   (with-open-file (stream file :direction :input)
@@ -218,7 +219,9 @@
                  test (second ts))))
        
        (log5:log-for (log5:info) "Training model")
-       (let* ((decoder (make-model-handler e train)))
+       (let* ((decoder (funcall (system-build-model-handler
+                                 (experiment-system e))
+                                e train)))
 
          (log5:log-for (log5:info) "Decoding ~a sequences" (length test))
          (loop
@@ -228,7 +231,9 @@
           collect (list 
                    forms
                    gold-tags
-                   (predict-handler e decoder forms)) into res
+                   (funcall (system-predict-handler
+                             (experiment-system e))
+                            e decoder forms)) into res
           else do (log5:log-for (log5:warn)
                                 "Attempt to decode empty sequence, are corpora well formed?")
           finally (push (list decoder

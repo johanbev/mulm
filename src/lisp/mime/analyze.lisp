@@ -124,7 +124,9 @@
   (let ((profile (mk-profile (experiment-name e))))
     (loop 
         for fold in working-set
-        for reg = (register-fold-handler e fold)
+        for reg = (funcall (system-register-fold-handler
+                            (experiment-system e))
+                           e fold)
         do (push reg (profile-folds profile))
         finally (return profile))))
 
