@@ -11,7 +11,9 @@
 
     (mulm::read-tt-corpus in-file
                           :sentence-handler #'(lambda (sentence)
-                                                (mulm::process-sentence sentence decoder))
+                                                (loop for (token tag) in (mulm::process-sentence sentence decoder)
+                                                      do (format t "~a~C~a~%" token #\Tab tag))
+                                                (format t "~%"))
                           :collect nil)
 
     (log5:log-for (log5:info) "Completed tagging corpus")))

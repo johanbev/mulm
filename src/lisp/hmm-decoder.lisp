@@ -344,17 +344,18 @@
 (defun decode (decoder sentence &optional old-state)
   (funcall (decoder-function decoder) decoder sentence :state old-state))
 
+(defun get-tokens (sentence)
+  (mapcar #'mulm::token-internal-form sentence))
+
 (defun process-sentence (sentence decoder)
-  (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
-         (result (decode decoder tokens))
+  (let* ((result (decode decoder (get-tokens sentence)))
          (external-forms (loop for token in sentence
                                if (token-external-form token)
                                collect (token-external-form token)
                                else collect (token-internal-form token))))
     (loop for tok in external-forms
           for tag in result
-          do (format t "~a~C~a~%" tok #\Tab tag))
-    (format t "~%")))
+          collect (list tok tag))))
 
 (defun decode-start (decoder hmm input viterbi pointer &optional (constraints nil))
   (let ((n (hmm-tag-cardinality hmm)))
