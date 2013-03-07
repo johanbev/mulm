@@ -63,6 +63,23 @@
 
     state))
 
+(defun reclaim-trigram-decoding-state (decoder input &optional old-state)
+  (if (or
+       (null old-state)
+       (> (length input)
+          (second (array-dimensions (decoder-state-active-tags old-state)))))
+      (setup-trigram-decoding-state decoder input)
+      ;; otherwise reclaim the sate
+      (progn (setf (decoder-state-final old-state) most-negative-single-float
+                   (decoder-state-final-back old-state) nil
+                   (decoder-state-active-tags old-state) 
+                   (make-array (list (hmm-tag-cardinality (decoder-model decoder))
+                                     (length input))
+                               :initial-element nil)
+                   (fill-pointer (decoder-state-previous-possible old-state)) 0
+                   (fill-pointer (decoder-state-next-possible old-state)) 0)
+             old-state)))
+
 (defun setup-bigram-decoding-state (decoder input)
   (let* ((hmm (decoder-model decoder))
          (n (hmm-tag-cardinality hmm))
@@ -95,93 +112,98 @@
                  emission))
      and do (setf (aref (decoder-state-pointer decoding-state) state 0) 0))))
 
-(defun viterbi-trigram (decoder input &key &allow-other-keys)
+(defun viterbi-trigram (decoder input &key state &allow-other-keys)
   "Yields the best sequence of hmm states given the observations in input.
    input : list of strings
    returns a list of strings"
   (declare (optimize (speed 3) (debug 1)))
+  (when state
+    (setf state (reclaim-trigram-decoding-state decoder input state)))
   (let* ((hmm (decoder-model decoder))
          (input (encode-input hmm input)) ;; encode the input to numerical codes
          (n (hmm-tag-cardinality hmm)) ;; get the size of the tag set
          (l (length input))
          (end-tag (token-to-code *end-tag* (hmm-tag-lexicon hmm)))
          (start-tag (token-to-code *start-tag* (hmm-tag-lexicon hmm)))
-         (decoding-state (setup-trigram-decoding-state decoder input)))
-    (declare (type fixnum n nn l start-tag end-tag))
+         (decoding-state (or state (setup-trigram-decoding-state decoder input))))
+    (declare (type fixnum n l start-tag end-tag))
     
     (when (and *warn-if-long* (> l 100))
       (format t "~&Decoding a long sequence"))
-
+    
     (viterbi-trigram-start decoder input decoding-state)
-
+    
     ;; Fill out all remaining columns
     (loop
-     ;; First put all simple unigram states on the agenda:
-     initially (loop
-                for x fixnum below n
-                for state = (encode-bigram start-tag x)
-                do (vector-push state (decoder-state-previous-possible decoding-state))
-                do (setf (aref (decoder-state-active-tags decoding-state) x 0) t))
+      ;; First put all simple unigram states on the agenda:
+        initially (loop
+                      for x fixnum below n
+                      for state = (encode-bigram start-tag x)
+                      do (vector-push state (decoder-state-previous-possible decoding-state))
+                      do (setf (aref (decoder-state-active-tags decoding-state) x 0) t))
                   
-     ;; Now we are ready to fill the trellis
-     for form in (rest input) ;; For each word form in the rest of the input
-     for time fixnum from 1 to (- l 1)
-     for previous-time fixnum = (1- time)
-     do 
-     (loop
-      with touch = nil ;; a guard to see if we actually do something at this time in the trellis
-      for current fixnum from 0 to (- n 1)
-      for emission = (emission-probability hmm current form :prune t) ; nil if emission is pruned
-      ;;; This tag can generate current emission:
-      when emission
-      do (setf touch t)
-      and do (setf (aref (decoder-state-active-tags decoding-state) current time) t)
-      (loop
-       for tag fixnum below n
-       ;; Remove old cells in the reused trellis:
-       ; do (setf (aref (decoder-state-viterbi decoding-state) (encode-bigram tag current) time) most-negative-single-float)
-       ;; If the previous tag n was active we put the combination of that tag and the current tag on the agenda:
-       when (aref (decoder-state-active-tags decoding-state) tag previous-time)
-       do (vector-push (encode-bigram tag current)
-                       (decoder-state-next-possible decoding-state)))
-                 
-      ;; Now we do the actual argmaxing:
-      (loop
-       for previous fixnum across (decoder-state-previous-possible decoding-state) ;;; for each possible previous tag
+                  ;; Now we are ready to fill the trellis
+        for form in (rest input) ;; For each word form in the rest of the input
+        for time fixnum from 1 to (- l 1)
+        for previous-time fixnum = (1- time)
+        do 
+          (loop
+              with touch = nil ;; a guard to see if we actually do something at this time in the trellis
+              for current fixnum from 0 to (- n 1)
+              for emission = (emission-probability hmm current form :prune t) ; nil if emission is pruned
+            ;;; This tag can generate current emission:
+              when emission
+              do (setf touch t)
+              and do (setf (aref (decoder-state-active-tags decoding-state) current time) t)
+                  (loop
+                      for tag fixnum below n
+                      ;; Remove old cells in the reused trellis:
+                      do (setf (aref (decoder-state-viterbi decoding-state) 
+                                     (encode-bigram tag current) time) most-negative-single-float)
+                      ;; If the previous 
+                      ;; tag n was active we put the combination of that tag and the current tag on the agenda:
+                      when (aref (decoder-state-active-tags decoding-state) tag previous-time)
+                      do (vector-push (encode-bigram tag current)
+                                      (decoder-state-next-possible decoding-state)))
+                  
+                  ;; Now we do the actual argmaxing:
+                  (loop
+                      for previous fixnum across (decoder-state-previous-possible decoding-state) ;;; for each possible previous tag
        ;;; lookup the probability of that cell in the trellis:
-       for prev-prob of-type single-float = (aref (decoder-state-viterbi decoding-state)
-                                                  previous previous-time)
+                      for prev-prob of-type single-float = (aref (decoder-state-viterbi decoding-state)
+                                                                 previous previous-time)
        ;;; The best probability as of yet:
-       with old of-type single-float = most-negative-single-float
-       ;; If the previous cell has a probability _lower_ than the best yet we can safely
-       ;; discard it from further processing. This saves a lot of calls to transition-probability() for big tagsets.
-       when (> prev-prob old)
-       ;; Get the bigram state-code for the previous tag.
-       do (multiple-value-bind (t1 t2)
-              (truncate previous n)
-            (declare (type fixnum t1 t2))
-            ;; Find the probability of transitioning from the previous tag into this tag and emitting the current word form
-            (let ((new (+ prev-prob
-                          emission
-                          (tri-cached-transition hmm t1 t2 current))))
-              (declare (type single-float new))
-              ;; If this was an improvement update the trellis and backpointer to reflect this
-              (when (> new old)
-                (setf old new) ; keep our `local' cache updated
-                (setf (aref (decoder-state-viterbi decoding-state)
-                            (encode-bigram t2 current) time) new)
-                (setf (aref (decoder-state-pointer decoding-state)
-                            (encode-bigram t2 current) time) previous)))))
-      ;; Now swap the agendas and empty the next agenda
-      finally
-      (psetf (decoder-state-previous-possible decoding-state)
-             (decoder-state-next-possible decoding-state)
-             (decoder-state-next-possible decoding-state)
-             (decoder-state-previous-possible decoding-state))
-      (setf (fill-pointer (decoder-state-next-possible decoding-state)) 0)
-      ;; If we havent done anything at this time-step then we fail :-(
-      (unless touch
-        (error "No tag generates current emission!"))))
+                      with old of-type single-float = most-negative-single-float
+                      ;;; If the previous cell has a probability _lower_ than the best yet we can safely
+                      ;;; discard it from further processing. 
+                      ;;; This saves a lot of calls to transition-probability() for big tagsets.
+                      when (> prev-prob old)
+                           ;; Get the bigram state-code for the previous tag.
+                      do (multiple-value-bind (t1 t2)
+                             (truncate previous n)
+                           (declare (type fixnum t1 t2))
+                           ;; Find the probability of transitioning from the previous tag into this tag and emitting the current word form
+                           (let ((new (+ prev-prob
+                                         emission
+                                         (tri-cached-transition hmm t1 t2 current))))
+                             (declare (type single-float new))
+                             ;; If this was an improvement update the trellis and backpointer to reflect this
+                             (when (> new old)
+                               (setf old new) ; keep our `local' cache updated
+                               (setf (aref (decoder-state-viterbi decoding-state)
+                                           (encode-bigram t2 current) time) new)
+                               (setf (aref (decoder-state-pointer decoding-state)
+                                           (encode-bigram t2 current) time) previous)))))
+                  ;; Now swap the agendas and empty the next agenda
+              finally
+                (psetf (decoder-state-previous-possible decoding-state)
+                  (decoder-state-next-possible decoding-state)
+                  (decoder-state-next-possible decoding-state)
+                  (decoder-state-previous-possible decoding-state))
+                (setf (fill-pointer (decoder-state-next-possible decoding-state)) 0)
+                ;; If we havent done anything at this time-step then we fail :-(
+                (unless touch
+                  (error "No tag generates current emission!"))))
     
     ;; Now we find the transition probability into the final state:
     (loop
@@ -319,8 +341,8 @@
   (let ((model (train corpus)))
     (make-decoder-from-model model description)))
 
-(defun decode (decoder sentence)
-  (funcall (decoder-function decoder) decoder sentence))
+(defun decode (decoder sentence &optional old-state)
+  (funcall (decoder-function decoder) decoder sentence :state old-state))
 
 (defun process-sentence (sentence decoder)
   (let* ((tokens (mapcar #'mulm::token-internal-form sentence))
@@ -450,3 +472,8 @@
 
 
 
+(defun test ()
+  (loop
+      with state = (setup-trigram-decoding-state *decoder* (make-list 100))
+      for x in corp do
+        (viterbi-trigram *decoder* x :state state)))
