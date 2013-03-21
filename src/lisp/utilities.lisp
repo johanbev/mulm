@@ -162,3 +162,19 @@
   (sb-ext:quit :unix-status status)
   #+allegro
   (excl:exit status))
+
+(defun tally (list &key (test #'eql))
+  "Tallies the list elements into a list of elements and counts.
+
+   Creates a tally of the list elements, ie. a list of unique elements and the multiplicity of that element.
+   - list: elements
+   - test: equality test (must be compatible with hash-table :test argument).
+   Returns a list of cons cells with an element in the car position and the multiplicity in the cdr position"
+  (let ((counts (make-hash-table :test test))
+        (aggregates nil))
+    (loop for elt in list
+          do (incf (gethash elt counts 0)))
+    (maphash #'(lambda (elt count)
+                 (push (cons elt count) aggregates))
+             counts)
+    aggregates))
