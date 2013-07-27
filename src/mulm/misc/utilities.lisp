@@ -178,3 +178,17 @@
                  (push (cons elt count) aggregates))
              counts)
     aggregates))
+
+(defun tabbed-string (column-data)
+  "Generates a string with tab separated columns from list-of-lists of column items.
+
+   For creating test input data."
+  (let ((s (make-string-output-stream)))
+    ; TODO horribly hacky
+    (loop for line in column-data
+          do (write-line (string-right-trim '(#\Tab)
+                                            (format nil "~{~a~}"
+                                                    (loop for x in line
+                                                          collect (concatenate 'string x '(#\Tab))))) s))
+    
+    (get-output-stream-string s)))
