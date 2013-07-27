@@ -1,5 +1,5 @@
 # Runs all regression tests
-LW6MAC_PATH="/Applications/LispWorks 6.0/LispWorks.app/Contents/MacOS/lispworks-6-0-0-macos-universal"
+LW6MAC_PATH="/Applications/LispWorks 6.1/LispWorks.app/Contents/MacOS/lispworks-6-1-0-macos-universal"
 SBCL_PATH=`which sbcl`
 CCL_PATH=`which ccl64`
 
