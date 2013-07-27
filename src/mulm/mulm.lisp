@@ -6,16 +6,14 @@
 
 (in-package :mulm)
 
-#+:allegro(declaim (optimize (debug 2)))
-
 ;; store the root path of the lisp code directory
 (defparameter *package-path*
-  (directory-namestring
-   (asdf:component-pathname (asdf:find-system :mulm))))
+    (directory-namestring
+     (asdf:component-pathname (asdf:find-system :mulm))))
 
 ;; default placement of evaluation corpora is beside the src directory
 (defparameter *eval-path*
-  (merge-pathnames "../../eval/" *package-path*))
+    (merge-pathnames "../../eval/" *package-path*))
 
 (defparameter *whitespace* '(#\Tab #\Space #\Newline))
 
