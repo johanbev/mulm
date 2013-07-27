@@ -224,7 +224,7 @@
                  (let ((sentence (read-sentence ,corpus-stream)))
                    (if sentence
                      sentence
-                     (iterate:terminate))))))))
+                     (iterate:terminate)))))))) ;;bug here
 
 (defun read-tt-corpus (file &key (constrained nil) (sentence-handler nil) (collect t))
   "Create a list of lists corpus from TT format file."

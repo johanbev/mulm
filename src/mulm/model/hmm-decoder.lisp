@@ -40,7 +40,7 @@
                  :type (array fixnum (*))))
 
 (defun setup-trigram-decoding-state (decoder input)
-  (let* ((hmm (decoder-model decoder))
+  (let* ((hmm (decoder-model decoder))                  
          (n (hmm-tag-cardinality hmm))
          (nn (* n n))
          (l (length input))
