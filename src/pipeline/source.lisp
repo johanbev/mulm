@@ -5,7 +5,8 @@
    (str            :initarg :str       :initform (error "Must supply a source stream"))
    (processor      :initarg :processor :initform nil)
    (line-number    :initform 0)
-   (sentence-count :initform 0)))
+   (sentence-count :initform 0)
+   (columns        :initarg :columns :initform '(:form :pos))))
 
 (defgeneric next-line (source &key))
 (defgeneric next-sentence (source &key))
@@ -19,19 +20,20 @@
       (incf line-number)
       (and line (string-trim '(#\Space #\Tab #\Newline) line)))))
 
-(defun parse-word (line)
+(defun parse-word (columns line)
   (let ((tokens (split-sequence:split-sequence #\Tab line)))
-    (when (/= (length tokens) 2)
+    (when (/= (length tokens) (length columns))
       (error "Parse error"))
-    (list (cons :form (first tokens))
-          (cons :pos (second tokens)))))
+    (loop for col in columns
+          for tok in tokens
+          collect (cons col tok))))
 
 (defmethod next-sentence ((source conll-source) &key)
-  (with-slots (sentence-count line-number) source
+  (with-slots (sentence-count line-number columns) source
     (loop for line = (next-line source)
           while (and line (> (length line) 0))
           with words = nil
-          for word = (parse-word line)
+          for word = (parse-word columns line)
           do (push (cons :line-num line-number) word)
           do (push word words)
           finally (return
