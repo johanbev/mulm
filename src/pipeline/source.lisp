@@ -34,12 +34,13 @@
           for word = (parse-word line)
           do (push (cons :line-num line-number) word)
           do (push word words)
-          finally return (if words
-                           (let ((sentence (list (cons :index sentence-count)
-                                                 (cons :words (nreverse words)))))
-                             (incf sentence-count)
-                             sentence)
-                           nil))))
+          finally (return
+                   (if words
+                     (let ((sentence (list (cons :index sentence-count)
+                                           (cons :words (nreverse words)))))
+                       (incf sentence-count)
+                       sentence)
+                     nil)))))
 
 (defmethod reset ((source conll-source) &key)
   (with-slots (line-number sentence-count str) source
