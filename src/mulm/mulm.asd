@@ -34,7 +34,10 @@
                          (:file "hmm-model-serialization" :depends-on ("hmm-model"))
                          (:file "hmm-model-diff" :depends-on ("hmm-model"))
                          (:file "hmm-decoder" :depends-on ("hmm-model"))
-                         (:file "best-first-decode" :depends-on ("hmm-model")))))
+                         (:file "best-first-decode" :depends-on ("hmm-model"))))
+               (:module :pipeline :pathname "../pipeline"
+                        :components
+                        ((:file "source"))))
               ; (:file "evaluate" :depends-on ("hmm-decoder"))
               ; (:file "ig-interpolation" :depends-on ("hmm-model" "lash")))
   :depends-on ("cl-ppcre" "split-sequence" "log5" "iterate"))
