@@ -7,7 +7,7 @@
 (load-all-patches)
 
 ;; load and setup asdf
-(load (compile-file "../asdf-setup.lisp"))
+(load (compile-file "../../delivery/asdf-setup.lisp"))
 
 (asdf:operate 'asdf:load-op :mulm-test :force t)
 
