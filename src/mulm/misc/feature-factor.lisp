@@ -1,16 +1,28 @@
 (in-package :mulm)
 
-(defun emission-extractor (sentence pos)
-  (loop for token in (elt sentence pos)
-        collect (intern token :keyword)))
+(defun make-word-feature-extractor (&key (offset 0) (processor #'identity))
+  (lambda (sentence pos)
+    (let ((offset-pos (+ pos offset)))
+      (if (or (>= offset-pos (length sentence))
+              (< offset-pos 0))
+        nil
+        (intern (funcall processor (first (elt sentence offset-pos)))
+                :keyword)))))
 
-(defun bigram-extractor (sentence pos)
-  (let ((tag (second (elt sentence pos)))
-        (tag-1 (if (= pos 0)
-                 "<s>"
-                 (second (elt sentence (1- pos))))))
-    (list (intern tag-1 :keyword)
-          (intern tag :keyword))))
+(defun make-ngram-feature-extractor (&key (n 2))
+  (lambda (sentence pos)
+    (if (or (< pos 0) (>= pos (length sentence)))
+      nil
+      (let* ((start (abs (min (- pos (1- n)) 0)))
+             (start-tags (loop repeat start
+                               collect :|<s>|))
+             (tags (loop for tag in (subseq (mapcar #'second sentence) (max (- pos (1- n)) 0) (1+ pos))
+                         collect (intern tag :keyword))))
+        (append start-tags tags)))))
+
+(defparameter *default-factor-features*
+  `((:emission ,(make-word-feature-extractor))
+    (:bigram ,(make-ngram-feature-extractor))))
 
 (defun add-feature-count (id val counts)
   (let ((counts-for-id (or (gethash id counts)
