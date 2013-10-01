@@ -79,3 +79,57 @@
                    when feat
                    do (add-feature-count feat-id feat counts))))
   counts)
+
+(defclass feature-factor ()
+  ((feature-index-map :initform (make-hash-table :test #'equal))
+   (index-feature-map :initform nil)
+   (target-index-map :initform (make-hash-table :test #'equal))
+   (index-target-map :initform nil)
+   (features :initform *default-factor-features*
+             :initarg :features)
+   (cutoff :initform 5
+           :initarg :cutoff)
+   (p :initform 0)
+   (c :initform 0)
+   (w :initform nil)))
+
+
+(defmethod initialize-instance :after ((factor feature-factor) &key (corpus nil))
+  (with-slots (feature-index-map index-feature-map target-index-map index-target-map features cutoff p w c)
+      factor
+    (let ((counts (make-hash-table)))
+
+      ; collect feature counts and tag list
+      (loop for sent in corpus
+            do (count-features sent features counts)
+            do (loop for (nil tag) in sent
+                     for y = (intern tag :keyword)
+                     unless (gethash y target-index-map)
+                     do (progn  (setf (gethash y target-index-map) c)
+                          (incf c))))
+
+      ; construct feature maps
+      (loop for count-map being the hash-values in counts
+            do (loop for feature being the hash-keys in count-map
+                     for count being the hash-values in count-map
+                     when (>= count cutoff)
+                     do (progn
+                          (unless (gethash feature feature-index-map)
+                            (setf (gethash feature feature-index-map) p)
+                            (incf p)))))
+
+      (setf index-feature-map (make-array p))
+      (loop for feature being the hash-keys in feature-index-map
+            for index being the hash-values in feature-index-map
+            do (setf (aref index-feature-map index) feature))
+
+      ; reverse tag map
+      (setf index-target-map (make-array c))
+      (loop for y being the hash-keys in target-index-map
+            for index being the hash-values in target-index-map
+            do (setf (aref index-target-map index) y))
+
+      ; initialize perceptron weights
+      (setf w (make-array (* c p) :element-type 'float :initial-element 0.0))
+
+      factor)))

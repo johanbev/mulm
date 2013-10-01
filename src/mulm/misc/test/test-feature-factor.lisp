@@ -4,9 +4,19 @@
   `((:tag-1-tag-2 ,(mulm::make-feature-representation :tag-1-tag-2 :word nil :tag-1 t :tag-2 t))
     (:word ,(mulm::make-feature-representation :word))))
 
+(defparameter *features2*
+  `((:tag-1 ,(mulm::make-feature-representation :tag-1 :word nil :tag-1 t))
+    (:word ,(mulm::make-feature-representation :word))))
+
 (defparameter *sentence1*
   '(("How" "WRB") ("are" "VBP") ("you" "PP") ("friend" "NN") ("?" "?")))
 
+(defparameter *corpus1*
+  '((("x" "1") ("y" "0") ("x" "0") ("x" "1"))
+    (("x" "1") ("x" "1") ("y" "0") ("x" "1") ("13" "d"))
+    (("x" "1") ("y" "0") ("x" "1") ("x" "1"))
+    (("x" "1") ("x" "1") ("y" "0") ("x" "1") ("13" "d"))))
+    
 (define-test test-make-suffix-extractor
   (let ((extractor (mulm::make-suffix-extractor 1)))
     (assert-equal "" (funcall extractor ""))
@@ -216,3 +226,68 @@
     (assert-true (= 1 (mulm::get-feature-count :tag-1-tag-2 '(:tag-1-tag-2 :|VBP| :|WRB|) counts)))
     (assert-true (= 1 (mulm::get-feature-count :tag-1-tag-2 '(:tag-1-tag-2 :|PP| :|VBP|) counts)))
     (assert-true (= 1 (mulm::get-feature-count :tag-1-tag-2 '(:tag-1-tag-2 :|NN| :|PP|) counts)))))
+
+(define-test test-feature-factor-initialize-instance
+  (let ((factor (make-instance 'mulm::feature-factor
+                               :features *features2*
+                               :cutoff 0
+                               :corpus (subseq *corpus1* 0 3))))
+    (with-slots (mulm::feature-index-map mulm::index-feature-map mulm::target-index-map
+                 mulm::index-target-map mulm::features mulm::cutoff
+                 mulm::p mulm::w mulm::c)
+        factor
+      (assert-true (equal '(0 1 2 3 4 5)
+                          (sort
+                           (remove-duplicates (loop for index being the hash-values in mulm::feature-index-map
+                                                    collect index)
+                                              :test #'equal)
+                           #'<)))
+      (assert-true (find '(:word :|x|) (loop for feature being the hash-keys in mulm::feature-index-map
+                                             collect feature)
+                         :test #'equal))
+      (assert-true (find '(:word :|y|) (loop for feature being the hash-keys in mulm::feature-index-map
+                                             collect feature)
+                         :test #'equal))
+      (assert-true (find '(:word :|13|) (loop for feature being the hash-keys in mulm::feature-index-map
+                                              collect feature)
+                         :test #'equal))
+      (assert-true (find '(:tag-1 :|1|) (loop for feature being the hash-keys in mulm::feature-index-map
+                                              collect feature)
+                         :test #'equal))
+      (assert-true (find '(:tag-1 :|0|) (loop for feature being the hash-keys in mulm::feature-index-map
+                                              collect feature)
+                         :test #'equal))
+      (assert-true (find '(:tag-1 :|<s>|) (loop for feature being the hash-keys in mulm::feature-index-map
+                                                collect feature)
+                         :test #'equal))
+      (assert-true (= 6 (length mulm::index-feature-map)))
+      (assert-true (find '(:word :|x|) mulm::index-feature-map :test #'equal))
+      (assert-true (find '(:word :|y|) mulm::index-feature-map :test #'equal))
+      (assert-true (find '(:word :|13|) mulm::index-feature-map :test #'equal))
+      (assert-true (find '(:tag-1 :|0|) mulm::index-feature-map :test #'equal))
+      (assert-true (find '(:tag-1 :|1|) mulm::index-feature-map :test #'equal))
+      (assert-true (find '(:tag-1 :|<s>|) mulm::index-feature-map :test #'equal))
+      (assert-true (equal '(0 1 2)
+                          (sort
+                           (remove-duplicates (loop for index being the hash-values in mulm::target-index-map
+                                                    collect index)
+                                              :test #'equal)
+                           #'<)))
+      (assert-true (find :|0| (loop for target being the hash-keys in mulm::target-index-map
+                                    collect target)
+                         :test #'equal))
+      (assert-true (find :|1| (loop for target being the hash-keys in mulm::target-index-map
+                                    collect target)
+                         :test #'equal))
+      (assert-true (find :|d| (loop for target being the hash-keys in mulm::target-index-map
+                                    collect target)
+                         :test #'equal))
+      (assert-true (= 3 (length mulm::index-target-map)))
+      (assert-true (find :|0| mulm::index-target-map :test #'equal))
+      (assert-true (find :|1| mulm::index-target-map :test #'equal))
+      (assert-true (find :|d| mulm::index-target-map :test #'equal))
+      (assert-true (= 3 mulm::c))
+      (assert-true (= 6 mulm::p))
+      (assert-true (= 18 (length mulm::w)))
+      (assert-true (= 0.0 (reduce #'+ mulm::w))))
+    ))
