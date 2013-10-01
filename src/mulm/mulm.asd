@@ -22,7 +22,8 @@
                                   :components
                                   ((:file "stats")))
                          (:file "input" :depends-on ("lexicon"))
-                         (:file "lexicon")))
+                         (:file "lexicon")
+                         (:file "feature-factor")))
                (:module :model
                         :pathname "model"
                         :depends-on (:base :misc)
