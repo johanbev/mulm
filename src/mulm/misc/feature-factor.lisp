@@ -7,26 +7,27 @@
 ; - Feature requests context outside of range.
 ; - Tag -1 or -2 is not available.
 (defun make-feature-representation (id &key (word t) (extractor #'identity) (offset 0) (tag-1 nil) (tag-2 nil))
-  (lambda (context pos prev-1 prev-2)
-    (if (or (and tag-1 (null prev-1))
-            (and tag-2 (null prev-2))
-            (>= pos (length context))
-            (< (+ pos offset) 0))
-      nil
-      (let ((features nil))
-        (when (and word (>= (+ offset pos) 0) (< (+ offset pos) (length context)))
-          (push (intern (funcall extractor
-                                 (elt context (+ offset pos)))
-                        :keyword)
-                features))
-        (when (and tag-1 prev-1)
-          (push (intern prev-1 :keyword)
-                features))
-        (when (and tag-2 prev-2)
-          (push (intern prev-2 :keyword)
-                features))
-        (if features
-          (cons id (nreverse features)))))))
+  (list id
+        (lambda (context pos prev-1 prev-2)
+          (if (or (and tag-1 (null prev-1))
+                  (and tag-2 (null prev-2))
+                  (>= pos (length context))
+                  (< (+ pos offset) 0))
+            nil
+            (let ((features nil))
+              (when (and word (>= (+ offset pos) 0) (< (+ offset pos) (length context)))
+                (push (intern (funcall extractor
+                                       (elt context (+ offset pos)))
+                              :keyword)
+                      features))
+              (when (and tag-1 prev-1)
+                (push (intern prev-1 :keyword)
+                      features))
+              (when (and tag-2 prev-2)
+                (push (intern prev-2 :keyword)
+                      features))
+              (if features
+                (cons id (nreverse features))))))))
 
 (defun make-suffix-extractor (&optional (n 3))
   (lambda (str)
@@ -37,25 +38,26 @@
     (subseq str 0 (min n (length str)))))
 
 (defparameter *default-factor-features*
-  `((:suffix ,(make-feature-representation :suffix
-                                           :extractor (make-suffix-extractor)))
-    (:prefix ,(make-feature-representation :prefix
-                                           :extractor (make-prefix-extractor)))
-    (:tag-1 ,(make-feature-representation :tag-1 :word nil :tag-1 t))
-    (:tag-2 ,(make-feature-representation :tag-2 :word nil :tag-2 t))
-    (:tag-1-tag-2 ,(make-feature-representation :tag-1-tag-2 :word nil :tag-1 t :tag-2 t))
-    (:word ,(make-feature-representation :word))
-    (:word-tag-1 ,(make-feature-representation :word-tag-1 :tag-1 t))
-    (:word-1 ,(make-feature-representation :word-1 :offset -1))
-    (:suffix-1 ,(make-feature-representation :suffix-1
-                                             :offset -1
-                                             :extractor (make-suffix-extractor)))
-    (:word-2 ,(make-feature-representation :word-2 :offset -2))
-    (:word+1 ,(make-feature-representation :word+1 :offset 1))
-    (:suffix+1 ,(make-feature-representation :suffix+1
-                                             :offset +1
-                                             :extractor (make-suffix-extractor)))
-    (:word+2 ,(make-feature-representation :word+2 :offset +2))))
+  (list
+   (make-feature-representation :suffix
+                                :extractor (make-suffix-extractor))
+   (make-feature-representation :prefix
+                                :extractor (make-prefix-extractor))
+   (make-feature-representation :tag-1 :word nil :tag-1 t)
+   (make-feature-representation :tag-2 :word nil :tag-2 t)
+   (make-feature-representation :tag-1-tag-2 :word nil :tag-1 t :tag-2 t)
+   (make-feature-representation :word)
+   (make-feature-representation :word-tag-1 :tag-1 t)
+   (make-feature-representation :word-1 :offset -1)
+   (make-feature-representation :suffix-1
+                                :offset -1
+                                :extractor (make-suffix-extractor))
+   (make-feature-representation :word-2 :offset -2)
+   (make-feature-representation :word+1 :offset 1)
+   (make-feature-representation :suffix+1
+                                :offset +1
+                                :extractor (make-suffix-extractor))
+   (make-feature-representation :word+2 :offset +2)))
 
 (defun add-feature-count (id val counts)
   (let ((counts-for-id (or (gethash id counts)
@@ -68,16 +70,21 @@
     (if counts-for-id
       (gethash val counts-for-id))))
 
+(defun features-from-context (features context pos prev-1 prev-2)
+  (loop for (nil feat-ex) in features
+        for feature = (funcall feat-ex context pos prev-1 prev-2)
+        when feature
+        collect feature))
+
 (defun count-features (sentence features counts)
   (let ((context (mapcar #'first sentence))
         (tags (mapcar #'second sentence)))
-    (loop for (feat-id repr) in features
-          do (loop for pos from 0 below (length sentence)
-                   for feat = (funcall repr context pos
-                                       (if (>= pos 1) (elt tags (- pos 1)) "<s>")
-                                       (if (>= pos 2) (elt tags (- pos 2)) "<s>"))
-                   when feat
-                   do (add-feature-count feat-id feat counts))))
+    (loop for pos from 0 below (length sentence)
+          do (loop for feature in (features-from-context features context pos
+                                                         (if (>= pos 1) (elt tags (- pos 1)) "<s>")
+                                                         (if (>= pos 2) (elt tags (- pos 2)) "<s>"))
+                   for feat-id = (first feature)
+                   do (add-feature-count feat-id feature counts))))
   counts)
 
 (defclass feature-factor ()
@@ -133,3 +140,12 @@
       (setf w (make-array (* c p) :element-type 'float :initial-element 0.0))
 
       factor)))
+
+(defgeneric feature-vector (factor sent pos prev-1 prev-2 &key))
+
+(defmethod feature-vector ((factor feature-factor) sent pos prev-1 prev-2 &key)
+  (with-slots (features feature-index-map) factor
+    (sort
+     (loop for feature in (features-from-context features sent pos prev-1 prev-2)
+           collect (gethash feature feature-index-map))
+     #'<)))
