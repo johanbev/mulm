@@ -375,3 +375,23 @@
     (setf (aref (slot-value factor 'mulm::w) 13) 1.0)
     (setf (aref (slot-value factor 'mulm::w) 16) 1.0)
     (assert-equal '(1.0 1.0 2.0) (mulm::vector-activation factor '(1 4)))))
+
+(define-test test-feature-activation
+  (let* ((factor (make-instance 'mulm::feature-factor
+                                :features *features2*
+                                :cutoff 0
+                                :corpus (subseq *corpus1* 0 3)))
+         (context (mapcar #'first (first *corpus1*)))
+         (result (mulm::feature-vector factor context 2 "0" "1"))
+         (tag-feat-idx (gethash '(:tag-1 :|0|) (slot-value factor 'mulm::feature-index-map)))
+         (word-feat-idx (gethash '(:word :|x|) (slot-value factor 'mulm::feature-index-map)))
+         (p (slot-value factor 'mulm::p))
+         (w (slot-value factor 'mulm::w)))
+    (assert-equal '(0.0 0.0 0.0) (mulm::feature-activation factor context 2 "0" "1"))
+
+    (setf (aref w word-feat-idx) 1.0)
+    (setf (aref w (+ tag-feat-idx p)) 1.0)
+    (setf (aref w (+ word-feat-idx (* p 2)))  1.0)
+    (setf (aref w (+ tag-feat-idx (* p 2)))  1.0)
+    (assert-equal '(1.0 1.0 2.0)
+                  (mulm::feature-activation factor context 2 "0" "1"))))

@@ -145,6 +145,8 @@
 
 (defgeneric vector-activation (factor vector &key))
 
+(defgeneric feature-activation (factor sent pos prev-1 prev-2 &key))
+
 (defmethod feature-vector ((factor feature-factor) sent pos prev-1 prev-2 &key)
   (with-slots (features feature-index-map) factor
     (sort
@@ -158,3 +160,6 @@
           for class-weights = (make-array p :displaced-to w :displaced-index-offset (* i p))
           collect (loop for index in vector
                         sum (aref class-weights index)))))
+
+(defmethod feature-activation ((factor feature-factor) sent pos prev-1 prev-2 &key)
+  (vector-activation factor (feature-vector factor sent pos prev-1 prev-2)))
