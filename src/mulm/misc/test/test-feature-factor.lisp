@@ -360,3 +360,18 @@
                      (gethash '(:word :|x|) (slot-value factor 'mulm::feature-index-map)))
                     #'<)))
     (assert-equal expected result)))
+
+(define-test test-vector-activation
+  (let* ((factor (make-instance 'mulm::feature-factor
+                                :features *features2*
+                                :cutoff 0
+                                :corpus (subseq *corpus1* 0 3))))
+    ; all zero weight matrix
+    (assert-equal '(0.0 0.0 0.0) (mulm::vector-activation factor '(1 4)))
+
+    ; weight matrix with some weights set to 1.0
+    (setf (aref (slot-value factor 'mulm::w) 1) 1.0)
+    (setf (aref (slot-value factor 'mulm::w) 10) 1.0)
+    (setf (aref (slot-value factor 'mulm::w) 13) 1.0)
+    (setf (aref (slot-value factor 'mulm::w) 16) 1.0)
+    (assert-equal '(1.0 1.0 2.0) (mulm::vector-activation factor '(1 4)))))
